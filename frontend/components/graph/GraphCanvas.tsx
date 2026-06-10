@@ -64,6 +64,8 @@ export interface GraphCanvasProps {
   edgeTypeFilter?: Set<string>;
   /** 정적 레이아웃 — d3-force 끄고 주어진 좌표 그대로 사용(동심원 4-링 고정 배치용). */
   staticLayout?: boolean;
+  /** ReactFlow 내부(ViewportPortal 사용 가능 위치)에 렌더할 오버레이 — 메인화면 실시간 입자 레이어용. */
+  overlay?: React.ReactNode;
 }
 
 export function GraphCanvas(props: GraphCanvasProps) {
@@ -95,6 +97,7 @@ function GraphCanvasInner({
   focusOnlyIds,
   edgeTypeFilter,
   staticLayout,
+  overlay,
 }: GraphCanvasProps) {
 
   const initialNodes = useMemo<RiskNodeType[]>(
@@ -717,6 +720,7 @@ function GraphCanvasInner({
       >
         <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#d1d9e6" />
         <Controls showInteractive={false} />
+        {overlay}
         <MiniMap
           pannable
           zoomable

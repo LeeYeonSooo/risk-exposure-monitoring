@@ -10,6 +10,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { chainOptions } from "@/lib/chains-ui";
 import { GraphCanvas } from "@/components/graph/GraphCanvas";
 import { TokenDossier, type DossierData } from "@/components/graph/TokenDossier";
+import { ADDR_EXPLORER, PRow, TokenSpecRows, pct1, sevDots, shortAddr, useNodeAlertCounts } from "@/components/panel/spec";
 import { SAFE_NODE_STATE, formatUsd, type GraphEdge, type GraphNode, type NodeTickState } from "@/lib/api";
 import { applyConcentricLayout, type PoolLike, type MorphoMkt, type EulerVault } from "@/lib/concentric-layout";
 import { EDGE_TYPE_COLORS, EDGE_TYPE_LABELS } from "@/lib/edge-colors";
@@ -255,14 +256,22 @@ export default function TokenPage() {
   const onGraphSelect = (id: string | null) => {
     if (id?.startsWith("island:")) return; // 체인 라벨 — 선택/패널 변화 없음 (드래그만)
     setSelNode(id);
-    const md = id ? (subNodeById.get(id)?.metadata as Record<string, unknown> | undefined) : undefined;
-    if (md?._market) setPicked({ ...(md._market as Record<string, unknown>), market: subNodeById.get(id!)?.label });
-    else if (md?._vault) setPicked(md._vault as Record<string, unknown>);
-    else if (id && subNodeById.get(id)?.type !== "Token") {
+    const node = id ? subNodeById.get(id) : undefined;
+    const md = node?.metadata as Record<string, unknown> | undefined;
+    if (md?._market) setPicked({ kind: "market", ...(md._market as Record<string, unknown>), market: node?.label, chain: md.chain });
+    else if (md?._vault) setPicked({ kind: "vault", ...(md._vault as Record<string, unknown>), chain: md.chain });
+    else if (md && (md.mechanism != null || /브릿지|bridge/i.test(String(md.category ?? "")))) {
+      setPicked({ kind: "bridge", ...md, label: node?.label });
+    } else if (node?.type === "Token") {
+      setPicked({ kind: "token", symbol: (md?.symbol as string) ?? node.label });
+    } else if (id && node) {
+      // 프로토콜 — 전 체인 관계의 topMarkets 를 모아 스펙 행 입력으로
       const realId = id.replace(/^c:[^:]+:/, "");
-      const rel = relations.find((r) => r.otherId === realId);
-      const a = rel?.edge.attrs;
-      setPicked(a ? { protocol: rel!.otherLabel, market: rel!.otherLabel, sizeUsd: a.core?.amountUsd, utilization: a.lendingRisk?.utilization, lltv: null } : null);
+      const rels = relations.filter((r) => r.otherId === realId || r.otherId.split("@")[0] === realId.split("@")[0]);
+      if (!rels.length) { setPicked(null); return; }
+      const markets = rels.flatMap((r) => r.edge.attrs?.topMarkets ?? []);
+      const totalUsd = rels.reduce((s, r) => s + (r.edge.attrs?.core?.amountUsd ?? 0), 0);
+      setPicked({ kind: "protocol", nodeId: realId.split("@")[0], label: node.label, markets, totalUsd, chain: md?.chain });
     } else setPicked(null);
   };
 
@@ -447,10 +456,86 @@ function GraphLegend({ bridge }: { bridge: boolean }) {
 }
 
 function PickDetail({ d, onClose }: { d: Record<string, unknown>; onClose: () => void }) {
-  const isVault = "curator" in d || "allocationUsd" in d;
-  const isPool = d.kind === "pool";
-  const head = isVault ? "볼트 · 큐레이터" : isPool ? "풀/마켓 · DeFiLlama" : "마켓 상세";
-  const title = isVault ? String(d.curator ?? d.vault ?? "vault") : String(d.market);
+  // 스펙 패널 — 값은 한 줄 토큰 · 없으면 행 숨김 · 위험 ⚠빨강 · 주소 ↗ · ✓검증/~추정
+  const kind = String(d.kind ?? (("curator" in d || "allocationUsd" in d) ? "vault" : "market"));
+  const chain = String(d.chain ?? "ethereum");
+  const protoCounts = useNodeAlertCounts(kind === "protocol" ? String(d.nodeId ?? "") || null : null);
+  const head = kind === "token" ? "토큰" : kind === "vault" ? "볼트 (큐레이터 운용)" : kind === "bridge" ? "브릿지" : kind === "protocol" ? "프로토콜" : kind === "pool" ? "풀/마켓" : "마켓";
+  const title = kind === "token" ? String(d.symbol) : kind === "vault" ? String(d.curator ?? d.vault ?? "vault") : String(d.label ?? d.market ?? d.protocol ?? "");
+
+  let body: React.ReactNode = null;
+  if (kind === "token") {
+    body = <TokenSpecRows symbol={String(d.symbol)} />;
+  } else if (kind === "vault") {
+    body = (
+      <>
+        <PRow k="AUM" v={(d.allocationUsd as number) > 0 ? formatUsd(d.allocationUsd as number) : null} />
+        <PRow k="펀딩 마켓" v={d.market != null ? String(d.market) : null} />
+        <PRow k="예치자산" v={d.depositAsset != null ? String(d.depositAsset) : null} />
+        <PRow k="디리스킹" v={d.inWithdrawQueue === true ? "인출 큐 진입" : null} warn={d.inWithdrawQueue === true} />
+      </>
+    );
+  } else if (kind === "bridge") {
+    const mech = d.mechanism != null ? String(d.mechanism) : null;
+    const verified = d.verified === true || d.types != null;
+    const types = Array.isArray(d.types) ? (d.types as string[]).join("·") : d.tag != null ? String(d.tag) : null;
+    body = (
+      <>
+        <PRow k="mint 한도" v={d.mintLimit != null ? Intl.NumberFormat("en", { notation: "compact" }).format(d.mintLimit as number) : null} />
+        <PRow k="권한" v={types ?? mech} badge={verified ? "verified" : "estimated"} />
+        <PRow k="메커니즘" v={mech === "lock_mint" ? "락&민트" : mech === "burn_mint" ? "번&민트" : mech} warn={mech === "burn_mint"} />
+        <PRow k="백킹" v={verified ? "온체인 권한 검증" : null} badge="verified" />
+      </>
+    );
+  } else if (kind === "protocol") {
+    const markets = (d.markets as { lltv: number; utilization?: number | null }[] | undefined) ?? [];
+    const lltvs = markets.map((m) => m.lltv).filter((v) => v > 0);
+    const utils = markets.map((m) => m.utilization).filter((v): v is number => v != null);
+    const maxLltv = lltvs.length ? Math.max(...lltvs) : null;
+    const avgUtil = utils.length ? utils.reduce((a, b) => a + b, 0) / utils.length : null;
+    const totalUsd = (d.totalUsd as number) ?? 0;
+    body = (
+      <>
+        <PRow k="담보 · 마켓" v={markets.length ? `${markets.length}개 · ${formatUsd(totalUsd)}` : totalUsd > 0 ? formatUsd(totalUsd) : null} />
+        <PRow k="최고 LLTV" v={maxLltv != null ? pct1(maxLltv) : null} warn={maxLltv != null && maxLltv >= 0.945} />
+        <PRow k="평균 이용률" v={avgUtil != null ? pct1(avgUtil) : null} warn={avgUtil != null && avgUtil >= 0.95} />
+        <PRow k="알림" v={protoCounts ? sevDots(protoCounts.crit, protoCounts.warnN) : null} warn={(protoCounts?.crit ?? 0) > 0} />
+      </>
+    );
+  } else if (kind === "pool") {
+    body = (
+      <>
+        <PRow k="페어" v={d.poolMeta != null ? String(d.poolMeta) : String(d.market ?? "")} />
+        <PRow k="프로토콜" v={d.protocol != null ? String(d.protocol) : null} />
+        <PRow k="규모" v={(d.sizeUsd as number) > 0 ? formatUsd(d.sizeUsd as number) : null} badge="estimated" />
+        <PRow k="APY" v={d.apy != null ? `${(d.apy as number).toFixed(2)}%` : null} badge="estimated" />
+        <PRow k="IL 위험" v={d.ilRisk === "yes" ? "있음" : null} warn={d.ilRisk === "yes"} />
+      </>
+    );
+  } else {
+    // 마켓 (_market payload — MarketEntry)
+    const lltv = (d.lltv as number) ?? 0;
+    const coll = d.collateralUsd as number | null | undefined;
+    const borrow = d.borrowUsd as number | null | undefined;
+    const agg = coll && borrow != null ? borrow / coll : null;
+    const cushion = agg != null && lltv ? (lltv - agg) * 100 : null;
+    const fv = (d.fundingVaults as { curator?: string | null; vault?: string | null }[] | null | undefined) ?? [];
+    const curators = [...new Set(fv.map((v) => v.curator ?? v.vault).filter(Boolean))] as string[];
+    const oracleAddr = d.oracleAddress != null ? String(d.oracleAddress) : null;
+    body = (
+      <>
+        <PRow k="페어" v={d.collateralAsset != null || d.loanAsset != null ? `${String(d.collateralAsset ?? "?")} / ${String(d.loanAsset ?? "?")}` : String(d.market ?? "")} />
+        <PRow k="LLTV / 여유" v={cushion != null ? `${pct1(lltv)} · ${cushion.toFixed(1)}%p` : lltv ? pct1(lltv) : null}
+          warn={lltv >= 0.945 || (cushion != null && cushion <= 8)} badge={agg != null ? "verified" : undefined} />
+        <PRow k="이용률" v={d.utilization != null ? pct1(d.utilization as number) : null} warn={((d.utilization as number) ?? 0) >= 0.95} />
+        <PRow k="규모" v={(d.marketSizeUsd as number) > 0 ? formatUsd(d.marketSizeUsd as number) : (d.sizeUsd as number) > 0 ? formatUsd(d.sizeUsd as number) : null} />
+        <PRow k="오라클" v={oracleAddr ? shortAddr(oracleAddr) : null} href={oracleAddr ? ADDR_EXPLORER[chain]?.(oracleAddr) : null} badge={oracleAddr ? "verified" : undefined} />
+        <PRow k="큐레이터" v={curators.length ? `${curators.slice(0, 2).join(" · ")}${curators.length > 2 ? ` +${curators.length - 2}` : ""}` : null} />
+        {d.ouroborosRisk === true && <PRow k="구조" v="자기참조 (ouroboros)" warn />}
+      </>
+    );
+  }
+
   return (
     <div className="px-5 py-4">
       <div className="mb-3 flex items-start justify-between">
@@ -460,38 +545,7 @@ function PickDetail({ d, onClose }: { d: Record<string, unknown>; onClose: () =>
         </div>
         <button onClick={onClose} className="rounded p-1 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-raised)]"><X size={16} /></button>
       </div>
-      <div className="space-y-1.5 text-[12px]">
-        {isVault ? (
-          <>
-            {d.vault ? <Row k="볼트" v={String(d.vault)} /> : null}
-            <Row k="할당" v={formatUsd((d.allocationUsd as number) ?? 0)} />
-            <Row k="예치자산" v={String(d.depositAsset ?? "—")} />
-            <Row k="펀딩 마켓" v={String(d.market)} />
-            <p className="pt-1 text-[10px] leading-snug text-[var(--color-text-muted)]">외부 큐레이터 볼트 — 이 토큰 마켓에 다른 큐레이터가 얼마나 투자 중인지. 큐레이터 risk profile 은 추후 확장.</p>
-          </>
-        ) : isPool ? (
-          <>
-            <Row k="프로토콜" v={String(d.protocol)} />
-            <Row k="유형" v={d.exposure === "multi" ? "멀티자산 (LP/DEX)" : "단일자산 (담보·예치)"} />
-            {d.poolMeta ? <Row k="마켓" v={String(d.poolMeta)} /> : null}
-            <Row k="규모 (TVL)" v={formatUsd((d.sizeUsd as number) ?? 0)} />
-            <Row k="APY" v={apyFmt(d.apy as number)} />
-            {d.apyReward != null && (d.apyReward as number) > 0 ? <Row k="└ 리워드" v={apyFmt(d.apyReward as number)} /> : null}
-            <Row k="IL 위험" v={d.ilRisk === "yes" ? "있음 ⚠" : "없음"} />
-            {d.stablecoin ? <Row k="스테이블풀" v="예" /> : null}
-            <p className="pt-1 text-[10px] leading-snug text-[var(--color-text-muted)]">DeFiLlama 집계(breadth) — TVL·APY 기준, 온체인 미검증(엣지 점선). 마켓별 LTV·청산선·큐레이터는 정밀 어댑터(Morpho 등)에서만 제공.</p>
-          </>
-        ) : (
-          <>
-            <Row k="프로토콜" v={String(d.protocol)} />
-            {d.role ? <Row k="이 토큰 역할" v={d.role === "supply" ? "공급(예치)" : "담보"} /> : null}
-            <Row k="LLTV (청산선)" v={pct(d.lltv as number)} />
-            {d.aggLtv != null ? <Row k="평균 LTV (aggLTV)" v={pct(d.aggLtv as number)} /> : null}
-            <Row k="규모" v={formatUsd((d.sizeUsd as number) ?? 0)} />
-            <Row k="가동률" v={pct(d.utilization as number)} />
-          </>
-        )}
-      </div>
+      <div className="space-y-0.5">{body}</div>
     </div>
   );
 }

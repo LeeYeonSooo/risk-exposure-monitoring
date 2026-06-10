@@ -162,32 +162,46 @@ export async function GET(req: Request) {
       }
     } catch { /* intel optional */ }
 
-    // 5) 브릿지 = 노드 — 토큰A ↔ [브릿지 노드(메커니즘)] ↔ 토큰B. bridge_authorities 로 검증된
-    //    메커니즘이 라벨이 되고, 미검증이면 "브릿지 미확인"(주의색). 락/민트 방향은 라이브 tx 가 보여줌.
-    const MECH_KO: Record<string, string> = {
-      ccip_pool: "Chainlink CCIP", ccip_remote: "Chainlink CCIP", oft_peer: "LayerZero OFT",
-      xerc20: "xERC20", xerc20_lockbox: "xERC20 락박스", minter_role: "MINTER 권한", cctp: "Circle CCTP",
-      wormhole_ntt: "Wormhole NTT", axelar_its: "Axelar ITS", hyperlane: "Hyperlane",
-      op_bridge: "OP 브릿지", l2_canonical: "L2 캐노니컬", polygon_pos: "Polygon PoS", mint_event: "민트 이벤트(추정)",
-    };
-    const bridgeEdges = graph.edges.filter((e) => e.kind === "bridge");
-    if (bridgeEdges.length) {
-      graph.edges = graph.edges.filter((e) => e.kind !== "bridge");
-      for (const e of bridgeEdges) {
-        const tok = e.id.split(":")[1] ?? "";
-        const mech = e.bridge?.mechanism ?? null;
-        const nid = `bridge:${e.id}`;
-        graph.nodes.push({
-          id: nid, kind: "bridge", label: mech ? (MECH_KO[mech] ?? mech) : "브릿지 미확인",
-          token: tok, chain: e.bridge?.toChain ?? e.chain, tvlUsd: e.tvlUsd, risk: mech ? "safe" : "caution",
-          meta: { mechanism: mech, fromChain: e.bridge?.fromChain, toChain: e.bridge?.toChain, note: e.label ?? null },
-        });
-        graph.edges.push(
-          { id: `${e.id}:a`, source: e.source, target: nid, kind: "bridge", tvlUsd: e.tvlUsd, weight: e.weight, chain: e.bridge?.fromChain ?? e.chain, dir: "both", label: e.label, bridge: e.bridge },
-          { id: `${e.id}:b`, source: nid, target: e.target, kind: "bridge", tvlUsd: e.tvlUsd, weight: e.weight, chain: e.bridge?.toChain ?? e.chain, dir: "both", label: e.label, bridge: e.bridge },
-        );
-      }
-    }
+    // 5) 브릿지 노드 — EVM 검증 mint 권한(bridge_authorities) + 비-EVM 표준 브릿지(bridge_detections,
+    //    파이썬 8계열 탐지기) → 토큰@체인 노드에 🌉 노드로 부착 (관계맵과 동일 데이터 근거).
+    //    mint_event(추정)는 제외 — 탐지/검증된 것만 노드가 된다.
+    try {
+      const tokenIdBySymChain = new Map<string, string>();
+      for (const n of graph.nodes) if (n.kind === "token") tokenIdBySymChain.set(`${n.token.toUpperCase()}|${n.chain}`, n.id);
+      const syms = [...new Set(graph.nodes.filter((n) => n.kind === "token").map((n) => n.token.toUpperCase()))];
+      const PRETTY: Record<string, string> = {
+        xerc20: "xERC20", xerc20_lockbox: "xERC20 Lockbox", ccip_pool: "Chainlink CCIP", ccip_remote: "Chainlink CCIP",
+        oft_peer: "LayerZero OFT", minter_role: "MINTER_ROLE", cctp: "Circle CCTP", wormhole_ntt: "Wormhole NTT",
+        axelar_its: "Axelar ITS", hyperlane: "Hyperlane", op_bridge: "OP Bridge", l2_canonical: "L2 Canonical", polygon_pos: "Polygon PoS",
+      };
+      const slugOf = (st: string) =>
+        /cctp/i.test(st) ? "cctp" : /wormhole/i.test(st) ? "wormhole" : /ibc/i.test(st) ? "ibc"
+        : /starkgate/i.test(st) ? "starkgate" : /sui bridge/i.test(st) ? "sui_bridge"
+        : /layerzero|oft/i.test(st) ? "layerzero" : st.toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 24);
+      const addBridgeNode = (sym: string, chain: string, slug: string, pretty: string, addr: string, note: string | null, mintLimit: number | null) => {
+        const tokId = tokenIdBySymChain.get(`${sym}|${chain}`);
+        if (!tokId) return;
+        const id = `bridge:${chain}|${sym}|${slug}`;
+        const existing = graph.nodes.find((n) => n.id === id);
+        if (existing) {
+          existing.meta = { ...(existing.meta ?? {}), count: ((existing.meta?.count as number | undefined) ?? 1) + 1 };
+          return;
+        }
+        graph.nodes.push({ id, kind: "bridge", label: pretty, token: sym, chain, tvlUsd: 0, address: addr, risk: "safe", meta: { authType: slug, note, mintLimit, addr } });
+        graph.edges.push({ id: `bn:${id}`, source: tokId, target: id, kind: "bridge", tvlUsd: 0, weight: 0.2, chain, label: `${pretty} 브릿지 통로`, bridge: { fromChain: chain, toChain: chain, mechanism: slug, protocol: pretty } });
+      };
+      const ba2 = await p.query<{ token: string; chain: string; bridge_addr: string; auth_type: string; mint_limit: number | null; note: string | null }>(
+        `SELECT DISTINCT ON (upper(token), chain, auth_type) token, chain, bridge_addr, auth_type, mint_limit, note
+         FROM bridge_authorities WHERE upper(token) = ANY($1) AND auth_type <> 'mint_event' ORDER BY upper(token), chain, auth_type`,
+        [syms],
+      );
+      for (const r of ba2.rows) addBridgeNode(r.token.toUpperCase(), r.chain, r.auth_type, PRETTY[r.auth_type] ?? r.auth_type, r.bridge_addr, r.note, r.mint_limit);
+      const bd = await p.query<{ token: string; chain: string; standard: string; bridge_address: string; note: string | null }>(
+        `SELECT token, chain, standard, bridge_address, note FROM bridge_detections WHERE upper(token) = ANY($1)`,
+        [syms],
+      ).catch(() => ({ rows: [] as { token: string; chain: string; standard: string; bridge_address: string; note: string | null }[] }));
+      for (const r of bd.rows) addBridgeNode(r.token.toUpperCase(), r.chain, slugOf(r.standard), r.standard.split("(")[0].trim(), r.bridge_address, r.note, null);
+    } catch { /* table optional */ }
 
     // 6) Dune 추적 흐름(14일 집계, snapshot:flows) — 트랜잭션 분석을 "우리 그래프 노드"로 접기.
     //    행위자 주소를 그래프 노드로 해석하고, 미지 중간(EOA/라우터)은 1-hop 까지 재귀로 건너뛴 뒤

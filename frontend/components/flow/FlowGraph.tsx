@@ -70,7 +70,13 @@ function Inner({
     simNodesRef.current = byId;
 
     const links: (SimulationLinkDatum<SimNode> & { ek: string })[] = [];
-    for (const e of graph.edges) { const s = byId.get(e.source), t = byId.get(e.target); if (s && t) links.push({ source: s, target: t, ek: e.kind }); }
+    for (const e of graph.edges) {
+      const s = byId.get(e.source), t = byId.get(e.target);
+      if (!s || !t) continue;
+      // 토큰→브릿지 노드 부착 엣지는 짧게 (체인간 bridge 엣지의 260px 와 구분)
+      const ek = e.kind === "bridge" && e.target.startsWith("bridge:") ? "vault" : e.kind;
+      links.push({ source: s, target: t, ek });
+    }
 
     // initial RF nodes
     setNodes(graph.nodes.map((n) => {

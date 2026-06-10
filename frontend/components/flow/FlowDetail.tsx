@@ -1,53 +1,120 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 
 import { formatUsd } from "@/lib/api";
-import { curatorLabel } from "./FlowNodes";
+import { ADDR_EXPLORER, PRow, TX_EXPLORER, TokenSpecRows, pct1, sevDots, shortAddr } from "@/components/panel/spec";
 import type { FlowEdge, FlowGraph as FlowGraphData, FlowNode } from "@/lib/flow-types";
 
-/** Selection detail for the 흐름맵 — rendered as a proper right-side panel (not a floating card). */
+/**
+ * 흐름맵 선택 패널 — 스펙 고정: 값은 한 줄 토큰(문장 금지), 없으면 행 숨김,
+ * 주소는 ↗ 링크, 위험은 ⚠·빨강. 엔터티별 행 구성은 사용자 스펙 그대로.
+ */
 const EDGE_KIND_LABEL: Record<FlowEdge["kind"], string> = {
   holds: "예치 / 익스포저", market: "마켓 · 풀", involves: "구성 토큰", vault: "볼트 공급", bridge: "체인간 연결 (브릿지)", sibling: "동일 프로토콜 (타 체인)", oracle: "오라클 의존", trace: "추적 흐름 (Dune 14일)",
 };
 const kindKo = (k: FlowNode["kind"]) => (k === "token" ? "토큰" : k === "protocol" ? "프로토콜" : k === "market" ? "마켓/풀" : k === "vault" ? "볼트 (큐레이터 운용)" : k === "bridge" ? "브릿지" : "외부 컨트랙트");
 
-function connectionsOf(n: FlowNode, graph: FlowGraphData, byId: Map<string, FlowNode>) {
-  const out: { id: string; label: string; usd: number }[] = [];
-  const seen = new Set<string>();
-  for (const e of graph.edges) {
-    if (e.kind === "oracle") continue; // 오라클 의존선(tvl 0)은 연결 목록의 $0 노이즈가 됨 — 제외
-    const other = e.source === n.id ? e.target : e.target === n.id ? e.source : null;
-    if (!other || seen.has(other)) continue;
-    const o = byId.get(other); if (!o) continue;
-    seen.add(other); out.push({ id: other, label: o.label, usd: e.tvlUsd });
-  }
-  return out.sort((a, b) => b.usd - a.usd).slice(0, 14);
+// 프로토콜 알림 수 — /api/alerts 1회 캐시 후 protocol_node_id 정확 일치 집계
+let _alertsCache: { at: number; rows: { severity: string; protocol_node_id: string | null }[] } | null = null;
+function useProtocolAlertCounts(protoId: string | null): { crit: number; warnN: number } | null {
+  const [v, setV] = useState<{ crit: number; warnN: number } | null>(null);
+  useEffect(() => {
+    if (!protoId) { setV(null); return; }
+    let alive = true;
+    const compute = (rows: { severity: string; protocol_node_id: string | null }[]) => {
+      const slug = protoId.replace(/^proto:[^|]*\|/, "").replace(/-/g, "");
+      const mine = rows.filter((r) => {
+        const p = (r.protocol_node_id ?? "").replace(/^protocol:(dl:)?/, "").split("@")[0].replace(/[-_]/g, "");
+        return p && p === slug;
+      });
+      if (alive) setV({ crit: mine.filter((r) => r.severity === "critical").length, warnN: mine.filter((r) => r.severity === "warning").length });
+    };
+    if (_alertsCache && Date.now() - _alertsCache.at < 60_000) { compute(_alertsCache.rows); return; }
+    fetch("/api/alerts?limit=300", { cache: "no-store" }).then((r) => r.json()).then((d) => {
+      _alertsCache = { at: Date.now(), rows: (d.alerts ?? []) };
+      compute(_alertsCache.rows);
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [protoId]);
+  return v;
 }
 
-export function FlowDetail({ sel, graph, onClose, onPick }: {
+export function FlowDetail({ sel, graph, onClose }: {
   sel: { type: "node" | "edge"; id: string };
   graph: FlowGraphData;
   onClose: () => void;
-  onPick: (id: string) => void;
+  onPick?: (id: string) => void;
 }) {
   const byId = useMemo(() => new Map(graph.nodes.map((n) => [n.id, n] as const)), [graph]);
   const node = sel.type === "node" ? byId.get(sel.id) ?? null : null;
   const edge = sel.type === "edge" ? graph.edges.find((e) => e.id === sel.id) ?? null : null;
-  const conns = useMemo(() => (node ? connectionsOf(node, graph, byId) : []), [node, graph, byId]);
-  // 프로토콜이 보는 오라클 수 = 그 프로토콜 마켓들의 오라클 엣지 distinct 수 (실데이터 집계)
-  const oracleCount = useMemo(() => {
-    if (!node || node.kind !== "protocol") return 0;
-    const feeds = new Set<string>();
-    for (const e of graph.edges) {
-      if (e.kind !== "oracle") continue;
-      const src = byId.get(e.source);
-      if (src?.protocol === node.protocol && src?.chain === node.chain) feeds.add(e.label ?? e.id);
-    }
-    return feeds.size;
-  }, [node, graph, byId]);
+  const protoCounts = useProtocolAlertCounts(node?.kind === "protocol" ? node.id : null);
   if (!node && !edge) return null;
+
+  // ── 노드별 스펙 행 ──
+  let body: React.ReactNode = null;
+  if (node) {
+    if (node.kind === "token") {
+      // 주 체인 = 같은 심볼 토큰 노드들의 체인별 TVL 비중 (그래프 실데이터)
+      const sibs = graph.nodes.filter((n) => n.kind === "token" && n.token.toUpperCase() === node.token.toUpperCase());
+      const tot = sibs.reduce((s, n) => s + n.tvlUsd, 0) || 1;
+      const chainPcts = sibs.map((n) => ({ chain: n.chain, pct: n.tvlUsd / tot })).sort((a, b) => b.pct - a.pct);
+      body = <TokenSpecRows symbol={node.token} chainPcts={chainPcts.length > 1 ? chainPcts : null} />;
+    } else if (node.kind === "protocol") {
+      const mkts = graph.edges.filter((e) => e.kind === "market" && e.source === node.id).map((e) => byId.get(e.target)).filter((x): x is FlowNode => !!x);
+      const lltvs = mkts.map((m) => Number(m.meta?.lltv)).filter((v) => Number.isFinite(v) && v > 0);
+      const utils = mkts.map((m) => Number(m.meta?.utilization)).filter((v) => Number.isFinite(v));
+      const maxLltv = lltvs.length ? Math.max(...lltvs) : null;
+      const avgUtil = utils.length ? utils.reduce((s, v) => s + v, 0) / utils.length : null;
+      body = (
+        <>
+          <PRow k="담보 · 마켓" v={mkts.length ? `${mkts.length}개 · ${formatUsd(node.tvlUsd)}` : node.tvlUsd > 0 ? formatUsd(node.tvlUsd) : null} />
+          <PRow k="최고 LLTV" v={maxLltv != null ? pct1(maxLltv) : null} warn={maxLltv != null && maxLltv >= 0.945} />
+          <PRow k="평균 이용률" v={avgUtil != null ? pct1(avgUtil) : null} warn={avgUtil != null && avgUtil >= 0.95} />
+          <PRow k="알림" v={protoCounts ? sevDots(protoCounts.crit, protoCounts.warnN) : null} warn={(protoCounts?.crit ?? 0) > 0} />
+        </>
+      );
+    } else if (node.kind === "market") {
+      const oracleEdge = graph.edges.find((e) => e.kind === "oracle" && e.source === node.id);
+      const vaults = graph.edges.filter((e) => e.kind === "vault" && e.source === node.id).map((e) => byId.get(e.target)).filter((x): x is FlowNode => !!x);
+      const curators = [...new Set(vaults.map((v) => String(v.meta?.curator ?? v.label)))];
+      const lltv = Number(node.meta?.lltv);
+      const util = Number(node.meta?.utilization);
+      body = (
+        <>
+          <PRow k="페어" v={node.label} />
+          <PRow k="LLTV" v={Number.isFinite(lltv) && lltv > 0 ? pct1(lltv) : null} warn={lltv >= 0.945} />
+          <PRow k="이용률" v={Number.isFinite(util) && util > 0 ? pct1(util) : null} warn={util >= 0.95} />
+          <PRow k="규모" v={node.tvlUsd > 0 ? formatUsd(node.tvlUsd) : null} />
+          <PRow k="오라클" v={oracleEdge ? (oracleEdge.label ?? "온체인 피드").replace(/^오라클\s*/, "") : null} badge={oracleEdge ? "verified" : undefined} />
+          <PRow k="큐레이터" v={curators.length ? `${curators.slice(0, 2).join(" · ")}${curators.length > 2 ? ` +${curators.length - 2}` : ""}` : null} />
+        </>
+      );
+    } else if (node.kind === "vault") {
+      const shared = graph.edges.filter((e) => e.kind === "vault" && e.target === node.id).length;
+      body = (
+        <>
+          <PRow k="AUM" v={node.tvlUsd > 0 ? formatUsd(node.tvlUsd) : null} />
+          <PRow k="공유 마켓" v={shared > 0 ? `${shared}개` : null} />
+          <PRow k="큐레이터" v={node.meta?.curator != null ? String(node.meta.curator) : null} />
+        </>
+      );
+    } else if (node.kind === "bridge") {
+      const mintLimit = node.meta?.mintLimit as number | null | undefined;
+      const note = node.meta?.note != null ? String(node.meta.note) : null;
+      const locked = note ? /잠금|잠김|lock/i.test(note) : false;
+      body = (
+        <>
+          <PRow k="권한" v={String(node.meta?.authType ?? node.label)} />
+          <PRow k="mint 한도" v={mintLimit != null ? `${Intl.NumberFormat("en", { notation: "compact" }).format(mintLimit)} ${node.token}` : null} />
+          <PRow k="백킹" v={locked ? "잠금 확정" : note ? note.slice(0, 28) : null} badge={locked ? "verified" : undefined} />
+          <PRow k="주소" v={node.address ? shortAddr(node.address) : null} href={node.address ? ADDR_EXPLORER[node.chain]?.(node.address) : null} badge="verified" />
+        </>
+      );
+    }
+  }
 
   return (
     <div className="px-5 py-4">
@@ -66,67 +133,43 @@ export function FlowDetail({ sel, graph, onClose, onPick }: {
         <button onClick={onClose} className="rounded p-1 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-raised)]"><X size={15} /></button>
       </div>
 
-      <div className="mt-3 space-y-1.5 text-[12px]">
-        {node && <>
-          {node.tvlUsd > 0 && <Row k="TVL" v={formatUsd(node.tvlUsd)} />}
-          {node.sharePct != null && <Row k="비중" v={`${(node.sharePct * 100).toFixed(1)}%`} />}
-          {node.risk && node.risk !== "safe" && <Row k="리스크" v={node.risk === "danger" ? "위험 (알림)" : "주의"} danger={node.risk === "danger"} />}
-          {node.meta?.category != null && <Row k="분류" v={String(node.meta.category)} />}
-          {oracleCount > 0 && <Row k="오라클" v={`표시 마켓 기준 ${oracleCount}개 피드`} />}
-          {node.meta?.chainSupplyUsd != null && <Row k="온체인 공급" v={formatUsd(Number(node.meta.chainSupplyUsd))} />}
-          {node.kind === "bridge" && <>
-            <Row k="메커니즘" v={node.meta?.mechanism ? String(node.meta.mechanism) : "미확인 (온체인 권한 미검증)"} danger={!node.meta?.mechanism} />
-            {node.meta?.fromChain != null && <Row k="구간" v={`${String(node.meta.fromChain)} ↔ ${String(node.meta.toChain)}`} />}
-            {node.meta?.note != null && <div className="pt-1 text-[10.5px] leading-snug text-[var(--color-text-muted)]">{String(node.meta.note)}</div>}
-            <div className="pt-1 text-[10px] leading-snug text-[var(--color-text-muted)]">검증된 mint 권한(bridge_authorities 온체인 직독) 기준. 번&민트는 메시지층 침해 시 무담보 민팅 위험 — 라이브 트랜잭션이 이 노드를 경유하며 락/민팅 활동이 보입니다.</div>
-          </>}
-          {node.meta?.curator != null && <Row k="큐레이터" v={curatorLabel(node.meta.curator)} />}
-          {node.meta?.lltv != null && <Row k="LLTV" v={`${(Number(node.meta.lltv) * 100).toFixed(1)}%`} />}
-          {node.meta?.apy != null && <Row k="APY" v={`${Number(node.meta.apy).toFixed(2)}%`} />}
-          {node.meta?.utilization != null && <Row k="이용률" v={`${(Number(node.meta.utilization) * 100).toFixed(1)}%`} />}
-          {node.address && <Row k="주소" v={`${node.address.slice(0, 6)}…${node.address.slice(-4)}`} />}
-          {conns.length > 0 && (
-            <div className="mt-2 border-t border-[var(--color-border-subtle)] pt-2">
-              <div className="mb-1 text-[10px] uppercase text-[var(--color-text-muted)]">연결 ({conns.length})</div>
-              <div className="max-h-56 space-y-0.5 overflow-y-auto">
-                {conns.map((m) => (
-                  <button key={m.id} onClick={() => onPick(m.id)} className="flex w-full items-center justify-between rounded px-1.5 py-1 text-left text-[11px] hover:bg-[var(--color-surface-raised)]">
-                    <span className="truncate text-[var(--color-text-primary)]">{m.label}</span>
-                    <span className="ml-2 shrink-0 font-mono text-[10px] text-[var(--color-text-muted)]">{formatUsd(m.usd)}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </>}
-        {edge && <>
-          <Row k="관계" v={EDGE_KIND_LABEL[edge.kind]} />
-          {edge.tvlUsd > 0 && <Row k="규모" v={formatUsd(edge.tvlUsd)} />}
-          {edge.bridge && <Row k="브릿지" v={`${edge.bridge.fromChain} → ${edge.bridge.toChain}${edge.bridge.mechanism ? ` · ${edge.bridge.mechanism}` : ""}`} />}
-          {edge.oracle && <>
-            {edge.oracle.danger && <Row k="위험" v="⚠ 자기참조/NAV — 청산 지연 위험" danger />}
-            {edge.oracle.type && <Row k="오라클 타입" v={edge.oracle.type} danger={edge.oracle.danger} />}
-            {edge.oracle.provider && <Row k="제공자" v={edge.oracle.provider} />}
-            {edge.oracle.description && <Row k="피드" v={edge.oracle.description} />}
-            <Row k="검증" v={edge.oracle.verified ? "온체인 introspection ✓" : "분류 추정"} />
-            {edge.oracle.address && <Row k="주소" v={`${edge.oracle.address.slice(0, 8)}…${edge.oracle.address.slice(-6)}`} />}
-            {edge.oracle.danger && <div className="pt-1 text-[10px] leading-snug text-[var(--color-danger)]">시장 디페그가 이 가격 피드에 안 잡혀 청산이 지연될 수 있음 — 무담보 발행/사기 루핑의 전형적 통로.</div>}
-          </>}
-          {edge.trace && <>
-            <Row k="자산" v={edge.trace.assetSymbol ?? "?"} />
-            {edge.trace.amountUsd != null && <Row k="흐름 금액" v={formatUsd(edge.trace.amountUsd)} />}
-            <Row k="전송 횟수" v={`${edge.trace.count}회 / ${edge.trace.windowDays}일`} />
-            {edge.trace.viaCollapsed && <Row k="경유" v="미지 중간주소 접힘 (병목 min 금액)" />}
-            {edge.trace.sampleTx && <Row k="샘플 tx" v={`${edge.trace.sampleTx.slice(0, 12)}…`} />}
-            <div className="pt-1 text-[10px] leading-snug text-[var(--color-text-muted)]">Dune erc20 Transfer 추적이 발견한, 정적 그래프에 없던 자금 경로. EOA/라우터 등 중간 주소는 그래프에 그리지 않고 끝점만 잇습니다.</div>
-          </>}
-          {edge.label && <div className="pt-1 text-[11px] text-[var(--color-text-muted)]">{edge.label}</div>}
-        </>}
+      <div className="mt-3 space-y-0.5">
+        {node && (
+          <>
+            {body}
+            {node.kind === "token" && node.address && (
+              <PRow k="주소" v={shortAddr(node.address)} href={ADDR_EXPLORER[node.chain]?.(node.address)} badge="verified" />
+            )}
+          </>
+        )}
+        {edge && (
+          <>
+            {edge.kind === "oracle" ? (
+              <>
+                {edge.oracle?.danger && <PRow k="위험" v="⚠ 자기참조/NAV — 청산 지연" warn />}
+                <PRow k="타입" v={edge.oracle?.type ?? null} warn={edge.oracle?.danger} />
+                <PRow k="피드" v={edge.oracle?.provider ?? ((edge.label ?? "").replace(/^오라클\s*/, "") || "온체인 피드")} badge="verified" />
+                <PRow k="검증" v={edge.oracle?.verified ? "온체인 introspection" : "마켓 실피드 (Morpho 온체인)"} badge="verified" />
+                <PRow k="주소" v={edge.oracle?.address ? shortAddr(edge.oracle.address) : null} href={edge.oracle?.address ? ADDR_EXPLORER[edge.chain]?.(edge.oracle.address) : null} />
+              </>
+            ) : edge.kind === "trace" ? (
+              <>
+                <PRow k="자산" v={edge.trace?.assetSymbol ?? "?"} />
+                <PRow k="흐름 금액" v={edge.trace?.amountUsd != null ? formatUsd(edge.trace.amountUsd) : null} />
+                <PRow k="전송" v={edge.trace ? `${edge.trace.count}회 / ${edge.trace.windowDays}일` : null} />
+                <PRow k="경유" v={edge.trace?.viaCollapsed ? "중간주소 접힘" : null} />
+                <PRow k="샘플 tx" v={edge.trace?.sampleTx ? shortAddr(edge.trace.sampleTx) : null} href={edge.trace?.sampleTx ? TX_EXPLORER[edge.chain]?.(edge.trace.sampleTx) : null} />
+              </>
+            ) : (
+              <>
+                <PRow k="관계" v={EDGE_KIND_LABEL[edge.kind]} />
+                <PRow k="규모" v={edge.tvlUsd > 0 ? formatUsd(edge.tvlUsd) : null} />
+                {edge.bridge?.mechanism && <PRow k="메커니즘" v={edge.bridge.mechanism} badge="verified" />}
+              </>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
-}
-
-function Row({ k, v, danger }: { k: string; v: string; danger?: boolean }) {
-  return <div className="flex items-center justify-between gap-3"><span className="text-[var(--color-text-muted)]">{k}</span><span className={"font-mono " + (danger ? "text-[var(--color-danger)]" : "text-[var(--color-text-primary)]")}>{v}</span></div>;
 }

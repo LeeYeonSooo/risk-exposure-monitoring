@@ -213,6 +213,10 @@ export function filterGraphByDetail(
   cut(groupBySource("holds"), true);    // token → protocols (토큰당 최대 1개는 항상)
   cut(groupBySource("market"), false);  // visible protocol → markets (실효 비중만)
   cut(groupBySource("vault"), false);   // visible protocol/market → vaults (실효 비중만)
+  // 브릿지 노드(검증·탐지된 것만 서버가 생성) — 부착된 토큰이 보이면 함께 표시
+  for (const e of graph.edges) {
+    if (e.kind === "bridge" && e.target.startsWith("bridge:") && visible.has(e.source)) visible.add(e.target);
+  }
   // tx-active nodes are ALWAYS shown (+ parent chain, + 식별된 풀/리저브 마켓): a flow map must
   // render real activity even when the node sits below the share cutoff. Real recent transactions,
   // not TVL share, are the strongest signal.

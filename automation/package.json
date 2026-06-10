@@ -31,7 +31,8 @@
     "init-db": "tsx scripts/init-db.ts",
     "cron": "tsx scripts/cron.ts",
     "typecheck": "tsc --noEmit",
-    "scan:derisk": "tsx scripts/scan-curator-derisk.ts"
+    "scan:derisk": "tsx scripts/scan-curator-derisk.ts",
+    "snapshot:bridgedetect": "tsx scripts/snapshot-bridge-detect.ts"
   },
   "dependencies": {
     "@mrgnlabs/marginfi-client-v2": "^6.4.2",

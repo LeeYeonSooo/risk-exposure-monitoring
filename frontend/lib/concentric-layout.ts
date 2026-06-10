@@ -119,8 +119,14 @@ export function applyConcentricLayout(opts: {
     l2_canonical: { mechanism: "lock_mint", protocol: "L2 Canonical", tag: "L2" },
     polygon_pos: { mechanism: "lock_mint", protocol: "Polygon PoS", tag: "POS" },
     xerc20_lockbox: { mechanism: "lock_mint", protocol: "xERC20 Lockbox", tag: "xERC20-LB" },
+    // 비-EVM 표준 브릿지 (bridge_detections — 파이썬 8계열 탐지기, 표준 인터페이스/금고 검증분만)
+    wormhole: { mechanism: "lock_mint", protocol: "Wormhole", tag: "WH" },
+    ibc: { mechanism: "lock_mint", protocol: "IBC Transfer", tag: "IBC" },
+    starkgate: { mechanism: "lock_mint", protocol: "StarkGate", tag: "SG" },
+    sui_bridge: { mechanism: "lock_mint", protocol: "Sui Bridge", tag: "SUI-B" },
+    layerzero: { mechanism: "burn_mint", protocol: "LayerZero", tag: "LZ" },
   };
-  const AUTH_ORDER: Record<string, number> = { xerc20: 0, ccip_pool: 1, oft_peer: 2, minter_role: 3, cctp: 4, wormhole_ntt: 5, axelar_its: 6, hyperlane: 7, op_bridge: 8, l2_canonical: 9, polygon_pos: 10, xerc20_lockbox: 11, ccip_remote: 12 };
+  const AUTH_ORDER: Record<string, number> = { xerc20: 0, ccip_pool: 1, oft_peer: 2, minter_role: 3, cctp: 4, wormhole_ntt: 5, axelar_its: 6, hyperlane: 7, op_bridge: 8, l2_canonical: 9, polygon_pos: 10, xerc20_lockbox: 11, ccip_remote: 12, wormhole: 13, ibc: 14, starkgate: 15, sui_bridge: 16, layerzero: 17 };
   const verifiedFor = (chain: string) => {
     // mint_event 는 추정(view-probe fallback)이라 "검증"으로 안 침 — 제외.
     const list = (bridgeAuthByChain[chain] ?? []).filter((x) => x.authType !== "mint_event");

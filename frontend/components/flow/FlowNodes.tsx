@@ -60,7 +60,7 @@ function protocolLogo(slug?: string): string | null {
   return `https://icons.llamao.fi/icons/protocols/${slug}?w=48&h=48`;
 }
 
-const FILL: Record<string, string> = { market: "#38bdf8", vault: "#a855f7", external: "#94a3b8" };
+const FILL: Record<string, string> = { market: "#38bdf8", vault: "#a855f7", external: "#94a3b8", bridge: "#f59e0b" };
 
 function NodeShell({ data, selected }: NodeProps) {
   const d = data as FlowNodeData;
@@ -109,7 +109,7 @@ function NodeShell({ data, selected }: NodeProps) {
           width: size, height: size, padding: isToken || isProto ? Math.max(2, size * 0.1) : 0,
           boxShadow: selected ? "0 0 0 3px var(--color-accent)" : undefined,
           background: isDisc ? fill : undefined,
-          border: d.kind === "vault" ? "1.5px solid #7e22ce" : d.kind === "market" ? "1.5px solid #0284c7" : isExt ? "1.5px dashed #64748b" : undefined,
+          border: d.kind === "vault" ? "1.5px solid #7e22ce" : d.kind === "market" ? "1.5px solid #0284c7" : d.kind === "bridge" ? "1.5px solid #d97706" : isExt ? "1.5px dashed #64748b" : undefined,
         }}
       >
         {isDisc ? <span /> : <Logo src={logo} label={d.label} size={size} />}
@@ -117,7 +117,7 @@ function NodeShell({ data, selected }: NodeProps) {
       {showLabel && (
         <div className="pointer-events-none absolute left-1/2 top-full mt-1 -translate-x-1/2 whitespace-nowrap text-center" style={{ width: 170 }}>
           <div className={"font-semibold text-[var(--color-text-primary)] " + (isToken ? "text-[12px]" : "text-[10px]")}>
-            {d.kind === "vault" ? "🏛 " : ""}{d.label}
+            {d.kind === "vault" ? "🏛 " : d.kind === "bridge" ? "🌉 " : ""}{d.label}
           </div>
           {d.kind === "vault" && d.meta?.curator ? (
             <div className="text-[8px] text-[var(--color-text-muted)]">큐레이터 {curatorLabel(d.meta.curator)}</div>

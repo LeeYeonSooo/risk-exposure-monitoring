@@ -127,6 +127,17 @@ async function bridgeAuthLoop() {
   }
 }
 
+// 비-EVM 브릿지 탐지(파이썬 8계열 도구) — 6시간마다. CCTP·Wormhole·IBC·StarkGate 등 표준 브릿지.
+async function bridgeDetectLoop() {
+  const ts = new Date().toISOString();
+  console.log(`\n══════ ${ts} — bridge detect (non-EVM) ══════`);
+  try {
+    await runScript("snapshot-bridge-detect.ts");
+  } catch (e) {
+    console.error("[cron] bridge-detect failed:", (e as Error).message);
+  }
+}
+
 // 무담보 공급 점검(Detector A, alarm-totalsupply 포팅) — Σremote ≤ backing(lockbox) 위반 시 unbacked_supply 알림.
 // bridge-authority 가 적재한 xERC20 lockbox 를 입력으로 자동 watch. (Kelp rsETH류 무한민팅 감시)
 async function backingLoop() {
@@ -212,6 +223,8 @@ async function main() {
   setInterval(walletLoop, TWO_HOUR_MS); // 2시간마다 추적 지갑 밸류 (자금 이탈 감시)
   await bridgeAuthLoop(); // 즉시 1회 — 브릿지 권한/lockbox baseline (backing 의 입력)
   setInterval(bridgeAuthLoop, SIX_HOUR_MS); // 6시간마다 온체인 브릿지 mint 권한 검증
+  await bridgeDetectLoop(); // 즉시 1회 — 비-EVM 표준 브릿지 탐지 (관계맵·흐름맵 브릿지 노드 입력)
+  setInterval(bridgeDetectLoop, SIX_HOUR_MS);
   await backingLoop(); // 즉시 1회 — 무담보 공급 baseline
   setInterval(backingLoop, ONE_HOUR_MS); // 1시간마다 Σremote ≤ backing 재검 (무담보 공급 알림)
   await mintburnLoop(); // 즉시 1회 — mint/burn ledger baseline
