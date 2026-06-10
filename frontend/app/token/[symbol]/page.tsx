@@ -8,7 +8,9 @@ import { Activity, X } from "lucide-react";
 import { AlertDock } from "@/components/AlertDock";
 import { SiteHeader } from "@/components/SiteHeader";
 import { chainOptions } from "@/lib/chains-ui";
+import { FlowMapBoard } from "@/components/flowmap/FlowMapBoard";
 import { GraphCanvas } from "@/components/graph/GraphCanvas";
+import { LeverageLoopGraph } from "@/components/looping/LeverageLoopGraph";
 import { TokenDossier, type DossierData } from "@/components/graph/TokenDossier";
 import { ADDR_EXPLORER, PRow, TokenSpecRows, pct1, sevDots, shortAddr, useNodeAlertCounts } from "@/components/panel/spec";
 import { SAFE_NODE_STATE, formatUsd, type GraphEdge, type GraphNode, type NodeTickState } from "@/lib/api";
@@ -29,7 +31,9 @@ export default function TokenPage() {
   // 탭 → 직교 컨트롤(깊이·형태). 스코프(체인내부/체인간)는 하나로 합침 — 여러 체인이면 자동으로
   // 컴팩트+브릿지(매크로), 한 체인만 보면 풀 디테일(마이크로). 멘탈모델 1개.
   const [depth, setDepth] = useState<"protocol" | "market" | "curator">("market"); // 기본은 체인→프로토콜→마켓 분포.
-  const [panelOpen, setPanelOpen] = useState(true);             // 우측 상세 패널 토글
+  // 보기: 관계맵(정적 구조) / 실시간 상황판(이벤트 기반 — 시장 전체, 페이지 토큰 강조) / 레버리지 루프(Morpho 포지션)
+  const [view, setView] = useState<"map" | "live" | "lev">("map");
+  const [panelOpen, setPanelOpen] = useState(true);             // 우측 상세 패널 토글 (관계맵 전용)
   const [hiddenChains, setHiddenChains] = useState<Set<string>>(new Set());        // 체크 해제된(숨긴) 체인
   const [dbNodes, setDbNodes] = useState<Map<string, GraphNode>>(new Map());
   const [dbEdges, setDbEdges] = useState<GraphEdge[]>([]);
@@ -303,14 +307,22 @@ export default function TokenPage() {
         </div>
       </div>
 
-      {/* ── 컨트롤 레일 (직교 손잡이: 깊이·형태) — 스코프는 체인 수로 자동 합침, 렌즈는 제거 ── */}
+      {/* ── 컨트롤 레일 (직교 손잡이: 보기·깊이·형태) — 스코프는 체인 수로 자동 합침, 렌즈는 제거 ── */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-4 py-2 lg:px-5">
-        <ControlGroup label="깊이">
-          <Seg active={depth === "protocol"} onClick={() => setDepth("protocol")}>프로토콜</Seg>
-          <Seg active={depth === "market"} onClick={() => setDepth("market")}>+마켓</Seg>
-          <Seg active={depth === "curator"} onClick={() => setDepth("curator")}>+큐레이터</Seg>
+        <ControlGroup label="보기">
+          <Seg active={view === "map"} onClick={() => setView("map")}>관계맵</Seg>
+          <Seg active={view === "live"} onClick={() => setView("live")}>실시간 상황판</Seg>
+          <Seg active={view === "lev"} onClick={() => setView("lev")}>레버리지 루프</Seg>
         </ControlGroup>
-        {(visibleChainCount > 1 || chains.length > 1) ? <span className="text-[10px] text-[var(--color-text-muted)]">{bridgeHub ? "매크로: 체인+브릿지" : "마이크로: 단일 체인"}</span> : null}
+        {view === "map" && (
+          <ControlGroup label="깊이">
+            <Seg active={depth === "protocol"} onClick={() => setDepth("protocol")}>프로토콜</Seg>
+            <Seg active={depth === "market"} onClick={() => setDepth("market")}>+마켓</Seg>
+            <Seg active={depth === "curator"} onClick={() => setDepth("curator")}>+큐레이터</Seg>
+          </ControlGroup>
+        )}
+        {view === "map" && ((visibleChainCount > 1 || chains.length > 1) ? <span className="text-[10px] text-[var(--color-text-muted)]">{bridgeHub ? "매크로: 체인+브릿지" : "마이크로: 단일 체인"}</span> : null)}
+        {view === "map" && (
         <div className="flex flex-wrap items-center gap-1">
           <span className="text-[10px] uppercase text-[var(--color-text-muted)]">체인</span>
           <button onClick={() => { userToggledChains.current = true; setHiddenChains((prev) => prev.size > 0 ? new Set() : new Set(chainOpts.map((c) => c.key))); setPicked(null); setSelNode(null); }}
@@ -328,20 +340,32 @@ export default function TokenPage() {
             );
           })}
         </div>
+        )}
+        {view !== "map" && (
+          <span className="text-[10px] text-[var(--color-text-muted)]">
+            {view === "live" ? "시장 전체 토큰↔프로토콜 흐름 — baseline 대비 이상치만 발화 (렌딩 8 + DEX 4, 온체인 이벤트)" : `${sym} 레버리지 루핑 — 담보 예치↔차입 (Morpho 포지션, 라이브)`}
+          </span>
+        )}
         <Link href={`/flow?token=${encodeURIComponent(sym)}`}
           className="ml-auto flex items-center gap-1 rounded-md border border-[var(--color-border-subtle)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-accent)] hover:bg-[var(--color-surface-raised)]">
           <Activity size={12} /> 흐름맵에서 보기
         </Link>
+        {view === "map" && (
         <button onClick={() => setPanelOpen((o) => !o)} title="상세 패널 토글"
           className="flex items-center gap-1.5 rounded-md border border-[var(--color-border-subtle)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-raised)]">
           {panelOpen ? "상세 패널 ▸" : "◂ 상세 패널"}
         </button>
+        )}
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        {/* 좌: 그래프 */}
+        {/* 좌: 그래프 — 보기에 따라 관계맵 / 실시간 상황판(이벤트 기반) / 레버리지 루프 */}
         <div className="relative h-[560px] min-h-[560px] flex-none lg:h-auto lg:min-h-0 lg:flex-1">
-          {breadthLoading ? (
+          {view === "live" ? (
+            <FlowMapBoard sym={sym} />
+          ) : view === "lev" ? (
+            <LeverageLoopGraph sym={sym} />
+          ) : breadthLoading ? (
             // 라이브 수집이 끝날 때까지 "부분 그래프"를 보여주지 않고 깔끔한 로딩만.
             <div className="flex h-full items-center justify-center">
               <div className="flex flex-col items-center gap-3 text-center text-[var(--color-text-secondary)]">
@@ -355,7 +379,7 @@ export default function TokenPage() {
           ) : (
             <Empty msg={`${sym} 의 온체인 엣지가 DB 에 없음 — 스냅샷 대상 토큰이 아닐 수 있어요.`} />
           )}
-          {!breadthLoading && subTopology.nodes.length > 1 && (
+          {view === "map" && !breadthLoading && subTopology.nodes.length > 1 && (
             <>
               <DistributionCard rows={distributionRows} />
               <GraphLegend bridge={bridgeHub} />
@@ -363,8 +387,8 @@ export default function TokenPage() {
           )}
         </div>
 
-        {/* 우: 상세 패널 (토글 가능) */}
-        {panelOpen && (
+        {/* 우: 상세 패널 (관계맵 전용 — 상황판·레버루프는 자체 레일/패널 사용) */}
+        {view === "map" && panelOpen && (
           <aside className="w-full shrink-0 overflow-y-auto border-t border-[var(--color-border-subtle)] bg-[var(--color-surface)] lg:w-[400px] lg:border-l lg:border-t-0">
             {picked ? (
               <PickDetail d={picked} onClose={() => setPicked(null)} />

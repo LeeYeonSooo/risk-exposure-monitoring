@@ -514,6 +514,25 @@ ARCHIVE_RPC_URL=            (선택, 유료 archive — deep getLogs full-histor
 - **외부 `alarm-totalsupply`(Kelp rsETH 무담보민팅 탐지) → Detector A 이식 후 폴더 삭제.** automation은 Detector C(supply-spike)만 흡수했었고, Detector A(Σremote≤backing)는 `diff.ts:344`가 "멀티체인 필요, 스코프 밖"이라 자인 → 멀티체인 도입됐으니 이식. `snapshot/supply-backing.ts`(불변식 엔진 — **무담보 방향만** 알림: 정상 브릿징은 항상 over-backed라 FP 0) + `scripts/snapshot-backing.ts`(러너). backing 자동 watch는 `bridge_authorities`의 xERC20 lockbox에서(위 브릿지 작업이 입력 제공). cron 1급 스텝(1h)으로 편입. `source=backing-v1`(알고리즘 swap 계약).
 - **Detector B(mint_burn_recon)는 이벤트(Transfer 로그) 기반이라 이번엔 미이식** — 사용자 계획상 "이벤트 기반 확장"은 추후 단계에서.
 
+### 2026-06-10 — 상황판 멀티체인 확장 (13체인, 동적 토큰 레지스트리)
+
+- **상황판을 메인넷 전용 → 13체인으로**: ethereum + base·arbitrum·optimism·polygon·avalanche·bsc·gnosis·scroll·linea·sonic·celo·metis. 후보는 전부 `scripts/probe_flowmap_chains.mjs` 온체인 프로브(Aave getReservesList·Comet baseToken·Balancer/Fluid 코드+로그·UniV3 tick(500)==10·llama 가격 슬러그·Morpho chainId) 통과분만 등록 — zksync 는 publicnode 404 로 탈락. 레지스트리 = `lib/flowmap.ts FLOW_CHAINS`.
+- **토큰 레지스트리는 체인마다 자동 유도(손 주소 0)**: Aave `getReservesList()` ∪ Comet `baseToken()` → 온체인 `symbol()/decimals()` 배치 → llama 가격(`avax`·`xdai` 슬러그 주의). 가격 미해석 토큰은 정직하게 제외, **심볼 충돌(아비트럼 USDC.e vs 네이티브 USDC — 온체인 심볼 둘 다 "USDC")은 "(2)" 접미사로 분리 추적**(드롭하면 큰 시장이 통째로 빠짐). 메인넷은 큐레이션 59종 고정 링 유지.
+- **윈도우는 blockSec 실측**(latest vs latest-10000)으로 ≈6h 환산, 버킷 72개 고정 — BSC 0.45s(Maxwell 이후)·Metis 36s(비정형) 자동 적응. 이상치 게이트(systemic/whale)·레버 페어링은 체인 공통.
+- **퍼블릭 RPC 실측 한계 3개를 코드에 고정**: ① publicnode getLogs **주소배열 ≤8개**(전 체인 동일 — 8개 그룹×동시3 분할), ② **블록범위 ≤10,000**(arbitrum "exceed maximum block range" 명시 에러 — 전 체인 10k 청크), ③ 호스트당 **동시 요청 4 세마포어 + 1회 재시도**(13체인 동시 수집 시 arbitrum 쓰로틀 전멸 실측). Aave/Comet getLogs 에 토픽 필터 필수(잡로그가 압도적).
+- **서빙 = stale-while-revalidate**: 체인별 캐시(120s) 스냅샷 즉답 + 백그라운드 갱신, `?summary=1` 이 전 체인 systemic/whale 집계(+미수집 체인 수집 트리거, 5분 주기). 보드엔 체인 칩 — 빨간 숫자=systemic, 호박 점=whale, 펄스=수집 중. 첫 수집 무거운 체인(base UniV3 ~100s)도 사용자는 항상 즉답.
+- **검증(라이브)**: 13/13 ready·getLogs 오류 0 — ethereum $1.86B/6h(systemic 1·whale 9·레버 8), base $138M(레버 cbETH↦Aave↦WETH), arbitrum $64M(7프로토콜 전부), bsc $15M….
+- **알려진 공백(§18 백로그)**: BSC Venus·Avalanche Benqi(Compound V2 포크 ABI), Base Aerodrome(Solidly ABI) — 새 디코더 패밀리 필요. 비메인넷 Euler(Goldsky 체인별 서브그래프)·UniV4(전이력 스캔 무거움), zksync(publicnode 미지원 — 대체 RPC 후보 탐색).
+
+### 2026-06-10 — hoont 실시간 상황판을 메인 화면 그래프로 (이벤트 기반)
+
+- **메인 중앙 그래프 = hoont `a5ba4b7` 실시간 상황판(FlowMapBoard)으로 완전 교체.** hello 이중동심원(LandingGraph)은 마운트만 해제(컴포넌트 파일은 보존 — 복구 가능). 근거: 정적 구조(이중동심원)보다 "지금 어디가 평소와 다른가"(이상치 발화)가 메인 화면의 질문에 맞음 — 상세 스펙은 `docs/flow-situation-board.md`(hoont 산출물 동반 이관).
+- **상황판 = 온체인 이벤트 직독, DB·키 불필요.** 렌딩 8(Aave Core/Prime/EtherFi·Spark·Morpho·Compound·Fluid·Euler) + DEX 4(Uniswap V3/V4·Curve·Balancer)를 publicnode/mevblocker `eth_getLogs`로 6h 윈도우 수집, robust z(≥3.5)∧다수주체(≥4)∧최대주체≤60% = systemic / 단일 ≥$2M = whale 게이트, 같은 tx의 담보예치+차입 = 레버 페어(원자적 사실만). 첫 수집 ~26s, 60s 모듈 캐시. 검증: 라이브에서 systemic 1건(USDC←Aave 차입 z 19.5)·레버 8쌍 발화 확인.
+- **토큰 페이지 보기 3단 Seg = 관계맵 / 실시간 상황판(sym 강조) / 레버리지 루프.** hoont는 흐름맵 탭+서브탭 중첩이었으나 `/flow`(라이브 입자 흐름맵)와 이름 충돌을 피해 평탄화. 깊이·체인·상세패널 컨트롤은 관계맵 전용으로 게이팅. `/api/leverageloop`(Morpho 포지션 기반 루퍼 탐지)도 동반 이식.
+- **`concentric-layout` PROTO_ALIAS 이중계상 수정 동반 적용** — DB "spark" vs Llama "sparklend"가 분포에 둘 다 ~30%로 뜨던 왜곡 병합(+역별칭 풀 조회로 마켓 링 유지).
+- **chains-ui 비-EVM 5체인 중복 등록 제거** — hello 병합 잔재(React duplicate key `starknet` 콘솔 에러 400건)였음. 단일 등록 유지.
+- **스킵**: hoont의 FlowBoard v1(`flowboard/`·`flow-board.ts`)은 hoont 문서 스스로 "폐기" 명시 + 참조 0건이라 미이관. `probe_protocol.py`(프로토콜 추가 하네스)는 `scripts/`로 이관.
+
 ### 2026-06-07 — 산발 코드 triage + 포지셔닝 정렬
 
 - **라이브 제품 = `automation`(TS) + `frontend`(Next) + Postgres 한 곳.** 프론트가 자체 `/api/*`에서 `pg`로 DB 직독(정적 폴백 없음), automation cron이 같은 DB에 적재. 둘의 `DATABASE_URL`이 동일(`…@localhost:5433/wbtc_mapping`)임을 확인 → 이 경로만 keep.

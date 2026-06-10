@@ -122,3 +122,25 @@
   background: var(--color-border-strong);
   border-radius: 2px;
 }
+
+/* 플로우 상황판 — 유입/유출 대시 흐름(실 tx 합산에서만). f=토큰→프로토콜, r=프로토콜→토큰. */
+@keyframes fb-dash {
+  to { stroke-dashoffset: -32; }
+}
+.fb-dash-f { animation: fb-dash 1.3s linear infinite; }
+.fb-dash-r { animation: fb-dash 1.3s linear infinite reverse; }
+
+/* SVG 루프 링(청산임박 루퍼·프로토콜 발화 강조) — 회전하는 점선 오라 */
+.cs-flow-dash {
+  stroke-dasharray: 4 7;
+  animation: fb-dash 1.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fb-dash-f, .fb-dash-r, .cs-flow-dash { animation: none; }
+}
+
+/* Slider accent */
+input[type="range"] {
+  accent-color: var(--color-accent);
+}

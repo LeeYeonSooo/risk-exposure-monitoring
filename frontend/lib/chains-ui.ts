@@ -30,13 +30,6 @@ export const SUPPORTED_CHAINS: { key: string; label: string }[] = [
   { key: "ink", label: "Ink" },
   { key: "metis", label: "Metis" },
   { key: "zksync", label: "ZKsync" },
-  // 비-EVM — 그래프(익스포저·프로토콜·마켓)는 DeFiLlama 라이브로 동일하게 구성.
-  // 라이브 트랜잭션 입자는 Alchemy getAssetTransfers(EVM 전용)라 미지원 — UI 가 정직하게 표기.
-  { key: "solana", label: "Solana" },
-  { key: "sui", label: "Sui" },
-  { key: "tron", label: "Tron" },
-  { key: "aptos", label: "Aptos" },
-  { key: "starknet", label: "Starknet" },
 ];
 
 /** 라이브 트랜잭션 입자를 지원하는 체인 = /api/transactions 의 ALCHEMY_NET 키와 동일(거울). */

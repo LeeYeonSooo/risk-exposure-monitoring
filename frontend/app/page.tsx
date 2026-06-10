@@ -5,15 +5,14 @@ import { useRouter } from "next/navigation";
 import { Search, ArrowRight, Bell, Waves, X } from "lucide-react";
 
 import { AlertDock } from "@/components/AlertDock";
-import { LandingGraph } from "@/components/landing/LandingGraph";
+import { FlowMapBoard } from "@/components/flowmap/FlowMapBoard";
 import { alertFlowHref } from "@/lib/alert-link";
 import { formatUsd } from "@/lib/api";
-import { buildLandingTopology, type LandingTopology } from "@/lib/landing-layout";
 
 /**
- * 메인화면 — 헤더(로고·검색바·흐름맵 버튼) + 이중 동심원 그래프(안=토큰, 밖=프로토콜,
- * 실데이터 노출 엣지) + 우측 실시간 모니터링 알림. 검색바 클릭 → 반투명 오버레이로
- * TVL 순위 토큰 리스트(클릭 = 그 토큰의 관계맵 페이지). 그래프 입자는 흐름 급변 토큰만.
+ * 메인화면 — 헤더(로고·검색바·흐름맵 버튼) + 실시간 상황판(이벤트 기반 동심원: 안=토큰,
+ * 밖=프로토콜, 이상 흐름만 발화 — docs/flow-situation-board.md) + 우측 실시간 모니터링 알림.
+ * 검색바 클릭 → 반투명 오버레이로 시총 순위 토큰 리스트(클릭 = 그 토큰의 관계맵 페이지).
  */
 
 interface Alert {
@@ -26,11 +25,6 @@ interface Wallet {
   wallet: string; label: string | null; kind: string | null; active: boolean;
   totalUsd: number | null; protocolCount: number | null; source: string | null; dropPct: number | null;
 }
-interface ApiGraph {
-  nodes: { id: string; type: string; label: string; metadata: Record<string, unknown> | null; address: string | null; chain: string }[];
-  edges: { source: string; target: string; edge_type: string; weight: number; attrs: never }[];
-}
-
 const SEV_COLOR: Record<string, string> = { critical: "#f87171", warning: "#fbbf24", info: "#60a5fa" };
 const SEV_LABEL: Record<string, string> = { critical: "위험", warning: "경고", info: "정보" };
 const KIND_LABEL: Record<string, string> = {
@@ -71,7 +65,7 @@ export default function MainLanding() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [wallets, setWallets] = useState<Wallet[]>([]);
-  const [topo, setTopo] = useState<LandingTopology | null>(null);
+  const [railEl, setRailEl] = useState<HTMLElement | null>(null); // 상황판 레일 포털 타깃(알림 패널 상단)
   const [searchOpen, setSearchOpen] = useState(false);
   const [chainSel, setChainSel] = useState<string>("전체");
   const [sevSel, setSevSel] = useState<string>("전체");
@@ -91,9 +85,6 @@ export default function MainLanding() {
       setMcap(mc);
     }).catch(() => {});
     fetch("/api/wallets", { cache: "no-store" }).then((r) => r.json()).then((d) => setWallets((d.wallets ?? []) as Wallet[])).catch(() => {});
-    fetch("/api/graph", { cache: "no-store" }).then((r) => r.json()).then((d: ApiGraph) => {
-      if (d?.nodes?.length) setTopo(buildLandingTopology(d.nodes, d.edges));
-    }).catch(() => {});
     const loadAlerts = () => {
       fetch("/api/alerts?limit=300", { cache: "no-store" }).then((r) => r.json()).then((d) => {
         setAlerts((d.alerts ?? []) as Alert[]);
@@ -104,18 +95,6 @@ export default function MainLanding() {
     const iv = setInterval(loadAlerts, 15_000);
     return () => clearInterval(iv);
   }, []);
-
-  // 입자 게이트: 최근 2시간 내 flow_anomaly 알림이 뜬 토큰만 (급변시에만 입자 — 요구사항)
-  const anomalySymbols = useMemo(() => {
-    const cut = Date.now() - 2 * 3600_000;
-    const out = new Set<string>();
-    for (const a of alerts) {
-      if (a.kind !== "flow_anomaly") continue;
-      if (new Date(alertEventTime(a)).getTime() < cut) continue;
-      out.add((a.token ?? "").toUpperCase());
-    }
-    return out;
-  }, [alerts]);
 
   const chainChips = useMemo(() => {
     const c = new Map<string, number>();
@@ -152,7 +131,7 @@ export default function MainLanding() {
         >
           <Search size={15} />
           토큰 검색 — wstETH, USDe, WBTC …
-          <span className="ml-auto rounded border border-[var(--color-border-subtle)] px-1.5 py-0.5 text-[10px]">TVL 순위</span>
+          <span className="ml-auto rounded border border-[var(--color-border-subtle)] px-1.5 py-0.5 text-[10px]">시총 순위</span>
         </button>
         <button
           onClick={() => router.push("/flow")}
@@ -163,21 +142,16 @@ export default function MainLanding() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        {/* ── 중앙: 이중 동심원 그래프 (토큰=안, 프로토콜=밖, 입자=급변 토큰만) ── */}
+        {/* ── 중앙: 실시간 상황판 (이벤트 기반 — 안=토큰, 밖=프로토콜, 이상 흐름만 발화).
+              레일(이상 흐름·레버)은 railPortal 로 우측 알림 패널에 합쳐 렌더 — 겹침 방지 + 한 패널. ── */}
         <div className="relative min-h-0 min-w-0 flex-1">
-          {topo ? (
-            <LandingGraph topology={topo} alerts={alerts} anomalySymbols={anomalySymbols} />
-          ) : (
-            <div className="flex h-full items-center justify-center text-sm text-[var(--color-text-muted)]">그래프 로딩… (DB 스냅샷)</div>
-          )}
-          <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-md border border-[var(--color-border-subtle)] bg-[var(--color-surface)]/85 px-3 py-2 text-[10px] text-[var(--color-text-muted)] backdrop-blur">
-            안쪽 링 = 토큰 · 바깥 링 = 프로토콜 · 엣지 = 실측 노출 · 토큰 클릭 → 관계맵
-            <br />입자 = <span className="text-[var(--color-text-secondary)]">흐름 급변 토큰만</span> (flow_anomaly 발화 시 · 평상시엔 없음){anomalySymbols.size ? ` — 현재 ${[...anomalySymbols].slice(0, 6).join(", ")}` : " — 현재 없음"}
-          </div>
+          <FlowMapBoard railPortal={railEl} />
         </div>
 
-        {/* ── 우: 실시간 모니터링 알림 (스케치의 위험 알림 영역) ── */}
+        {/* ── 우: 상황판 레일 + 실시간 모니터링 알림 (한 패널) ── */}
         <aside className="flex w-[420px] shrink-0 flex-col border-l border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
+          {/* 상황판 레일 포털 타깃 — 보드가 이상 흐름/대형 단일/레버를 여기로 렌더(호버 연동 유지) */}
+          <div ref={setRailEl} className="max-h-[42%] shrink-0 overflow-y-auto border-b border-[var(--color-border-subtle)] empty:hidden" />
           <div className="flex flex-wrap items-center gap-2.5 px-5 pb-2 pt-4">
             <Bell size={16} className="text-[var(--color-accent)]" />
             <span className="text-[15px] font-bold text-[var(--color-text-primary)]">실시간 모니터링 알림</span>
