@@ -10,7 +10,7 @@ import { FlowDetail } from "@/components/flow/FlowDetail";
 import { FlowGraph } from "@/components/flow/FlowGraph";
 import { FlowTxPanel } from "@/components/flow/FlowTxPanel";
 import { useFlowData } from "@/components/flow/useFlowData";
-import { chainOptions, hasLiveTx } from "@/lib/chains-ui";
+import { chainOptions } from "@/lib/chains-ui";
 import { filterGraphByDetail } from "@/lib/flow-match";
 
 /**
@@ -30,11 +30,17 @@ function FlowPageInner() {
   const sp = useSearchParams();
   const initialTokens = (sp.get("tokens") || sp.get("token") || "").split(",").map((s) => s.trim()).filter(Boolean);
   const initKey = initialTokens.join(",");
-  const [chains, setChains] = useState<string[]>(["ethereum"]);
+  // ?chains= (알림 딥링크 등) — 아는 체인만 통과, 없으면 ethereum
+  const initialChains = (sp.get("chains") || "").split(",").map((s) => s.trim().toLowerCase())
+    .filter((c) => chainOptions().some((o) => o.key === c));
+  const chInitKey = initialChains.join(",");
+  const [chains, setChains] = useState<string[]>(initialChains.length ? initialChains : ["ethereum"]);
   const [tokens, setTokens] = useState<string[]>(initialTokens.length ? initialTokens : ["stETH", "WETH", "USDC", "USDT", "WBTC"]);
   const [sel, setSel] = useState<{ type: "node" | "edge"; id: string } | null>(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (initKey) setTokens(initKey.split(",")); }, [initKey]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (chInitKey) setChains(chInitKey.split(",")); }, [chInitKey]);
 
   const chainOpts = useMemo(() => chainOptions(), []);
   const orderedChains = useMemo(() => [...chains].sort((a, b) => (a === "ethereum" ? -1 : b === "ethereum" ? 1 : a.localeCompare(b))), [chains]);
@@ -68,11 +74,24 @@ function FlowPageInner() {
       <SiteHeader />
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-4 py-2 lg:px-5">
         <span className="text-sm font-bold text-[var(--color-text-primary)]">흐름맵 <span className="text-[11px] font-normal text-[var(--color-text-muted)]">· 실시간 트랜잭션 (5분 윈도우 · 1분 지연)</span></span>
-        {chains.some((c) => !hasLiveTx(c)) && (
-          <span className="rounded-full border border-[#f59e0b66] bg-[#f59e0b14] px-2 py-0.5 text-[10px] font-medium text-[#b45309]">
-            {chains.filter((c) => !hasLiveTx(c)).join("·")} = 그래프·추적만 (라이브 입자는 EVM 전용)
-          </span>
-        )}
+        {(() => {
+          // 비-EVM 피드는 체인마다 수집 방식·커버리지가 다르다 — 숨기지 않고 그대로 공지
+          const NOTE: Record<string, string> = {
+            solana: "솔라나: 민트 참조 트랜잭션 기반 — 지갑 전송(transferChecked)·스왑·민트·소각은 잡히지만 일부 레거시 전송·직접 풀 스왑은 보이지 않습니다.",
+            tron: "트론: TronGrid 토큰 Transfer 이벤트 전체 + 검증된 장소만 라벨 — 미등재 컨트랙트는 전송으로 표시됩니다.",
+            aptos: "앱토스: 공식 인덱서 활동 기반 — 장소는 엔트리 함수 모듈로 식별, 미등재 모듈은 전송으로 표시됩니다.",
+            starknet: "스타크넷: 토큰 Transfer 이벤트 + 검증된 장소만 라벨 — 시각은 블록 단위이며 미등재 컨트랙트는 전송으로 표시됩니다.",
+            sui: "Sui: 등재된 장소 패키지를 거친 이동만 보입니다(코인 전송은 표준 이벤트가 없음) — P2P 전송은 구조적으로 안 보입니다.",
+          };
+          const active = chains.filter((c) => NOTE[c]);
+          if (!active.length) return null;
+          return (
+            <span className="rounded bg-[rgba(153,69,255,0.12)] px-1.5 py-0.5 text-[10px] text-[#7c3aed]"
+              title={active.map((c) => NOTE[c]).join("\n")}>
+              비-EVM 피드({active.join("·")}): 커버리지 제한 — 자세히는 마우스오버
+            </span>
+          );
+        })()}
         <FlowControls chains={chains} toggleChain={toggleChain} chainOptions={chainOpts}
           tokens={tokens} addToken={addToken} removeToken={removeToken} universe={flow.universe} />
       </div>

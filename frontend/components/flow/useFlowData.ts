@@ -47,10 +47,13 @@ export function useFlowData({ tokens, chains, active }: { tokens: string[]; chai
     const out: string[] = [];
     for (const n of graph.nodes) {
       if (n.kind !== "token" || !n.address) continue;
-      const key = `${n.chain}:${n.address.toLowerCase()}`;
+      // 비-EVM 주소는 케이스 보존(base58/타입경로), aptos·sui 의 "::" 는 URI 인코딩으로 구분자 충돌 방지
+      const NONEVM = new Set(["solana", "tron", "sui", "aptos", "starknet"]);
+      const a = NONEVM.has(n.chain) ? n.address : n.address.toLowerCase();
+      const key = `${n.chain}:${a}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      out.push(`${key}:${n.label}`);
+      out.push(`${n.chain}:${encodeURIComponent(a)}:${n.label}`);
     }
     return out.join(",");
   }, [graph]);

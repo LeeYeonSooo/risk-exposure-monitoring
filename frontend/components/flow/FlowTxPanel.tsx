@@ -16,6 +16,8 @@ const EXPLORER: Record<string, string> = {
   ethereum: "https://etherscan.io", arbitrum: "https://arbiscan.io", base: "https://basescan.org",
   optimism: "https://optimistic.etherscan.io", polygon: "https://polygonscan.com", avalanche: "https://snowtrace.io",
   bsc: "https://bscscan.com", gnosis: "https://gnosisscan.io", linea: "https://lineascan.build", scroll: "https://scrollscan.com",
+  solana: "https://solscan.io", tron: "https://tronscan.org/#", sui: "https://suivision.xyz",
+  aptos: "https://explorer.aptoslabs.com", starknet: "https://starkscan.co",
 };
 const KIND_LABEL: Record<FlowTx["kind"], string> = { deposit: "예치", withdraw: "출금", swap: "스왑", mint: "민트", burn: "소각", wrap: "랩", unwrap: "언랩", transfer: "전송" };
 
@@ -57,7 +59,7 @@ export function FlowTxPanel({ txs, txLoading, txAt, txError, graph }: { txs: Flo
       {recent.length > 0 ? (
         <div className="mt-2 max-h-72 space-y-0.5 overflow-y-auto border-t border-[var(--color-border-subtle)] pt-1.5">
           {recent.map((t, i) => (
-            <a key={`${t.hash}-${i}`} href={`${EXPLORER[t.chain] ?? EXPLORER.ethereum}/tx/${t.hash}`} target="_blank" rel="noreferrer"
+            <a key={`${t.hash}-${i}`} href={`${EXPLORER[t.chain] ?? EXPLORER.ethereum}${t.chain === "tron" ? "/transaction/" : t.chain === "aptos" ? "/txn/" : t.chain === "sui" ? "/txblock/" : "/tx/"}${t.hash}`} target="_blank" rel="noreferrer"
               className={"flex items-center gap-1.5 rounded px-1 py-0.5 text-[10px] hover:bg-[var(--color-surface-raised)] " + (onGraph(t) ? "" : "opacity-60")} title={onGraph(t) ? `그래프 흐름: ${t.counterparty}` : "그래프 미표시 전송"}>
               <span className={"size-1.5 shrink-0 rounded-full " + (onGraph(t) ? "bg-[#6366f1]" : "bg-[var(--color-border-strong)]")} />
               <span className="font-medium text-[var(--color-text-primary)]">{t.token}</span>

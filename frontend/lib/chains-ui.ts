@@ -6,6 +6,11 @@
  */
 export const SUPPORTED_CHAINS: { key: string; label: string }[] = [
   { key: "ethereum", label: "Ethereum" },
+  { key: "solana", label: "Solana" },
+  { key: "tron", label: "Tron" },
+  { key: "sui", label: "Sui" },
+  { key: "aptos", label: "Aptos" },
+  { key: "starknet", label: "Starknet" },
   { key: "base", label: "Base" },
   { key: "arbitrum", label: "Arbitrum" },
   { key: "optimism", label: "Optimism" },

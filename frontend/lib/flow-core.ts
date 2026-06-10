@@ -14,9 +14,8 @@ export const CHAIN_MAP: Record<string, string> = {
   Polygon: "polygon", Avalanche: "avalanche", BSC: "bsc", Gnosis: "gnosis", Linea: "linea", Scroll: "scroll",
   "ZKsync Era": "zksync", Mantle: "mantle", Blast: "blast", Sonic: "sonic", Unichain: "unichain",
   Berachain: "berachain", Mode: "mode", Fraxtal: "fraxtal", Ink: "ink", "World Chain": "wc", Metis: "metis",
-  // 비-EVM — DeFiLlama 풀이 익스포저를 주므로 그래프(토큰·프로토콜·마켓)는 동일하게 구성된다.
-  // 라이브 입자(/api/transactions)는 EVM 전용이라 이 체인들은 그래프·추적만 (UI 표기).
-  Solana: "solana", Sui: "sui", Tron: "tron", Aptos: "aptos", Starknet: "starknet",
+  // 비-EVM — 그래프(토큰·프로토콜·마켓)는 DeFiLlama 풀로 동일 구성 + 라이브 입자는 체인별 transfer 어댑터(solana/tron/aptos/starknet/sui-transfers).
+  Solana: "solana", Tron: "tron", Sui: "sui", Aptos: "aptos", Starknet: "starknet",
 };
 const CHAINID_KEY: Record<number, string> = {
   1: "ethereum", 10: "optimism", 56: "bsc", 100: "gnosis", 130: "unichain", 137: "polygon", 146: "sonic",
@@ -76,6 +75,29 @@ interface MItem {
   state?: { supplyAssetsUsd?: number; collateralAssetsUsd?: number; utilization?: number };
   chain?: { id?: number; network?: string }; supplyingVaults?: { name?: string; address?: string }[];
 }
+// ── 솔라나 민트 확정 — Jupiter 공식 토큰 레지스트리 (lite-api.jup.ag, 키리스) ──
+// DeFiLlama 풀의 underlyingTokens 는 "예치 자산"이라 파생 토큰(JitoSOL 풀 → SOL)의 민트가
+// 틀리게 잡힌다. 표시·트랜잭션용 민트는 레지스트리의 검증 토큰에서 심볼 정확 일치 + 최대
+// 시가총액으로 확정한다 (틀린 민트로 다른 토큰의 거래를 보여주는 것 방지).
+const _jupMintCache = new Map<string, { at: number; mint: string | null }>();
+async function jupiterMint(symbol: string): Promise<string | null> {
+  const key = symbol.toUpperCase();
+  const hit = _jupMintCache.get(key);
+  if (hit && Date.now() - hit.at < 10 * 60 * 1000) return hit.mint;
+  let mint: string | null = null;
+  try {
+    const r = await fetch(`https://lite-api.jup.ag/tokens/v2/search?query=${encodeURIComponent(symbol)}`, { cache: "no-store" });
+    if (r.ok) {
+      const items = (await r.json()) as { id?: string; symbol?: string; mcap?: number; isVerified?: boolean }[];
+      const exact = (items ?? []).filter((t) => (t.symbol ?? "").toUpperCase() === key && t.id && t.isVerified !== false);
+      exact.sort((a, b) => (b.mcap ?? 0) - (a.mcap ?? 0));
+      mint = exact[0]?.id ?? null;
+    }
+  } catch { /* 레지스트리 불가 → 민트 미확정(해당 토큰 솔라나 피드 없음 — 거짓 매핑보다 낫다) */ }
+  _jupMintCache.set(key, { at: Date.now(), mint });
+  return mint;
+}
+
 async function morphoGql(query: string): Promise<{ data: unknown; errored: boolean }> {
   try {
     const r = await fetch("https://blue-api.morpho.org/graphql", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query }), cache: "no-store" });
@@ -260,6 +282,17 @@ export async function buildFlowGraph(opts: BuildOpts = {}): Promise<FlowGraph> {
     addrByTC.set(k, b);
     if (!canonByTC.has(k)) canonByTC.set(k, new Set());
     canonByTC.get(k)!.add(b);
+  }
+  // 솔라나: Jupiter 레지스트리 민트가 풀-유래 주소를 덮어쓴다 (canon 에는 추가만 — 그래프 집계 불변)
+  if (wantChains.has("solana")) {
+    await Promise.all([...wantSet].map(async (tk) => {
+      const mint = await jupiterMint(dispBy.get(tk)!);
+      if (!mint) return;
+      const k = `${tk}|solana`;
+      addrByTC.set(k, mint);
+      if (!canonByTC.has(k)) canonByTC.set(k, new Set());
+      canonByTC.get(k)!.add(mint);
+    }));
   }
 
   // accumulate per protocol (chain|project): total, token contributions, pools

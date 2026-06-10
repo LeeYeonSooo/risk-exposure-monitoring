@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bell, GripVertical, X } from "lucide-react";
 
+import { alertFlowHref } from "@/lib/alert-link";
 import { dragStyle, useDragPosition } from "@/lib/use-drag";
 
 /**
@@ -13,7 +14,7 @@ import { dragStyle, useDragPosition } from "@/lib/use-drag";
  *  · 종 버튼·패널 모두 끌어서 이동 가능 (패널은 헤더를 잡고)
  */
 
-interface AlertItem { id: number | string; created_at: string; snapshot_ts?: string | null; severity: string; kind: string; token: string; message: string }
+interface AlertItem { id: number | string; created_at: string; snapshot_ts?: string | null; severity: string; kind: string; token: string; message: string; protocol_node_id?: string | null; detail?: Record<string, unknown> | null }
 
 const SEV: Record<string, { dot: string; label: string; row: string }> = {
   critical: { dot: "#ef4444", label: "위험", row: "rgba(239,68,68,0.20)" },
@@ -119,7 +120,8 @@ export function AlertDock() {
             return (
               <a
                 key={String(a.id)}
-                href={`/token/${encodeURIComponent(a.token)}`}
+                href={alertFlowHref(a)}
+                title="클릭: 이 알림의 토큰·체인만 선택된 흐름맵으로"
                 style={{ background: s.row }}
                 className="block border-b border-white/40 px-2.5 py-1.5 last:border-b-0 hover:brightness-95"
               >

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search, ArrowRight, Bell } from "lucide-react";
 
 import { AlertDock } from "@/components/AlertDock";
+import { alertFlowHref } from "@/lib/alert-link";
 import { SiteHeader } from "@/components/SiteHeader";
 import { formatUsd } from "@/lib/api";
 
@@ -266,7 +267,8 @@ export default function SearchLanding() {
               const ch = chainOf(a);
               const eventTs = alertEventTime(a);
               return (
-                <button key={a.id} onClick={() => go(a.token)}
+                <button key={a.id} onClick={() => router.push(alertFlowHref(a))}
+                  title="클릭: 이 알림의 토큰·체인만 선택된 흐름맵으로"
                   className="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-[var(--color-surface-raised)]">
                   <span className="mt-1.5 size-2 shrink-0 rounded-full" style={{ backgroundColor: col, boxShadow: `0 0 6px ${col}99` }} />
                   <div className="min-w-0 flex-1">
