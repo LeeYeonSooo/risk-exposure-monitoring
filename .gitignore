@@ -34,3 +34,7 @@ automation/dep-engine/feeder/cache/
 
 # 런타임 로그/프로세스 (start.sh)
 .run/
+
+# 다크 스파이럴 그래프 추출물(참고용)
+dark-spiral-graph/
+dark-spiral-graph.zip

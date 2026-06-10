@@ -223,24 +223,45 @@ export interface BuildOpts {
   tokens?: string[]; chains?: string[]; topPct?: number; maxProtocolsPerToken?: number; maxMarketsPerProtocol?: number;
 }
 
-/** Top tokens by aggregated single-exposure pool TVL (live, for the search picker). */
+/** Top tokens by market cap (live, for the search picker). 후보 = DeFiLlama 단일-노출 풀 심볼
+ *  (DeFi 관련 토큰 universe) + 각 토큰의 이더리움 주소. 순위/표시 = 시가총액(coins/mcaps).
+ *  tvlUsd 필드는 호출부 호환을 위해 유지하되 값은 mcap(없으면 풀 TVL 폴백)을 담는다. */
 export async function topTokensByTvl(limit = 150): Promise<{ symbol: string; tvlUsd: number }[]> {
   let pools: LlamaPool[] = [];
   try { pools = await fetchLlamaPools(); } catch { return []; }
-  const bySym = new Map<string, number>();
+  const poolUsd = new Map<string, number>();
   const display = new Map<string, string>();
+  const addr = new Map<string, string>(); // SYM → ethereum 주소(시총 조회 키)
   for (const p of pools) {
     if (p.exposure !== "single") continue;
     const parts = symbolParts(p.symbol);
     if (parts.length !== 1) continue;
     const sym = parts[0];
     if (sym.length < 2 || sym.length > 12 || /^\d+$/.test(sym)) continue;
-    inc(bySym, sym, usd(p.tvlUsd));
+    inc(poolUsd, sym, usd(p.tvlUsd));
     if (!display.has(sym)) display.set(sym, (p.symbol ?? sym).split(/[-/\s+.]/)[0]);
+    // 이더리움 단일-노출 풀의 underlyingTokens[0] = 그 토큰 주소 (BUILTIN 우선).
+    const b = BUILTIN_ADDR.ethereum[sym];
+    if (b) addr.set(sym, b);
+    else if (!addr.has(sym) && CHAIN_MAP[p.chain ?? ""] === "ethereum" && p.underlyingTokens?.length === 1 && /^0x[0-9a-fA-F]{40}$/.test(p.underlyingTokens[0] ?? "")) {
+      addr.set(sym, p.underlyingTokens[0]!.toLowerCase());
+    }
   }
-  return [...bySym.entries()]
-    .map(([sym, tvlUsd]) => ({ symbol: display.get(sym) ?? sym, tvlUsd }))
-    .filter((x) => x.tvlUsd > 1_000_000)
+  // 풀 TVL 상위 후보만 시총 조회(배치 비용 제한) — 어차피 큰 토큰이 시총도 큼.
+  const cands = [...poolUsd.entries()].filter(([, v]) => v > 1_000_000).sort((a, b) => b[1] - a[1]).slice(0, 250);
+  const coins = cands.map(([s]) => addr.get(s)).filter((a): a is string => !!a).map((a) => `ethereum:${a}`);
+  let mcaps = new Map<string, number>();
+  if (coins.length) {
+    try {
+      const r = await fetch("https://coins.llama.fi/mcaps", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ coins }), cache: "no-store" });
+      if (r.ok) {
+        const j = (await r.json()) as Record<string, { mcap?: number }>;
+        for (const [s] of cands) { const a = addr.get(s); const m = a ? j[`ethereum:${a}`]?.mcap : undefined; if (typeof m === "number" && m > 0) mcaps.set(s, m); }
+      }
+    } catch { /* 시총 실패 → 풀 TVL 폴백 */ }
+  }
+  return cands
+    .map(([sym, tvl]) => ({ symbol: display.get(sym) ?? sym, tvlUsd: mcaps.get(sym) ?? tvl }))
     .sort((a, b) => b.tvlUsd - a.tvlUsd)
     .slice(0, limit);
 }

@@ -19,6 +19,7 @@ interface TokenExposure {
   usd: number;
   dbUsd: number;
   breadthUsd: number;
+  mcapUsd: number | null;
   source: "defillama-live" | "db-snapshot" | "none" | string;
   snapshotTs: string | null;
 }
@@ -73,6 +74,7 @@ export default function SearchLanding() {
   const router = useRouter();
   const [tokens, setTokens] = useState<string[]>([]);
   const [exposure, setExposure] = useState<Record<string, number>>({});
+  const [mcap, setMcap] = useState<Record<string, number>>({});
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [wallets, setWallets] = useState<Wallet[]>([]);
@@ -88,10 +90,13 @@ export default function SearchLanding() {
     }).catch(() => {});
     fetch("/api/token-exposures", { cache: "no-store" }).then((r) => r.json()).then((d) => {
       const exp: Record<string, number> = {};
+      const mc: Record<string, number> = {};
       for (const [sym, item] of Object.entries((d.exposures ?? {}) as Record<string, TokenExposure>)) {
         exp[sym] = item.usd ?? 0;
+        if (item.mcapUsd != null) mc[sym] = item.mcapUsd;
       }
       setExposure(exp);
+      setMcap(mc);
     }).catch(() => {});
     fetch("/api/alerts?limit=300", { cache: "no-store" }).then((r) => r.json()).then((d) => {
       setAlerts((d.alerts ?? []) as Alert[]);
@@ -100,12 +105,14 @@ export default function SearchLanding() {
     fetch("/api/wallets", { cache: "no-store" }).then((r) => r.json()).then((d) => setWallets((d.wallets ?? []) as Wallet[])).catch(() => {});
   }, []);
 
+  // 순위 = 시가총액(큐레이터가 기대하는 "큰 토큰" 순서). mcap 없는 토큰은 익스포저로 폴백.
+  const rankVal = (t: string) => mcap[t] ?? exposure[t] ?? 0;
   const ranked = useMemo(() => {
     const s = q.trim().toLowerCase();
     const list = (s ? tokens.filter((t) => t.toLowerCase().includes(s)) : tokens).slice();
-    list.sort((a, b) => (exposure[b] ?? 0) - (exposure[a] ?? 0));
+    list.sort((a, b) => rankVal(b) - rankVal(a));
     return list.slice(0, 80);
-  }, [q, tokens, exposure]);
+  }, [q, tokens, exposure, mcap]);
 
   // 알림에 등장하는 체인들(추정) — 칩 구성
   const chainChips = useMemo(() => {
@@ -161,7 +168,7 @@ export default function SearchLanding() {
             </div>
           </div>
           <div className="flex items-center justify-between px-5 pb-1.5 text-[10px] font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-            <span>{q.trim() ? "검색 결과" : "토큰 순위 · TVL 커버리지"}</span>
+            <span>{q.trim() ? "검색 결과" : "토큰 순위 · 시가총액"}</span>
             <span className="normal-case">{tokens.length}개 추적</span>
           </div>
           <div className="min-h-0 max-h-[58vh] flex-1 overflow-y-auto lg:max-h-none">
@@ -178,7 +185,11 @@ export default function SearchLanding() {
                   <span className="w-5 shrink-0 text-right font-mono text-[11px] text-[var(--color-text-muted)]">{i + 1}</span>
                   <button onClick={() => go(t)} className="flex flex-1 items-center gap-2 text-left">
                     <span className="flex-1 truncate text-[13px] font-medium text-[var(--color-text-primary)]">{t}</span>
-                    {exposure[t] ? <span className="font-mono text-[11px] text-[var(--color-text-secondary)]">{formatUsd(exposure[t])}</span> : null}
+                    {mcap[t] ? (
+                      <span className="font-mono text-[11px] text-[var(--color-text-secondary)]" title="시가총액 (DeFiLlama)">{formatUsd(mcap[t])}</span>
+                    ) : exposure[t] ? (
+                      <span className="font-mono text-[11px] text-[var(--color-text-muted)]" title="익스포저 (시총 미상)">{formatUsd(exposure[t])}</span>
+                    ) : null}
                     <ArrowRight size={13} className="shrink-0 text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100" />
                   </button>
                 </div>

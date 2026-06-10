@@ -58,6 +58,8 @@ interface TokenExposure {
   usd: number;
   dbUsd: number;
   breadthUsd: number;
+  /** 시가총액(DeFiLlama coins/mcaps) — 토큰 순위/표시 기준. 익스포저(usd)와 별개. */
+  mcapUsd: number | null;
   source: "defillama-live" | "db-snapshot" | "none";
   snapshotTs: string | null;
 }
@@ -106,6 +108,43 @@ async function fetchLlamaPools(): Promise<Pool[]> {
   if (!res.ok) throw new Error(`DeFiLlama pools HTTP ${res.status}`);
   const json = (await res.json()) as { data?: Pool[] };
   return json.data ?? [];
+}
+
+/** 토큰별 이더리움 주소 (nodes) — 시가총액 조회 키. 반환 맵은 호출부의 원본 심볼 케이스로 키잉
+ *  (stETH·weETH 등 mixed-case 가 대문자 키와 안 맞아 시총이 누락되던 버그 방지). */
+async function tokenAddresses(p: pg.Pool, symbols: string[]): Promise<Map<string, string>> {
+  if (!symbols.length) return new Map();
+  const r = await p.query<{ symbol: string; address: string }>(
+    `SELECT DISTINCT ON (upper(label)) upper(label) AS symbol, lower(address) AS address
+     FROM nodes
+     WHERE type = 'Token' AND chain = 'ethereum' AND address ~* '^0x[0-9a-f]{40}$' AND upper(label) = ANY($1)
+     ORDER BY upper(label), updated_at DESC`,
+    [symbols.map((s) => s.toUpperCase())],
+  );
+  const byUpper = new Map(r.rows.map((row) => [row.symbol, row.address] as const)); // 키 = 대문자
+  const out = new Map<string, string>();
+  for (const s of symbols) { const a = byUpper.get(s.toUpperCase()); if (a) out.set(s, a); } // 원본 케이스로 복원
+  return out;
+}
+
+/** DeFiLlama coins/mcaps — 토큰 시가총액(circulating). 주소 단위 배치 POST. 실패 시 빈 맵. */
+async function fetchMcaps(addrBySymbol: Map<string, string>): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  const coins = [...addrBySymbol.values()].map((a) => `ethereum:${a}`);
+  if (!coins.length) return out;
+  try {
+    const r = await fetch("https://coins.llama.fi/mcaps", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ coins }), next: { revalidate: LLAMA_REVALIDATE_SECONDS },
+    });
+    if (!r.ok) return out;
+    const j = (await r.json()) as Record<string, { mcap?: number }>;
+    for (const [sym, addr] of addrBySymbol) {
+      const m = j[`ethereum:${addr}`]?.mcap;
+      if (typeof m === "number" && m > 0) out.set(sym, m);
+    }
+  } catch { /* mcap 없이 진행 */ }
+  return out;
 }
 
 function computeBreadthTotals(tokens: string[], pools: Pool[]): Map<string, number> {
@@ -194,6 +233,9 @@ export async function GET() {
       breadthError = (e as Error).message;
     }
 
+    // 시가총액 — 토큰 순위/표시 기준 (익스포저는 별도 필드로 보존).
+    const mcaps = await fetchMcaps(await tokenAddresses(p, symbols)).catch(() => new Map<string, number>());
+
     for (const symbol of symbols) {
       const dbItem = db.get(symbol);
       const dbUsd = dbItem?.dbUsd ?? 0;
@@ -204,6 +246,7 @@ export async function GET() {
         usd,
         dbUsd,
         breadthUsd,
+        mcapUsd: mcaps.get(symbol) ?? null,
         source: usd > 0 ? (useBreadth ? "defillama-live" : "db-snapshot") : "none",
         snapshotTs: dbItem?.snapshotTs ?? null,
       };
@@ -214,7 +257,7 @@ export async function GET() {
       generatedAt: new Date().toISOString(),
       dbConnected: true,
       breadthError,
-      method: "max(latest DB snapshot exposure, live DeFiLlama breadth)",
+      method: "rank by market cap (DeFiLlama coins/mcaps); exposure = max(DB snapshot, live breadth)",
     });
   } catch (e) {
     return NextResponse.json(
