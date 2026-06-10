@@ -48,8 +48,11 @@ export async function GET(
         [nodeId],
       ),
       p.query(
-        `SELECT kind, collateral_symbol, loan_symbol, looped_usd, lltv, confidence, source, protocol_node_id, detail
-         FROM loop_findings WHERE token_node_id=$1 ORDER BY looped_usd DESC NULLS LAST`,
+        // 체인 스코프 행(token:SYM@base …) 포함 — reflexivity 가 비-메인넷 Morpho 체인도 적재함.
+        `SELECT kind, collateral_symbol, loan_symbol, looped_usd, lltv, confidence, source, protocol_node_id, detail, token_node_id
+         FROM loop_findings
+         WHERE token_node_id = $1 OR token_node_id LIKE $1 || '@%'
+         ORDER BY looped_usd DESC NULLS LAST`,
         [nodeId],
       ),
       p.query(

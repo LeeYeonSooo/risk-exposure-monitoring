@@ -34,20 +34,39 @@ const POOL_CHAINS_ABI: Abi = [{ type: "function", name: "getSupportedChains", st
 const DEPOSITOR_ROLE = keccak256(toHex("DEPOSITOR_ROLE"));
 
 // CCTP 는 토큰 인터페이스로 감지 불가 → 알려진 USDC 레지스트리(TokenMessenger 공통 진입점).
+// 전 항목 온체인 검증(2026-06-10): usdc.symbol()=="USDC" + messenger getCode 존재. unichain 은
+// messenger 주소 미검증이라 제외(확인 시 추가).
 const CCTP_USDC: Record<number, { usdc: string; messenger: string }> = {
   1: { usdc: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", messenger: "0xbd3fa81b58ba92a82136038b25adec7066af3155" },
+  8453: { usdc: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", messenger: "0x1682ae6375c4e4a97e4b583bc394c861a46d8962" },
+  42161: { usdc: "0xaf88d065e77c8cc2239327c5edb3a432268e5831", messenger: "0x19330d10d9cc8751218eaf51e8885d058642e08a" },
+  10: { usdc: "0x0b2c639c533813f4aa9d7837caf62653d097ff85", messenger: "0x2b4069517957735be00cee0fadae88a26365528f" },
+  137: { usdc: "0x3c499c542cef5e3811e1192ce70d8cc03d5c3359", messenger: "0x9daf8c91aefae50b9c0e69629d3f6ca40ca3b3fe" },
+  43114: { usdc: "0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e", messenger: "0x6b25532e1060ce10cc3b0a99e5683b91bfde6982" },
 };
 
-// CCIP chain selector(Chainlink) → 체인명. 주요 메인넷만(모르면 selector:N 으로 표기).
+// CCIP chain selector(Chainlink) → 체인명 — 공식 레지스트리(smartcontractkit/chain-selectors)에서
+// 추출(2026-06-10), 공용 EVM_CHAINS 18체인 전부. (모르는 selector 는 "selector:N" 으로 표기.)
+// ⚠️ 구 gnosis 항목(46520056007378…)은 공식값(46520017068774…)과 달랐음 — 교정.
 const CCIP_SELECTOR_CHAIN: Record<string, string> = {
   "5009297550715157269": "ethereum",
-  "4949039107694359620": "arbitrum",
   "15971525489660198786": "base",
+  "4949039107694359620": "arbitrum",
   "3734403246176062136": "optimism",
   "4051577828743386545": "polygon",
-  "6433500567565415381": "avalanche",
   "11344663589394136015": "bsc",
-  "465200560073787000": "gnosis",
+  "6433500567565415381": "avalanche",
+  "465200170687744372": "gnosis",
+  "13204309965629103672": "scroll",
+  "4627098889531055414": "linea",
+  "1556008542357238666": "mantle",
+  "8805746078405598895": "metis",
+  "1923510103922296319": "unichain",
+  "2049429975587534727": "worldchain",
+  "1562403441176082196": "zksync",
+  "1673871237479749969": "sonic",
+  "1346049177634351622": "celo",
+  "12505351618335765396": "soneium",
 };
 
 /** 여러 후보 함수명 중 처음으로 0 아닌 주소를 반환(소문자). 전부 revert/0 이면 null. */

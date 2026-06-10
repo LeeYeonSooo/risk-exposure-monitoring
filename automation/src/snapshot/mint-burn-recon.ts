@@ -1,3 +1,4 @@
+import { avgBlockSecOf } from "@/config/chains";
 import { archiveClientFor, getLogsWindowed, publicClientFor, type RawLog, TRANSFER_TOPIC0, ZERO_TOPIC } from "@/lib/public-rpc";
 
 /**
@@ -12,11 +13,7 @@ import { archiveClientFor, getLogsWindowed, publicClientFor, type RawLog, TRANSF
  * 상태(미정합 mint/burn)는 DB ledger 에 누적(크로스런). 로그는 publicnode(Alchemy 무료티어 getLogs 불가).
  */
 
-// 체인별 평균 블록시간(초) — 이벤트 시각 근사용.
-const AVG_BLOCK_SEC: Record<string, number> = {
-  ethereum: 12, base: 2, arbitrum: 0.26, optimism: 2, polygon: 2.1, bsc: 3,
-  avalanche: 2, gnosis: 5, linea: 3, scroll: 3, mantle: 2,
-};
+// 체인별 평균 블록시간 — config/chains.ts EVM_CHAINS(공용 레지스트리)에서. avgBlockSecOf 폴백 12s.
 const MAX_SCAN_BLOCKS = 50_000n; // 첫 실행/오래된 커서 시 스캔 깊이 상한(무료 RPC 보호 · 최근 흐름 집중)
 
 /**
@@ -54,7 +51,7 @@ export async function fetchNewTransfers(
   if (start > latest) return { latest, mints: [], burns: [] };
 
   const nowSec = Math.floor(Date.now() / 1000);
-  const avg = AVG_BLOCK_SEC[chain] ?? 12;
+  const avg = avgBlockSecOf(chain);
   const decode = (logs: RawLog[]): TransferEvent[] =>
     logs.map((l) => {
       const block = Number(BigInt(l.blockNumber));

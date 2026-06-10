@@ -336,6 +336,26 @@ ARCHIVE_RPC_URL=            (선택, 유료 archive — deep getLogs full-histor
 
 > 비자명한 선택을 한 줄씩 누적. 최신이 위로. (구 DECISIONS.md 통합 — 변경의 "왜".)
 
+### 2026-06-10 (밤) — 알림 독·비-EVM 흐름맵·발견 점선 구분
+
+- **알림 토스트 → 쌓이는 독**: 3초 토스트(이력 소실)를 벨 버튼+우측 패널로 교체(AlertToasts 동일 export). /api/alerts 5초 폴링, 심각도 필터 칩(위험/주의/정보 카운트), 미확인 배지, critical 펄스. 브라우저 검증: 80건 누적·필터 동작·plasma euler-v2/solana drift 알림 표시.
+- **비-EVM 흐름맵**: flow-core CHAIN_MAP + 체인 선택지에 Solana·Sui·Tron·Aptos·Starknet 추가 — 그래프(토큰·프로토콜·마켓·브릿지노드)는 DeFiLlama 라이브로 EVM 과 동일 구성(검증: USDC 솔라나 10프로토콜·40마켓, 수이 9·31, 트론 3). **라이브 입자는 Alchemy getAssetTransfers 가 EVM 전용이라 비-EVM 미지원** — 선택 시 헤더 배지·범례로 정직 표기(`LIVE_TX_CHAINS` = transactions API ALCHEMY_NET 거울).
+- **발견 점선 구분(스크린샷 피드백)**: 위험(알림) 색이 sibling/관계 점선까지 빨갛게 물들여 추적 점선과 혼동 → 위험색은 흐름 실선(holds/market/vault)에만. 추적(발견)은 퓨샤(#c026d3) 굵은 점선 + 중앙 ◆N 마커 + 방향 crawl 로 유일하게. 발견 현황: fluid↔uniswap-v3 USDC $490K ×1,123(경유 접힘) — WBTC·WETH 조합은 0건(메이저 흐름은 전부 기존 엣지 위 = 정직).
+
+- **방향 전환(사용자 피드백)**: 상세그래프 탭의 행위자 클러스터(이름모를 주소 노드)는 "정리 안 됨" — 폐기. hello 브랜치의 `/flow` 흐름맵(자체 페이지)을 그대로 채택: d3-force 라이브 시뮬 + ReactFlow, **실시간 트랜잭션 입자 애니메이션**(5분 윈도우·1분 지연, Alchemy getAssetTransfers — 입자가 실제 엣지 기하를 hop 단위로 탐), 카운터파티는 온체인 레지스트리(Uniswap CREATE2·Curve MetaRegistry·aToken·Comet·Morpho 싱글톤·Aerodrome)로만 해석(추측·날조 없음, 미해석=패널 전용). 채택 파일: app/flow + components/flow/* + lib/flow-* + api/flow·transactions·token-universe + 홈/토큰 페이지·헤더. DetailGraph·RiskHistoryPanel·/multi·정적 reflexivity.json 삭제(hello 와 동일).
+- **우리 기능 결합 ①오라클 ◉**: `/api/flow` 가 DB `edges.attrs.topMarkets[].oracle`(온체인 introspection)을 마켓 라벨 매칭으로 오라클 엣지에 부착 — ─o─ 원이 NAV/ORACLE_FREE(자기참조)면 빨강 `!`, 클릭 상세에 제공자/타입/검증(예: WBTC/USDC · EACAggregatorProxy · MARKET ✓).
+- **②브릿지 = 노드**: 토큰↔토큰 브릿지 엣지를 🌉 노드로 승격(토큰A↔[브릿지]↔토큰B). bridge_authorities 검증 메커니즘(CCIP·LZ·락박스…)이 라벨, 미검증 = "브릿지 미확인" 주의색 점선. 라이브 tx 가 이 노드를 경유 → 락/민팅 경로가 눈에 보임.
+- **③Dune 추적 흐름 = trace 엣지(EOA 접기)**: flow_edges(14일 집계)의 행위자를 그래프 노드로 해석(주소→토큰노드 / family·별칭→프로토콜노드: UniswapV3Pool·UniversalRouter→uniswap, 라벨→마켓·볼트) — **미지 중간주소(EOA/MEV봇/라우터)는 1-hop 재귀 접기**(같은 자산 in→out, 금액=병목 min) 후 끝점끼리만 잇고, **이미 정적으로 연결된 쌍은 제외** = "트랜잭션이 발견한 새 의존성"만 로즈 점선(┈┈→, 방향 애니메이션)으로 보강. 잡주소 노드 0. 검증: fluid-lending→uniswap-v3 USDe $490K ×5 (경유 접힘) 등장.
+- **전 토큰 동일 파이프라인**: /flow 는 어떤 토큰이든 동일 과정(DeFiLlama+Morpho 라이브 그래프 → DB enrich → 추적/브릿지/오라클) — 토큰피커(전 토큰 유니버스)·`?tokens=` 딥링크·토큰페이지 "흐름맵에서 보기" 링크. flow_* 데이터는 방문 시 자동 refresh 큐(타 에이전트의 016 잡 테이블) + cron 일간 `--top 6`.
+
+### 2026-06-10 (오후) — 체인 커버리지 검증 + 트랜잭션 플로우 그래프 (kuromi flow_trace → Dune)
+
+- **커버리지 검증(전 DeFi TVL $71B 대비)**: 정밀그래프 69.5% + 비EVM 14.1% = **83.6%**, breadth 포함 ~89%. 미커버 11%의 대부분은 Bitcoin L1($4.1B)·Provenance($1.6B, 기관 폐쇄형) — ERC20 담보 큐레이터 워크플로 구조상 스코프 밖. 큰 공백이던 **Hyperliquid($1.4B)·Plasma($1.8B 렌딩)·Katana** 를 DeFiLlama lendBorrow 어댑터 1줄씩으로 편입(hyperlend·hypurrfi·felix / aave-v3·fluid / morpho — dry 검증 알림 7건). 결론: 충분, 신규 체인은 lendBorrow 1줄 패턴으로 즉시 추가 가능.
+- **트랜잭션 플로우 그래프 — kuromi `feeder/flow_trace.py` 포팅(Dune 단일 SQL)**: kuromi 의 alchemy BFS(depth2)를 Dune 저장쿼리 **7688600**(파라미터: token_address·window_days·max_actors)으로 대체 — ① 토큰 transfer 활동량(degree) 상위 행위자 발굴(=discover_seeds) ② 행위자간 **모든 ERC20** 방향 흐름 집계(담보의 담보) + 민트/번. 실행 ~2크레딧/토큰, USDe 라이브 검증(행위자 60·엣지 1940·Uniswap V4 라우터/MEV봇/sUSDe 정확히 포착).
+- **후처리 = 결정적 코드**(kuromi 원칙): `snapshot/flow-trace.ts` — 병적 자기조달 고리(LENDERS{Morpho·AaveV2/3·Spark}→주입 자산이 닫힌 고리로 복귀할 때만, 순수 스왑고리 제외) DFS·심볼 스푸핑(비ASCII 정제+메이저 사칭)·역할(공급/담보·차입/인출). 라벨링: 우리 nodes → 프로토콜 레지스트리 → EOA판별 → 온체인 symbol → Etherscan V2.
+- **자동화 계약**: `npm run snapshot:flows -- <SYM>` 한 줄 = 새 토큰도 주소해석→Dune→라벨→고리→DB(flow_runs/nodes/edges, 015 마이그레이션, 토큰당 최신 런 REPLACE). cron 24h `--top 6`(~12크레딧/일). **DUNE_API_KEY 미설정 시 안내 후 종료**(현재 미설정 — 키 추가 시 라이브). 개발/테스트는 `--input <dune rows json>`(크레딧 0).
+- **상세그래프 탭 전용 렌더**: `/api/flows/[token]` → DetailGraph 6번째 레이어(행위자 2행 지그재그, 종류색: 프로토콜/토큰/컨트랙트/외부지갑) — 흐름 엣지 = 점선+자산·금액·횟수 라벨, 공급/담보=청록·차입/인출=주황·민트/번=보라·**자기조달 고리=빨강 애니메이션**, 엣지/노드 클릭=우측 상세(샘플 tx·블록범위). 관계맵(동심원)은 이 데이터를 일절 소비하지 않음(요구사항).
+
 ### 2026-06-10 — 전 체인 커버리지 확장 (Alchemy 전수 활용) + 운영 사고 2건 복구
 
 - **사고① 구버전 cron**: 6/9 08:31에 뜬 cron 프로세스가 21:06에 추가된 루프(extraChain·nonevm·reflexivity)를 모름 → polygon/bsc/gnosis/scroll/worldchain/metis 스냅샷 0회. `start.sh` 재기동으로 해결(로그도 `/dev/null`→`.run/cron.log`). 교훈: cron.ts 수정 시 반드시 재기동(자식 스크립트는 spawn이라 핫리로드되지만 루프 셋은 아님).
@@ -345,6 +365,13 @@ ARCHIVE_RPC_URL=            (선택, 유료 archive — deep getLogs full-histor
 - **decimals 버그 수정(중요)**: EVM supply 환산이 "레퍼런스(이더리움) decimals" 가정 → opBNB/Rootstock USDT(18dec)가 $58조로 폭발. llama 메타 없으면 **온체인 `decimals()` 직독** 후 레퍼런스 폴백으로 변경.
 - **Sui/Tron supply 샘플 0 수리**: ① 주소 resolve 2차 패스(underlyingTokens 1개면 exposure 표기 없어도 인정 — 비-EVM 풀 메타 부실 대응) ② 검증된 오버라이드(USDT@tron `TR7NH…` $89.3B·USDT/USDC/USDe@solana·USDC@sui — 전부 해당 체인 RPC로 totalSupply 직독 검증) ③ `snapshot-chain-supply` 토큰 선정을 알파벳순→**규모(엣지 USD 합)순**(USDT/USDC가 톱12에서 잘리던 구멍). 결과: chain_supply_samples 19→**34체인**.
 - **Starknet 렌딩 = Vesu 직접 어댑터**: DeFiLlama lendBorrow에 Starknet 0건(전수 확인) → `vesu-starknet.ts`(api.vesu.xyz 공개 REST, 86 reserve·$29M, isDeprecated 풀 스킵, LTV는 페어 단위라 util-only). nonevm 러너 11어댑터: Solana 4 · Sui 3 · Starknet 1(Vesu) · Tron/Aptos/Starknet(DeFiLlama lendBorrow).
+- **git 히스토리 스쿼시**: 기존 커밋 전부 정리 → 단일 기준 커밋(`main`, 941파일). `.run/` gitignore 추가, `.env` 류 미추적 확인. 리모트(GitHub)에는 옛 히스토리 잔존 — 푸시 시 force 필요. **이후 커밋은 사용자 명시 요청 시에만**(정책).
+- **디텍터 체인 리스트 단일화(P10)**: `config/chains.ts EVM_CHAINS`(18체인: chainId·alchemy슬러그·publicRpc·avgBlockSec) 신설 — public-rpc(로그스캔)·bridge-authority·backing·mintburn·bridgeauth 러너·alchemy(getTokenBalances/getOutgoingTransfers)가 전부 이걸 소비. backing 7→18체인(목록 밖 체인 = watch 전체 skip 이던 정확도 구멍 해소). `evmRpcUrl()` = env > Alchemy > 공개.
+- **큐레이터 확장(P11)**: Morpho vaults 3→8체인(+optimism·polygon·unichain·worldchain·**katana** — GraphQL 라이브 프로브로 fraxtal/ink/gnosis/avax 미지원 확인). Euler Goldsky 3→17 엔드포인트(실볼트: sonic·avalanche·bsc·unichain·swell·linea·plasma — 슬러그 전수 프로브, avax/polygon 404). 첫 런 198 할당(katana 20·worldchain 7). **Kamino 볼트 큐레이터는 공개 REST 부재**(kvaults/v2/vaults 404, strategies 는 LP 전략) → klend SDK 온체인 직독 필요, 백로그.
+- **CCIP·CCTP 멀티체인(P12)**: CCIP selector 8→18(공식 chain-selectors 레지스트리에서 추출 — **구 gnosis 값이 틀려있었음**, 교정). CCTP USDC/TokenMessenger 6체인(eth·base·arb·op·polygon·avax — 전부 usdc.symbol()+messenger getCode 온체인 검증; unichain 은 messenger 미검증이라 제외).
+- **reflexivity·지갑 멀티체인(P13)**: morpho-api·computeReflexivity 에 chainId 파라미터(Etherscan V2 는 이미 chainid 지원 확인) → 러너가 메인넷 watchlist + 비메인넷 Morpho 6체인(체인당 상위 25·≥$5M, 비용가드) 계산, loop_findings 는 체인 스코프 id(token:SYM@base). dossier 는 `LIKE $1||'@%'` 로 체인 행 포함. 지갑추적: getAllTokenBalances 체인 파라미터화 → 5체인(eth·base·arb·op·polygon) 온체인-매핑 합산.
+- **비-EVM 그래프 1급 시민(P14)**: nonevm 러너가 알림과 함께 nodes/edges upsert — `token:SYM@{solana|sui|tron|aptos|starknet}` + `protocol:{slug}@{chain}`, edge_type=loan_asset, lendingRisk(가중 LTV/이용률)+topMarkets. 노드 슬러그를 DeFiLlama project 와 정렬(kamino-lend·save·navi-lending·scallop-lend — 라이브 확인) → 동심원 정밀-우선 dedup 이 breadth 점선과 중복 제거. 첫 런 165 엣지(solana 50토큰·sui 36·tron 19·starknet 12·aptos 11). topology/USDC 가 15체인 노드 반환 검증.
+- **Detector B 모델 게이트(체인 확장이 드러낸 구조적 FP)**: 18체인 확장 후 USDC 8,164건·wstETH 미정합 mint 발화 — Circle 네이티브 발행(burn 없는 mint 가 정상)과 lock&mint(A 권위, 모듈 헤더의 설계 의도)는 B 의 burn&mint 가정 밖. `NATIVE_ISSUANCE_SKIP`(USDC·USDT·PYUSD·EURC·WETH·cbBTC — 체인별 독립 발행/wrap) + `BACKING_WATCHES` 토큰 자동 skip(A 핸드오프). 결과: B 는 burn&mint 메시 클래스(WBTC·ezETH·weETH·wrsETH·USR·syrupUSDC·wsrUSD·LBTC)만 — USR 40건·LBTC 6건 미정합은 정직한 검토 신호로 유지.
 
 ### 2026-06-09 — 백엔드 보완 4종 (게이트 문서화 · dead config · Detector A 활성 · reflexivity 라이브)
 

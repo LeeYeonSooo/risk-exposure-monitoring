@@ -1,6 +1,6 @@
 import { createPublicClient, http, type PublicClient } from "viem";
 
-import { env } from "@/config/chains";
+import { env, EVM_CHAINS } from "@/config/chains";
 
 /**
  * 공개 RPC(publicnode) 로그 스캔 전용 클라이언트.
@@ -14,19 +14,10 @@ import { env } from "@/config/chains";
  * 가 한 콜로 fromBlock:0 전체 과거를 훑는다. 미설정이면 기본 zero-cost(publicnode bounded) 유지.
  */
 
-export const PUBLIC_RPC: Record<string, string> = {
-  ethereum: "https://ethereum-rpc.publicnode.com",
-  base: "https://base-rpc.publicnode.com",
-  arbitrum: "https://arbitrum-one-rpc.publicnode.com",
-  optimism: "https://optimism-rpc.publicnode.com",
-  polygon: "https://polygon-bor-rpc.publicnode.com",
-  bsc: "https://bsc-rpc.publicnode.com",
-  gnosis: "https://gnosis-rpc.publicnode.com",
-  linea: "https://linea-rpc.publicnode.com",
-  scroll: "https://scroll-rpc.publicnode.com",
-  mantle: "https://mantle-rpc.publicnode.com",
-  avalanche: "https://avalanche-c-chain-rpc.publicnode.com",
-};
+// 공용 체인 레지스트리(config/chains.ts EVM_CHAINS)에서 파생 — 디텍터 간 체인 리스트 단일화.
+export const PUBLIC_RPC: Record<string, string> = Object.fromEntries(
+  Object.entries(EVM_CHAINS).map(([k, v]) => [k, v.publicRpc]),
+);
 
 const _clients = new Map<string, PublicClient>();
 export function publicClientFor(chain: string): PublicClient | null {

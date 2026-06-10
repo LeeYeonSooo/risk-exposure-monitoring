@@ -34,50 +34,65 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const shortAddr = (w: string) => `${w.slice(0, 6)}…${w.slice(-4)}`;
 
 // ── 온체인 "매핑 지갑" 가치 — 우리가 추적하는 토큰들에 대한 지갑 노출(USD). DeBank 차단 시에도 신뢰성 있게 동작.
-// 우리 토큰 주소(이더리움) ∩ 지갑 ERC20 잔액 → DeFiLlama coins(price+decimals) 로 USD 합산.
-let _priceDec: Map<string, { price: number; decimals: number }> | null = null;
+// 우리 토큰 주소(체인별 노드) ∩ 지갑 ERC20 잔액(Alchemy getTokenBalances, 체인별 1콜) → llama coins 로 USD 합산.
+// 체인 스코프: 큐레이터/고래가 실제로 앉는 주요 5체인(llama coins 슬러그 안정 + 노드 데이터 존재).
+const WALLET_CHAINS = ["ethereum", "base", "arbitrum", "optimism", "polygon"];
+let _priceDec: Map<string, { price: number; decimals: number }> | null = null; // 키: `${chain}:${addr}`
+let _addrsByChain: Map<string, string[]> | null = null;
 
-async function ourEthTokenAddrs(): Promise<string[]> {
-  const r = await query<{ addr: string }>(
-    `SELECT DISTINCT lower(address) AS addr FROM nodes
-     WHERE type IN ('Token','TokenProtocol') AND chain='ethereum' AND address ~* '^0x[0-9a-f]{40}$'`,
+async function ourTokenAddrsByChain(): Promise<Map<string, string[]>> {
+  const r = await query<{ chain: string; addr: string }>(
+    `SELECT DISTINCT chain, lower(address) AS addr FROM nodes
+     WHERE type IN ('Token','TokenProtocol') AND chain = ANY($1) AND address ~* '^0x[0-9a-f]{40}$'`,
+    [WALLET_CHAINS],
   );
-  return r.rows.map((x) => x.addr);
+  const m = new Map<string, string[]>();
+  for (const row of r.rows) {
+    if (!m.has(row.chain)) m.set(row.chain, []);
+    m.get(row.chain)!.push(row.addr);
+  }
+  return m;
 }
 
-async function loadPriceDecimals(addrs: string[]): Promise<Map<string, { price: number; decimals: number }>> {
+async function loadPriceDecimals(addrsByChain: Map<string, string[]>): Promise<Map<string, { price: number; decimals: number }>> {
   const out = new Map<string, { price: number; decimals: number }>();
-  for (let i = 0; i < addrs.length; i += 80) {
-    const batch = addrs.slice(i, i + 80);
-    const keys = batch.map((a) => `ethereum:${a}`).join(",");
-    try {
-      const d = (await fetch(`https://coins.llama.fi/prices/current/${keys}`).then((r) => r.json())) as
-        { coins?: Record<string, { price?: number; decimals?: number }> };
-      for (const [k, v] of Object.entries(d.coins ?? {})) {
-        const addr = k.split(":")[1]?.toLowerCase();
-        if (addr && v.price != null && v.decimals != null) out.set(addr, { price: v.price, decimals: v.decimals });
-      }
-    } catch { /* batch skip */ }
+  for (const [chain, addrs] of addrsByChain) {
+    for (let i = 0; i < addrs.length; i += 80) {
+      const keys = addrs.slice(i, i + 80).map((a) => `${chain}:${a}`).join(",");
+      try {
+        const d = (await fetch(`https://coins.llama.fi/prices/current/${keys}`).then((r) => r.json())) as
+          { coins?: Record<string, { price?: number; decimals?: number }> };
+        for (const [k, v] of Object.entries(d.coins ?? {})) {
+          if (v.price != null && v.decimals != null) out.set(k.toLowerCase(), { price: v.price, decimals: v.decimals });
+        }
+      } catch { /* batch skip */ }
+    }
   }
   return out;
 }
 
 async function onchainMappedUsd(wallet: string): Promise<{ usd: number; tokens: { symbol: string; usdValue: number; chain: string }[] }> {
-  if (!_priceDec) _priceDec = await loadPriceDecimals(await ourEthTokenAddrs());
+  if (!_priceDec || !_addrsByChain) {
+    _addrsByChain = await ourTokenAddrsByChain();
+    _priceDec = await loadPriceDecimals(_addrsByChain);
+  }
   let usd = 0;
   const tokens: { symbol: string; usdValue: number; chain: string }[] = [];
-  try {
-    const bals = await getAllTokenBalances(wallet as Address);
-    for (const [addr, raw] of bals) {
-      const pd = _priceDec.get(addr);
-      if (!pd || pd.price <= 0) continue;
-      // BigInt 스케일로 정밀도 보존(1e6 단위) 후 USD 환산
-      const amt = Number((raw * 1_000_000n) / 10n ** BigInt(pd.decimals)) / 1_000_000;
-      const v = amt * pd.price;
-      if (v > 1) { usd += v; tokens.push({ symbol: addr.slice(0, 8), usdValue: Math.round(v), chain: "ethereum" }); }
+  for (const chain of WALLET_CHAINS) {
+    if (!(_addrsByChain.get(chain)?.length)) continue; // 그 체인 노드 없음 → 매핑 대상 없음
+    try {
+      const bals = await getAllTokenBalances(wallet as Address, chain);
+      for (const [addr, raw] of bals) {
+        const pd = _priceDec.get(`${chain}:${addr}`);
+        if (!pd || pd.price <= 0) continue;
+        // BigInt 스케일로 정밀도 보존(1e6 단위) 후 USD 환산
+        const amt = Number((raw * 1_000_000n) / 10n ** BigInt(pd.decimals)) / 1_000_000;
+        const v = amt * pd.price;
+        if (v > 1) { usd += v; tokens.push({ symbol: addr.slice(0, 8), usdValue: Math.round(v), chain }); }
+      }
+    } catch (e) {
+      console.warn(`[wallets] onchain 가치 실패 ${shortAddr(wallet)}@${chain}:`, (e as Error).message);
     }
-  } catch (e) {
-    console.warn(`[wallets] onchain 가치 실패 ${shortAddr(wallet)}:`, (e as Error).message);
   }
   return { usd, tokens: tokens.sort((a, b) => b.usdValue - a.usdValue).slice(0, 25) };
 }

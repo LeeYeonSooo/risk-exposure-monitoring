@@ -12,25 +12,17 @@ import process from "node:process";
 import { type Abi, type Address, createPublicClient, getAddress, http, type PublicClient } from "viem";
 
 import { RECOMMENDED_THRESHOLDS } from "@/config/alert-thresholds";
-import { env } from "@/config/chains";
+import { env, evmRpcUrl } from "@/config/chains";
 import { closePool, query } from "@/db/client";
 import { insertAlert } from "@/db/upsert";
 import { BACKING_WATCHES, evaluateBacking, readBacking, readTotalSupply, type BackingWatch } from "@/snapshot/supply-backing";
 
-const ALCHEMY = env.ALCHEMY_API_KEY;
-const RPC: Record<string, string> = {
-  ethereum: ALCHEMY ? `https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY}` : "https://ethereum-rpc.publicnode.com",
-  base: ALCHEMY ? `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY}` : "https://base-rpc.publicnode.com",
-  arbitrum: ALCHEMY ? `https://arb-mainnet.g.alchemy.com/v2/${ALCHEMY}` : "https://arbitrum-one-rpc.publicnode.com",
-  optimism: "https://optimism-rpc.publicnode.com",
-  polygon: "https://polygon-bor-rpc.publicnode.com",
-  bsc: "https://bsc-rpc.publicnode.com",
-  avalanche: "https://avalanche-c-chain-rpc.publicnode.com",
-};
-
+// RPC 는 공용 레지스트리(config/chains.ts EVM_CHAINS, 18체인) — Alchemy(키) 우선, 공개 RPC 폴백.
+// ⚠️ backing 은 원격 체인 RPC 가 하나라도 없으면 watch 전체를 skip(Σ정합성 보호)하므로
+//    커버 체인 확장이 곧 정확도 — 리스트는 반드시 공용 레지스트리와 함께 늘린다.
 const _clients = new Map<string, PublicClient>();
 function clientFor(chain: string): PublicClient | null {
-  const url = RPC[chain];
+  const url = evmRpcUrl(chain);
   if (!url) return null;
   if (_clients.has(chain)) return _clients.get(chain)!;
   const c = createPublicClient({ transport: http(url, { retryCount: 2, retryDelay: 500, timeout: 25_000 }) }) as PublicClient;

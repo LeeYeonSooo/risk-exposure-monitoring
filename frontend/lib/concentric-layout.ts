@@ -60,7 +60,7 @@ function poolLabel(sym: string): string {
   return s; // 자르지 않고 전체 표시(… 절단 금지)
 }
 
-interface VaultLike { curator?: string | null; vault?: string | null; allocationUsd?: number | null; depositAsset?: string | null; market: string }
+interface VaultLike { curator?: string | null; vault?: string | null; vaultAddress?: string | null; allocationUsd?: number | null; depositAsset?: string | null; market: string }
 interface MEntry { label: string; sizeUsd: number; ouroboros: boolean; payload: Record<string, unknown>; edgeType: string; category: string; vaults: VaultLike[] }
 
 interface ChainPlan {
@@ -252,12 +252,13 @@ export function applyConcentricLayout(opts: {
     // 링0: 토큰 (체인별 중심) — 주소로 토큰 로고
     const chainTokenId = [...tokenIds].find((id) => (dbNodes.get(id)?.metadata.chain as string) === chain) ?? [...tokenIds][0] ?? `token:${symbol}`;
     const baseTok = dbNodes.get(chainTokenId);
+    const tokAddr = tokenAddrByChain[chain] ?? baseTok?.metadata.tokenAddr ?? baseTok?.metadata.address ?? null;
     // 토큰 지름 = 링 반경(R1)에 비례 → 원이 클수록(프로토콜 멀수록) 중심 토큰도 커져 가독성↑.
     // top-left 기준이라 -지름/2 로 옮겨 링 중심(cx,cy)에 정확히 센터링.
     const tokDia = Math.round(Math.min(560, Math.max(120, R1 * 0.5)));
     nodes.push({
       id: `c:${chain}:token`, type: "Token", label: symbol,
-      metadata: { ...(baseTok?.metadata ?? {}), symbol, chain, sizeUsd: totalUsd, category: chain, tokenAddr: tokenAddrByChain[chain] ?? null, diameterPx: tokDia, distributionPct: totalUsd / grandTotalUsd, distributionScope: "전체 분포" },
+      metadata: { ...(baseTok?.metadata ?? {}), symbol, chain, address: tokAddr, sizeUsd: totalUsd, category: chain, tokenAddr: tokAddr, diameterPx: tokDia, distributionPct: totalUsd / grandTotalUsd, distributionScope: "전체 분포" },
       active: true, position: { x: cx - tokDia / 2, y: cy - tokDia / 2 },
     } as GraphNode);
 
@@ -278,7 +279,7 @@ export function applyConcentricLayout(opts: {
       const pid = `c:${chain}:${p.otherId}`;
       nodes.push({
         id: pid, type: (protoNode?.type ?? "DefiProtocol") as GraphNode["type"], label: p.otherLabel,
-        metadata: { ...(protoNode?.metadata ?? {}), sizeUsd: pExp, chain, venue: protoNode?.metadata.venue, symbol: protoNode?.metadata.symbol, brandSlug: canonProto(p.otherId), diameterPx: protoShareDiameterPx(pExp, maxProtoExp), distributionPct: pExp / grandTotalUsd, distributionScope: "전체 분포" },
+        metadata: { ...(protoNode?.metadata ?? {}), address: protoNode?.metadata.address ?? protoNode?.metadata.coreContract ?? null, sizeUsd: pExp, chain, venue: protoNode?.metadata.venue, symbol: protoNode?.metadata.symbol, brandSlug: canonProto(p.otherId), diameterPx: protoShareDiameterPx(pExp, maxProtoExp), distributionPct: pExp / grandTotalUsd, distributionScope: "전체 분포" },
         active: true, position: { x: cx + Math.cos(angP) * rP, y: cy + Math.sin(angP) * rP },
       } as GraphNode);
       edges.push({ id: `e:${chainTokenId}:${pid}`, source: `c:${chain}:token`, target: pid, type: p.edge.type, weight: pExp, attrs: p.edge.attrs });
@@ -314,7 +315,7 @@ export function applyConcentricLayout(opts: {
               oracle: m.oracle ?? null, oracleAddress: m.oracleAddress ?? null },
             vaults: (m.fundingVaults ?? []).filter((v) => v.curator || v.vaultName)
               .sort((a, b) => (b.allocationUsd ?? 0) - (a.allocationUsd ?? 0)).slice(0, CAP_VAULT)
-              .map((v) => ({ curator: v.curator, vault: v.vaultName, allocationUsd: v.allocationUsd, depositAsset: v.depositAsset, market: lbl })),
+              .map((v) => ({ curator: v.curator, vault: v.vaultName, vaultAddress: v.vaultAddress, allocationUsd: v.allocationUsd, depositAsset: v.depositAsset, market: lbl })),
           };
         });
       } else {
@@ -375,7 +376,7 @@ export function applyConcentricLayout(opts: {
           const vid = `${mid}:v${k}`;
           nodes.push({
             id: vid, type: "DefiProtocol", label: v.curator || v.vault || "vault",
-            metadata: { category: "Vault · 큐레이터", sizeUsd: v.allocationUsd ?? 0, chain, _vault: { curator: v.curator, vault: v.vault, allocationUsd: v.allocationUsd, depositAsset: v.depositAsset, market: v.market } },
+            metadata: { category: "Vault · 큐레이터", sizeUsd: v.allocationUsd ?? 0, chain, address: v.vaultAddress ?? null, _vault: { curator: v.curator, vault: v.vault, vaultAddress: v.vaultAddress, allocationUsd: v.allocationUsd, depositAsset: v.depositAsset, market: v.market } },
             active: true, position: { x: cx + Math.cos(angV) * vr, y: cy + Math.sin(angV) * vr },
           } as GraphNode);
           edges.push({ id: `e:${mid}:${vid}`, source: mid, target: vid, type: "deposit_supply", weight: v.allocationUsd ?? 0 } as GraphEdge);

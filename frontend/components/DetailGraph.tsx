@@ -91,11 +91,13 @@ const asNum = (v: unknown): number | null => (v == null ? null : Number.isFinite
 const pctText = (v: number) => (!(v > 0) ? "—" : v * 100 < 0.01 ? "<0.01%" : v * 100 < 10 ? `${(v * 100).toFixed(2)}%` : `${(v * 100).toFixed(1)}%`);
 const pctOf = (v: number | null) => (v == null ? "—" : `${(v * 100).toFixed(0)}%`);
 const shortAddr = (a: string | null | undefined) => (a && /^0x[0-9a-fA-F]{6,}/.test(a) ? `${a.slice(0, 6)}…${a.slice(-4)}` : null);
+const normAddr = (v: unknown) => (typeof v === "string" && /^0x[0-9a-fA-F]{40}$/.test(v) ? v.toLowerCase() : null);
+const familyKey = (v: unknown) => (typeof v === "string" && v.trim() ? v.toLowerCase().replace(/^dl:/, "").replace(/[_\s]+/g, "-") : null);
 
 // ── 파싱 모델 ──────────────────────────────────────────────────
 interface OracleInfo { type?: string | null; provider?: string | null; address?: string | null; depegSensitive?: boolean; description?: string | null; verified?: boolean }
-interface DMarket { id: string; label: string; usd: number; pct: number; lltv: number | null; util: number | null; ouroboros: boolean; aggLtv: number | null; category: string; oracle: OracleInfo | null; payload: Record<string, unknown> }
-interface DProto { id: string; label: string; usd: number; pct: number; category: string; chain: string; markets: DMarket[]; oracle?: OracleInfo }
+interface DMarket { id: string; label: string; usd: number; pct: number; lltv: number | null; util: number | null; ouroboros: boolean; aggLtv: number | null; category: string; oracle: OracleInfo | null; payload: Record<string, unknown>; addr?: string | null }
+interface DProto { id: string; label: string; usd: number; pct: number; category: string; chain: string; markets: DMarket[]; oracle?: OracleInfo; addr?: string | null; family?: string | null }
 interface DCurator { id: string; label: string; usd: number; marketIds: string[] }
 interface AuthEntry { authType: string; mintLimit?: number | null; note?: string | null }
 interface DBridge { chain: string; auths: Array<{ name: string; tag: string; mech: string }>; mintLimit: number | null }
@@ -106,7 +108,12 @@ function parse(topo: TopologyResponse) {
     if (!n.id.startsWith("c:")) continue;
     if (n.type === "Token" || n.type === "Bridge" || n.type === "IslandHandle") continue;
     if (n.metadata._market || n.metadata._vault) continue;
-    protos.set(n.id, { id: n.id, label: n.label, usd: num(n.metadata.sizeUsd), pct: num(n.metadata.distributionPct), category: String(n.metadata.category ?? ""), chain: String(n.metadata.chain ?? "ethereum"), markets: [] });
+    protos.set(n.id, {
+      id: n.id, label: n.label, usd: num(n.metadata.sizeUsd), pct: num(n.metadata.distributionPct),
+      category: String(n.metadata.category ?? ""), chain: String(n.metadata.chain ?? "ethereum"), markets: [],
+      addr: normAddr(n.metadata.address) ?? normAddr(n.metadata.coreContract),
+      family: familyKey(n.metadata.family) ?? familyKey(n.metadata.brandSlug) ?? familyKey(n.metadata.venue) ?? familyKey(n.id.replace(/^c:[^:]+:protocol:/, "")),
+    });
   }
   for (const n of topo.nodes) {
     if (!n.metadata._market) continue;
@@ -114,7 +121,7 @@ function parse(topo: TopologyResponse) {
     const mOracle: OracleInfo | null =
       (p.oracle && typeof p.oracle === "object" ? (p.oracle as OracleInfo) : null) ??
       (typeof p.oracleAddress === "string" ? { type: null, provider: null, address: p.oracleAddress, depegSensitive: true, verified: false } : null);
-    const m: DMarket = { id: n.id, label: n.label, usd: num(n.metadata.sizeUsd), pct: num(n.metadata.distributionPct), lltv: asNum(p.lltv), util: asNum(p.utilization), ouroboros: !!p.ouroboros, aggLtv: asNum(p.aggLtv), category: String(n.metadata.category ?? ""), oracle: mOracle, payload: { ...p, market: n.label } };
+    const m: DMarket = { id: n.id, label: n.label, usd: num(n.metadata.sizeUsd), pct: num(n.metadata.distributionPct), lltv: asNum(p.lltv), util: asNum(p.utilization), ouroboros: !!p.ouroboros, aggLtv: asNum(p.aggLtv), category: String(n.metadata.category ?? ""), oracle: mOracle, payload: { ...p, market: n.label }, addr: normAddr(n.metadata.address) ?? normAddr(p.address) ?? normAddr(p.marketAddress) ?? normAddr(p.poolAddress) };
     protos.get(n.id.replace(/:m\d+$/, ""))?.markets.push(m);
   }
   for (const e of topo.edges) {
@@ -143,17 +150,38 @@ function spreadX<T extends { x: number }>(items: T[], gap: number): T[] {
   return sorted;
 }
 
+// ── 트랜잭션 플로우 (kuromi flow_trace 포팅, /api/flows — 상세그래프 전용) ──
+export interface FlowNodeE { addr: string; label: string; kind: string; family?: string | null; degree: number | null; isSeed: boolean; inCycle: boolean }
+export interface FlowEdgeE {
+  src: string; dst: string; assetSymbol: string | null; suspicious: boolean;
+  amount: number | null; amountUsd: number | null; cnt: number; role: string | null;
+  inCycle: boolean; isMintBurn: boolean; minBlock: number | null; maxBlock: number | null; sampleTx: string | null;
+}
+export interface FlowResponse {
+  nodes: FlowNodeE[];
+  edges: FlowEdgeE[];
+  meta?: { snapshotTs?: string; windowDays?: number; stats?: Record<string, unknown> } | null;
+  refresh?: { status?: string; stale?: boolean; missing?: boolean; requestedAt?: string; startedAt?: string | null; error?: string | null } | null;
+}
+
+const FLOW_KIND_COLOR: Record<string, string> = { protocol: "#4f46e5", token: "#16a34a", contract: "#475569", EOA: "#737373", mint_burn: "#9333ea", hdr: "#0f172a" };
+const FLOW_KIND_LABEL: Record<string, string> = { protocol: "프로토콜", token: "토큰", contract: "컨트랙트", EOA: "외부지갑", mint_burn: "민트/번" };
+const C_FLOW = "#64748b";
+const C_FLOW_CYCLE = "#dc2626";
+const fmtAmt = (n: number | null) => (n == null ? "—" : n >= 1e9 ? `${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : n.toFixed(0));
+
 // ── 노드/엣지 데이터 ───────────────────────────────────────────
-type Kind = "token" | "chain" | "proto" | "market" | "curator";
+type Kind = "token" | "chain" | "proto" | "market" | "curator" | "flow";
 interface DetailData extends Record<string, unknown> {
   kind: Kind; label: string; usd?: number; pct?: number; sub?: string;
   badge?: string | null; flag?: "loop" | "shared" | null; more?: string | null; chain?: string;
   fraudBadge?: string | null; fraudDanger?: boolean; grade?: string | null;  // kuromi 사기 판정(토큰 노드)
+  flowKind?: string; addr?: string; family?: string | null;  // 플로우 행위자 노드
 }
 type DetailRFNode = Node<DetailData, "detail">;
 
 interface Circle { color: string; glyph: string; title: string; onClick: () => void }
-interface EdgeExtra extends Record<string, unknown> { rel?: Record<string, unknown>; circle?: Circle }
+interface EdgeExtra extends Record<string, unknown> { rel?: Record<string, unknown>; circle?: Circle; flow?: { cycle?: boolean } }
 
 type PopupState =
   | { kind: "oracle"; label: string; oracle: OracleInfo; cls: OracleClass; note: string; kuromi?: string | null }
@@ -165,6 +193,7 @@ export function DetailGraph({
   topology,
   bridgeAuth,
   reflex,
+  flow,
   onSelect,
 }: {
   sym: string;
@@ -172,6 +201,8 @@ export function DetailGraph({
   bridgeAuth?: Record<string, AuthEntry[]>;
   /** kuromi reflexivity 사기 판정 — page 가 dossier.loops(reflexivity-v1)에서 라이브로 내려줌(정적 JSON 대체). */
   reflex?: ReflexEntry | null;
+  /** 트랜잭션 플로우(Dune, kuromi flow_trace) — 상세그래프 탭 전용 레이어. 없으면 그리지 않음. */
+  flow?: FlowResponse | null;
   onSelect?: (payload: Record<string, unknown> | null) => void;
 }) {
   const [popup, setPopup] = useState<PopupState>(null);
@@ -282,12 +313,19 @@ export function DetailGraph({
     const curX = new Map(curPos.map((v) => [v.c.id, v.x] as const));
     const tokenX = chainPos.length ? chainPos.reduce((s, v) => s + v.x, 0) / chainPos.length : 0;
 
+    const tokenAddrs = new Set<string>();
+    for (const n of topology.nodes) {
+      if (n.type !== "Token") continue;
+      const a = normAddr(n.metadata.address) ?? normAddr(n.metadata.tokenAddr);
+      if (a) tokenAddrs.add(a);
+    }
+
     // 토큰 (+ kuromi 사기 판정 뱃지)
     const totalUsd = vizProtos.reduce((s, p) => s + p.usd, 0);
     const fraudBadge = fraud
       ? `사기판정 ${fraud.grade ?? "?"}${fraud.oracle_class ? ` · ${fraud.oracle_class}` : ""}${fraud.looping ? " · ♻ self-deal" : ""}`
       : null;
-    N.push({ id: "detail:token", type: "detail", position: { x: tokenX, y: LAYER_Y.token }, data: { kind: "token", label: sym, usd: totalUsd, sub: `${chains.length}개 체인 · 전체 노출`, fraudBadge, fraudDanger: isHighGrade(fraud?.grade), grade: fraud?.grade ?? null }, draggable: true });
+    N.push({ id: "detail:token", type: "detail", position: { x: tokenX, y: LAYER_Y.token }, data: { kind: "token", label: sym, usd: totalUsd, sub: `${chains.length}개 체인 · 전체 노출`, fraudBadge, fraudDanger: isHighGrade(fraud?.grade), grade: fraud?.grade ?? null, addr: [...tokenAddrs][0] ?? undefined }, draggable: true });
 
     // 체인 노드 + 토큰→체인 엣지(브릿지 ◆)
     for (const { ch, x } of chainPos) {
@@ -302,7 +340,7 @@ export function DetailGraph({
 
     // 프로토콜 + 체인→프로토콜(오라클 ◉)
     for (const { p } of protoPos) {
-      N.push({ id: p.id, type: "detail", position: { x: protoX.get(p.id) ?? 0, y: LAYER_Y.proto }, data: { kind: "proto", label: p.label, usd: p.usd, pct: p.pct, sub: p.category || `마켓 ${p.markets.length}개`, more: protoHiddenMkt.has(p.id) ? `마켓 +${protoHiddenMkt.get(p.id)} 외` : null }, draggable: true });
+      N.push({ id: p.id, type: "detail", position: { x: protoX.get(p.id) ?? 0, y: LAYER_Y.proto }, data: { kind: "proto", label: p.label, usd: p.usd, pct: p.pct, sub: p.category || `마켓 ${p.markets.length}개`, more: protoHiddenMkt.has(p.id) ? `마켓 +${protoHiddenMkt.get(p.id)} 외` : null, addr: p.addr ?? undefined, family: p.family }, draggable: true });
       const o = p.oracle;
       const perMkt = protoHasMktOracle.has(p.id); // 마켓별 오라클이 따로 보임 → 프로토콜 대표 ◉ 숨김
       const showProtoO = o && !perMkt;
@@ -321,7 +359,7 @@ export function DetailGraph({
       const proto = vizProtos.find((p) => p.id === pid);
       const danger = escalateMkt(m);
       const lev = m.aggLtv != null && m.aggLtv > 0 ? `${m.aggLtv.toFixed(1)}x` : m.lltv != null ? `LLTV ${pctOf(m.lltv)}` : null;
-      N.push({ id: m.id, type: "detail", position: { x: marketX.get(m.id) ?? 0, y: LAYER_Y.market }, data: { kind: "market", label: m.label, usd: m.usd, pct: m.pct, sub: `${m.lltv != null ? `LLTV ${pctOf(m.lltv)}` : m.category}${m.util != null ? ` · 가동률 ${pctOf(m.util)}` : ""}`, flag: danger ? "loop" : null, badge: danger ? `⚠ 자기참조 오라클${lev ? ` · ${lev}` : ""}` : null }, draggable: true });
+      N.push({ id: m.id, type: "detail", position: { x: marketX.get(m.id) ?? 0, y: LAYER_Y.market }, data: { kind: "market", label: m.label, usd: m.usd, pct: m.pct, sub: `${m.lltv != null ? `LLTV ${pctOf(m.lltv)}` : m.category}${m.util != null ? ` · 가동률 ${pctOf(m.util)}` : ""}`, flag: danger ? "loop" : null, badge: danger ? `⚠ 자기참조 오라클${lev ? ` · ${lev}` : ""}` : null, addr: m.addr ?? undefined }, draggable: true });
       // 이 마켓의 오라클 — 자체 오라클(Morpho 마켓별 상이) 또는 kuromi 승격 시 합성.
       const mo: OracleInfo | null = hasMktOracle(m)
         ? m.oracle!
@@ -347,13 +385,126 @@ export function DetailGraph({
       }
     }
 
-    return { nodes: N, edges: E, stats: { chainN: chains.length, protoN: vizProtos.length, marketN: vizMarkets.length, curatorN: vizCurators.length, loopCount, sharedCount, hiddenProtoN, hiddenCurN } };
-  }, [topology, sym, bridgeAuth, fraud]);
+    // ── 트랜잭션 플로우 오버레이 (kuromi flow_trace · Dune)
+    // flow 주소를 기존 상세그래프 노드(토큰/프로토콜/마켓)에 먼저 매핑하고, 매핑 안 된
+    // 라우터·EOA·풀 컨트랙트만 가까운 노드 옆 보조 행위자로 둔다. 별도 flow 섬은 만들지 않는다.
+    let flowStats = { actors: 0, edges: 0, cycles: 0, hidden: 0 };
+    if (flow && flow.nodes.length && flow.edges.length) {
+      const MAX_FLOW_ACTORS = 22;
+      const MAX_FLOW_EDGES = 52;
+      const flowNodeByAddr = new Map(flow.nodes.map((n) => [n.addr.toLowerCase(), n] as const));
+      const nodeById = new Map(N.map((n) => [n.id, n] as const));
+      const nodeLabel = (id: string) => nodeById.get(id)?.data.label ?? id;
+
+      const addrToNodeId = new Map<string, string>();
+      const familyToNodeId = new Map<string, string>();
+      for (const a of tokenAddrs) addrToNodeId.set(a, "detail:token");
+      for (const p of vizProtos) {
+        if (p.addr) addrToNodeId.set(p.addr, p.id);
+        if (p.family) familyToNodeId.set(p.family, p.id);
+      }
+      for (const m of vizMarkets) if (m.addr) addrToNodeId.set(m.addr, m.id);
+      for (const n of N) {
+        const a = normAddr(n.data.addr);
+        if (a && !addrToNodeId.has(a)) addrToNodeId.set(a, n.id);
+        const f = familyKey(n.data.family);
+        if (f && !familyToNodeId.has(f)) familyToNodeId.set(f, n.id);
+      }
+
+      const resolveExisting = (addr: string): string | null => {
+        const a = addr.toLowerCase();
+        const exact = addrToNodeId.get(a);
+        if (exact) return exact;
+        const fn = flowNodeByAddr.get(a);
+        if (!fn || fn.kind !== "protocol") return null;
+        const fam = familyKey(fn.family);
+        return fam ? familyToNodeId.get(fam) ?? null : null;
+      };
+
+      const sourceHandle = (id: string) => (id.startsWith("flow:") ? "r" : "b");
+      const targetHandle = (id: string) => (id.startsWith("flow:") ? "l" : id === "detail:token" ? "loop" : "t");
+      const actorSeq = new Map<string, number>();
+      const createdActors = new Set<string>();
+      const ensureActor = (addr: string, anchorId: string | null): string | null => {
+        const a = addr.toLowerCase();
+        const fn = flowNodeByAddr.get(a);
+        if (!fn || createdActors.size >= MAX_FLOW_ACTORS) return null;
+        const id = `flow:${a}`;
+        if (nodeById.has(id)) return id;
+        const anchor = anchorId ? nodeById.get(anchorId) : null;
+        const key = anchorId ?? "free";
+        const idx = actorSeq.get(key) ?? 0;
+        actorSeq.set(key, idx + 1);
+        const baseX = anchor?.position.x ?? tokenX;
+        const baseY = anchor?.position.y ?? (LAYER_Y.curator + 180);
+        const side = idx % 2 === 0 ? -1 : 1;
+        const row = Math.floor(idx / 2);
+        const x = baseX + side * (STEP_X * 0.64 + row * 22);
+        const y = baseY + 115 + row * 74;
+        const kindLb = FLOW_KIND_LABEL[fn.kind] ?? fn.kind;
+        const node: DetailRFNode = { id, type: "detail", position: { x, y }, data: { kind: "flow", flowKind: fn.kind, label: fn.label, addr: a, family: fn.family ?? null, sub: `${kindLb}${fn.degree != null ? ` · 활동 ${fn.degree.toLocaleString()}` : ""}`, flag: fn.inCycle ? "loop" : null, badge: fn.inCycle ? "⟳ 자기조달 고리" : fn.isSeed ? "핵심 행위자" : null }, draggable: true };
+        N.push(node);
+        nodeById.set(id, node);
+        createdActors.add(id);
+        return id;
+      };
+
+      const enriched = flow.edges
+        .map((e, i) => ({ e, i, srcExisting: resolveExisting(e.src), dstExisting: resolveExisting(e.dst) }))
+        .filter((x) => x.srcExisting || x.dstExisting || x.e.inCycle || x.e.role || x.e.suspicious)
+        .sort((a, b) => {
+          const pa = (a.srcExisting ? 2 : 0) + (a.dstExisting ? 2 : 0) + (a.e.inCycle ? 4 : 0) + (a.e.role ? 3 : 0) + (a.e.suspicious ? 1 : 0);
+          const pb = (b.srcExisting ? 2 : 0) + (b.dstExisting ? 2 : 0) + (b.e.inCycle ? 4 : 0) + (b.e.role ? 3 : 0) + (b.e.suspicious ? 1 : 0);
+          return pb - pa || (b.e.amountUsd ?? 0) - (a.e.amountUsd ?? 0) || (b.e.amount ?? 0) - (a.e.amount ?? 0);
+        })
+        .slice(0, MAX_FLOW_EDGES);
+
+      let rendered = 0;
+      const touched = new Set<string>();
+      for (const { e, i, srcExisting, dstExisting } of enriched) {
+        const srcId = srcExisting ?? ensureActor(e.src, dstExisting);
+        const dstId = dstExisting ?? ensureActor(e.dst, srcId);
+        if (!srcId || !dstId || srcId === dstId) continue;
+        touched.add(srcId); touched.add(dstId);
+        const cyc = e.inCycle;
+        const color = cyc ? C_FLOW_CYCLE : e.role === "공급/담보" ? "#0d9488" : e.role === "차입/인출" ? "#ea580c" : e.isMintBurn ? "#9333ea" : C_FLOW;
+        const lbl = `${e.suspicious ? "⚠" : ""}${e.assetSymbol ?? "?"} ${fmtAmt(e.amount)}${e.cnt > 1 ? ` ×${e.cnt}` : ""}`;
+        const srcLabel = flowNodeByAddr.get(e.src.toLowerCase())?.label ?? nodeLabel(srcId);
+        const dstLabel = flowNodeByAddr.get(e.dst.toLowerCase())?.label ?? nodeLabel(dstId);
+        const rel = {
+          _rel: true,
+          title: `흐름: ${srcLabel} → ${dstLabel}`,
+          accent: color,
+          rows: [
+            { k: "자산", v: `${e.assetSymbol ?? "?"}${e.suspicious ? " ⚠ 심볼 의심" : ""}` },
+            { k: "금액", v: `${fmtAmt(e.amount)}${e.amountUsd != null ? ` (${formatUsd(e.amountUsd)})` : ""}` },
+            { k: "전송 횟수", v: `${e.cnt}회` },
+            { k: "그래프 연결", v: `${srcExisting ? nodeLabel(srcId) : "신규 행위자"} → ${dstExisting ? nodeLabel(dstId) : "신규 행위자"}` },
+            ...(e.role ? [{ k: "역할", v: e.role }] : []),
+            ...(e.minBlock != null ? [{ k: "블록 범위", v: `${e.minBlock} ~ ${e.maxBlock ?? "?"}` }] : []),
+            ...(e.sampleTx ? [{ k: "샘플 tx", v: `${e.sampleTx.slice(0, 14)}…` }] : []),
+          ],
+          note: cyc
+            ? "⟳ 병적 자기조달 고리 — 차입으로 주입된 가치가 같은 고리로 복귀(공짜 민팅/레버리지 재순환 패턴)."
+            : "ERC20 Transfer 이벤트 집계 — 가능한 경우 기존 토큰/프로토콜/마켓 노드에 직접 연결.",
+        };
+        E.push({ id: `fe:${i}:${e.src}:${e.dst}:${e.assetSymbol ?? "asset"}`, source: srcId, target: dstId, sourceHandle: sourceHandle(srcId), targetHandle: targetHandle(dstId), type: "txflow", label: lbl, labelStyle: { fontSize: 8.5, fill: color, fontWeight: cyc ? 700 : 500 }, labelBgPadding: [3, 1], labelBgBorderRadius: 3, labelBgStyle: { fill: "#fff", fillOpacity: 0.88 }, data: { rel, flow: { cycle: cyc } } as EdgeExtra, animated: true, style: { stroke: color, strokeWidth: cyc ? 2.3 : 1.25 + Math.min(1.6, Math.sqrt((e.amountUsd ?? 0) / 5e7)), strokeDasharray: cyc ? undefined : "6 4", opacity: cyc ? 1 : 0.72 }, markerEnd: { type: MarkerType.ArrowClosed, color, width: 10, height: 10 }, zIndex: 8 });
+        rendered++;
+      }
+      flowStats = { actors: touched.size, edges: rendered, cycles: flow.nodes.filter((n) => n.inCycle).length, hidden: Math.max(0, flow.edges.length - rendered) };
+    }
+
+    return { nodes: N, edges: E, stats: { chainN: chains.length, protoN: vizProtos.length, marketN: vizMarkets.length, curatorN: vizCurators.length, loopCount, sharedCount, hiddenProtoN, hiddenCurN, flow: flowStats } };
+  }, [topology, sym, bridgeAuth, fraud, flow]);
 
   const onNodeClick = useMemo(
     () => (_: React.MouseEvent, node: DetailRFNode) => {
       if (!onSelect) return;
       setPopup(null);
+      if (node.data.kind === "flow" && node.data.addr) {
+        onSelect({ _rel: true, title: `플로우 행위자 · ${node.data.label}`, accent: FLOW_KIND_COLOR[node.data.flowKind ?? "contract"] ?? C_FLOW, rows: [{ k: "종류", v: FLOW_KIND_LABEL[node.data.flowKind ?? ""] ?? node.data.flowKind ?? "—" }, { k: "주소", v: `${node.data.addr.slice(0, 12)}…${node.data.addr.slice(-6)}` }, ...(node.data.sub ? [{ k: "활동", v: node.data.sub }] : []), ...(node.data.flag === "loop" ? [{ k: "고리", v: "⟳ 자기조달 고리 멤버" }] : [])], note: "ERC20 Transfer 이벤트에서 발굴된 코어 행위자 — 이 토큰 주변에서 가장 활발히 움직인 주소." });
+        return;
+      }
       const topoNode = topology.nodes.find((n) => n.id === node.id);
       if (topoNode?.metadata._market) onSelect({ ...(topoNode.metadata._market as Record<string, unknown>), market: topoNode.label });
       else if (node.data.kind === "token" && fraud) {
@@ -419,6 +570,8 @@ export function DetailGraph({
           <span>큐레이터 <b className="font-mono text-[var(--color-text-primary)]">{stats.curatorN}{stats.hiddenCurN > 0 ? `+${stats.hiddenCurN}` : ""}</b></span>
           {stats.loopCount > 0 && <span style={{ color: C_LOOP }}>⚠ 자기참조 마켓 <b className="font-mono">{stats.loopCount}</b></span>}
           {stats.sharedCount > 0 && <span style={{ color: C_SHARED }}>공유 큐레이터 <b className="font-mono">{stats.sharedCount}</b></span>}
+          {stats.flow.actors > 0 && <span style={{ color: C_FLOW }}>플로우 행위자 <b className="font-mono text-[var(--color-text-primary)]">{stats.flow.actors}</b> · 흐름 <b className="font-mono text-[var(--color-text-primary)]">{stats.flow.edges}</b></span>}
+          {stats.flow.cycles > 0 && <span style={{ color: C_FLOW_CYCLE }}>⟳ 자기조달 고리 <b className="font-mono">{stats.flow.cycles}</b></span>}
         </div>
       </div>
 
@@ -438,6 +591,8 @@ export function DetailGraph({
         </div>
         <Legend color={C_LOOP} label="♻ 자기참조 사기 마켓(kuromi)" />
         <Legend color={C_SHARED} label="공유 큐레이터" />
+        <Legend color={C_FLOW} label="트랜잭션 플로우(이벤트 기반)" dashed />
+        <Legend color={C_FLOW_CYCLE} label="⟳ 자기조달 고리(차입 가치 재순환)" />
         <div className="mt-1 border-t border-[var(--color-border-subtle)] pt-1 text-[var(--color-text-muted)]">엣지/토큰 클릭=우측 상세 · 프로토콜 TVL순 · 체인별 분리</div>
       </div>
 
@@ -514,6 +669,67 @@ function CircleEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, ta
   );
 }
 
+// ── 커스텀 엣지: 트랜잭션 흐름 입자 애니메이션 ────────────────
+function TxFlowEdge({
+  id,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  markerEnd,
+  style,
+  data,
+  label,
+  labelStyle,
+}: EdgeProps) {
+  const [path, lx, ly] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
+  const flow = (data as EdgeExtra | undefined)?.flow;
+  const stroke = typeof style?.stroke === "string" ? style.stroke : C_FLOW;
+  const cycle = !!flow?.cycle;
+  const pathId = `txflow-${id.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+  const dotR = cycle ? 3.4 : 2.5;
+  const dur = cycle ? "1.35s" : "2.35s";
+  const delay = cycle ? "0.48s" : "0.78s";
+
+  return (
+    <>
+      <BaseEdge id={id} path={path} markerEnd={markerEnd} style={style} />
+      <path id={pathId} d={path} fill="none" stroke="none" />
+      <circle r={dotR} fill={stroke} opacity={cycle ? 0.95 : 0.78}>
+        <animateMotion dur={dur} repeatCount="indefinite" rotate="auto">
+          <mpath href={`#${pathId}`} />
+        </animateMotion>
+      </circle>
+      <circle r={Math.max(1.8, dotR - 0.7)} fill={stroke} opacity={cycle ? 0.72 : 0.48}>
+        <animateMotion dur={dur} begin={delay} repeatCount="indefinite" rotate="auto">
+          <mpath href={`#${pathId}`} />
+        </animateMotion>
+      </circle>
+      {label ? (
+        <EdgeLabelRenderer>
+          <div
+            className="nodrag nopan"
+            style={{
+              position: "absolute",
+              transform: `translate(-50%, -50%) translate(${lx}px, ${ly}px)`,
+              pointerEvents: "none",
+              borderRadius: 3,
+              background: "rgba(255,255,255,0.88)",
+              padding: "1px 3px",
+              boxShadow: "0 1px 3px rgba(15,23,42,0.08)",
+              ...(labelStyle ?? {}),
+            }}
+          >
+            {label}
+          </div>
+        </EdgeLabelRenderer>
+      ) : null}
+    </>
+  );
+}
+
 // ── 커스텀 노드 ────────────────────────────────────────────────
 function DetailNodeView({ data, selected }: NodeProps<DetailRFNode>) {
   const { kind, label, usd, pct, sub, badge, flag, more, chain, fraudBadge, fraudDanger } = data;
@@ -547,6 +763,31 @@ function DetailNodeView({ data, selected }: NodeProps<DetailRFNode>) {
     );
   }
 
+  if (kind === "flow") {
+    const fk = data.flowKind ?? "contract";
+    const c = FLOW_KIND_COLOR[fk] ?? C_FLOW;
+    if (fk === "hdr") {
+      return (
+        <div className="rounded-lg border-2 border-dashed px-3 py-2 text-center shadow-sm" style={{ width: 168, borderColor: c, background: "#f8fafc" }}>
+          <Handle id="t" type="target" position={Position.Top} isConnectable={false} style={HANDLE} />
+          <div className="text-[11px] font-extrabold" style={{ color: c }}>{label}</div>
+          {sub && <div className="mt-0.5 text-[9px] text-[var(--color-text-muted)]">{sub}</div>}
+        </div>
+      );
+    }
+    const cyc = flag === "loop";
+    return (
+      <div className={"rounded-lg bg-white px-2.5 py-1.5 shadow-sm " + (selected ? "shadow-md" : "")} style={{ width: 168, border: `${cyc ? 2 : 1.5}px ${data.flowKind === "EOA" ? "dashed" : "solid"} ${cyc ? C_FLOW_CYCLE : c}`, outline: selected ? "2px solid var(--color-accent)" : "none", outlineOffset: 1, opacity: 0.96 }}>
+        <Handle id="t" type="target" position={Position.Top} isConnectable={false} style={HANDLE} />
+        <Handle id="l" type="target" position={Position.Left} isConnectable={false} style={HANDLE} />
+        <Handle id="r" type="source" position={Position.Right} isConnectable={false} style={HANDLE} />
+        <div className="truncate text-[11px] font-semibold" style={{ color: cyc ? C_FLOW_CYCLE : "var(--color-text-primary)" }} title={label}>{label}</div>
+        {sub && <div className="mt-0.5 truncate text-[8.5px] text-[var(--color-text-muted)]">{sub}</div>}
+        {badge && <div className="mt-1 inline-flex rounded px-1 py-0.5 text-[8px] font-bold" style={{ color: cyc ? "#fff" : c, background: cyc ? C_FLOW_CYCLE : `color-mix(in srgb, ${c} 12%, white)` }}>{badge}</div>}
+      </div>
+    );
+  }
+
   const accent = flag === "loop" ? C_LOOP : flag === "shared" ? C_SHARED : "var(--color-border-subtle)";
   return (
     <div className={"rounded-xl bg-white px-3 py-2 shadow-sm " + (selected ? "shadow-md" : "")} style={{ width: 198, border: `${flag ? 2 : 1}px solid ${accent}`, outline: selected ? "2px solid var(--color-accent)" : "none", outlineOffset: 1 }}>
@@ -571,4 +812,4 @@ function DetailNodeView({ data, selected }: NodeProps<DetailRFNode>) {
 
 const HANDLE = { width: 1, height: 1, minWidth: 1, minHeight: 1, background: "transparent", border: "none" } as const;
 const NODE_TYPES = { detail: DetailNodeView };
-const EDGE_TYPES = { circle: CircleEdge };
+const EDGE_TYPES = { circle: CircleEdge, txflow: TxFlowEdge };

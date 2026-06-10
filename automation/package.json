@@ -15,6 +15,7 @@
     "snapshot:valuedrift": "tsx scripts/snapshot-value-drift.ts",
     "snapshot:reflexivity": "tsx scripts/snapshot-reflexivity.ts",
     "snapshot:nonevm": "tsx scripts/snapshot-nonevm-lending.ts",
+    "snapshot:flows": "tsx scripts/snapshot-flows.ts",
     "snapshot:wallets": "tsx scripts/snapshot-wallets.ts",
     "discover:wallets": "tsx scripts/discover-curator-wallets.ts",
     "snapshot:curators": "tsx scripts/snapshot-curators.ts",

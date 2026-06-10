@@ -126,11 +126,11 @@ const VAULTS_BY_COLLATERAL_EXPOSURE = gql`
 // Public API
 // ─────────────────────────────────────────────────────────────
 
-/** Markets where this token is collateral (WBTC posted as collateral). */
-export async function fetchMarketsByCollateral(token: string): Promise<MorphoMarket[]> {
+/** Markets where this token is collateral (WBTC posted as collateral). chainId 로 멀티체인(기본 메인넷). */
+export async function fetchMarketsByCollateral(token: string, chainId = 1): Promise<MorphoMarket[]> {
   const data = await client().request<{ markets: { items: MorphoMarket[] } }>(
     MARKETS_BY_COLLATERAL,
-    { chainId: 1, collateral: token.toLowerCase() },
+    { chainId, collateral: token.toLowerCase() },
   );
   return data.markets.items;
 }
@@ -187,10 +187,10 @@ const MARKET_POSITIONS = gql`
 `;
 
 /** 한 마켓의 포지션(차입자) — borrowShares 내림차순. 집중도/self-deal 산출용. 실패 시 []. */
-export async function fetchMarketPositions(marketKey: string): Promise<MarketPosition[]> {
+export async function fetchMarketPositions(marketKey: string, chainId = 1): Promise<MarketPosition[]> {
   const data = await client().request<{ marketPositions: { items: MarketPosition[] } }>(
     MARKET_POSITIONS,
-    { chainId: 1, market: marketKey },
+    { chainId, market: marketKey },
   );
   return data.marketPositions?.items ?? [];
 }

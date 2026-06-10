@@ -6,11 +6,12 @@
  */
 import process from "node:process";
 
+import { EVM_CHAIN_KEYS } from "@/config/chains";
 import { readBridgeAuthority } from "@/lib/bridge-authority";
 import { closePool, query } from "@/db/client";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
-const PROBE_CHAINS = ["ethereum", "base", "arbitrum", "optimism", "polygon", "bsc", "gnosis", "linea", "scroll", "mantle", "avalanche"];
+const PROBE_CHAINS = EVM_CHAIN_KEYS; // 공용 레지스트리(18체인) — 디텍터 간 리스트 단일화
 const MAX_TOKENS = Number(process.env.BRIDGEAUTH_MAX ?? 10);
 
 async function symbols(): Promise<string[]> {

@@ -55,7 +55,8 @@ function sev(type: OracleType, provider: string | null): number {
 
 const MAX_MARKETS_INTROSPECT = 8;
 
-export async function computeReflexivity(symbol: string, tokenAddr: string): Promise<ReflexivityFinding> {
+/** chainId — Morpho 가 있는 체인이면 어디든(기본 메인넷). introspect/Etherscan V2 도 chainId 라우팅. */
+export async function computeReflexivity(symbol: string, tokenAddr: string, chainId = 1): Promise<ReflexivityFinding> {
   const base: ReflexivityFinding = {
     symbol, grade: "ok", oracleClass: "none", oracleType: "NONE", oracleProvider: null, oracleAddress: null,
     worstMarketKey: null, nMarkets: 0, looping: false, soleBorrower: false, concentration: null, nBorrowers: 0,
@@ -63,7 +64,7 @@ export async function computeReflexivity(symbol: string, tokenAddr: string): Pro
   };
 
   let markets: MorphoMarket[] = [];
-  try { markets = await fetchMarketsByCollateral(tokenAddr); } catch { return base; }
+  try { markets = await fetchMarketsByCollateral(tokenAddr, chainId); } catch { return base; }
   markets = markets.filter((m) => m.oracleAddress && (m.state.supplyAssetsUsd ?? 0) > 0);
   if (!markets.length) return base;
   base.nMarkets = markets.length;
@@ -73,7 +74,7 @@ export async function computeReflexivity(symbol: string, tokenAddr: string): Pro
   let worst: { market: MorphoMarket; oracle: OracleIntrospection; s: number } | null = null;
   for (const m of top) {
     if (!m.oracleAddress) continue;
-    const o = await introspectOracle(m.oracleAddress as `0x${string}`, 1, symbol, tokenAddr).catch(() => null);
+    const o = await introspectOracle(m.oracleAddress as `0x${string}`, chainId, symbol, tokenAddr).catch(() => null);
     if (!o) continue;
     const s = sev(o.type, o.provider);
     if (!worst || s > worst.s) worst = { market: m, oracle: o, s };
@@ -92,7 +93,7 @@ export async function computeReflexivity(symbol: string, tokenAddr: string): Pro
 
   // 차입자 집중도/self-deal — 옵션(실패해도 grade 는 오라클 기준).
   try {
-    const pos = await fetchMarketPositions(worst.market.uniqueKey);
+    const pos = await fetchMarketPositions(worst.market.uniqueKey, chainId);
     const borrowers = pos
       .map((p) => ({ addr: p.user.address.toLowerCase(), b: p.state.borrowAssetsUsd ?? 0, s: p.state.supplyAssetsUsd ?? 0 }))
       .filter((x) => x.b > 0);

@@ -1,6 +1,6 @@
 import type { Address } from "viem";
 
-import { env } from "@/config/chains";
+import { env, EVM_CHAINS } from "@/config/chains";
 
 /**
  * Alchemy enhanced APIs:
@@ -56,12 +56,14 @@ interface AlchemyBalancesResp {
 }
 
 /**
- * Get all ERC20 balances for a wallet in one Alchemy call.
+ * Get all ERC20 balances for a wallet in one Alchemy call. chain = 공용 레지스트리(EVM_CHAINS) 키.
  * Returns map: tokenAddress (lower) → raw balance.
  */
-export async function getAllTokenBalances(wallet: Address): Promise<Map<string, bigint>> {
+export async function getAllTokenBalances(wallet: Address, chain = "ethereum"): Promise<Map<string, bigint>> {
   if (!env.ALCHEMY_API_KEY) throw new Error("ALCHEMY_API_KEY not set");
-  const url = `https://eth-mainnet.g.alchemy.com/v2/${env.ALCHEMY_API_KEY}`;
+  const slug = EVM_CHAINS[chain]?.alchemy;
+  if (!slug) throw new Error(`Alchemy 미지원/미등록 체인: ${chain}`);
+  const url = `https://${slug}.g.alchemy.com/v2/${env.ALCHEMY_API_KEY}`;
   const balances = new Map<string, bigint>();
 
   // erc20 모드 — 모든 ERC20 잔액 (한 페이지에 100개 기본)
@@ -100,20 +102,16 @@ export async function getAllTokenBalances(wallet: Address): Promise<Map<string, 
 // alchemy_getAssetTransfers — 지갑의 최근 아웃고잉 전송 (P2-7 브릿지 in-flight 가드용)
 // ─────────────────────────────────────────────────────────────
 
-const ALCHEMY_NET: Record<string, string> = {
-  ethereum: "eth-mainnet", base: "base-mainnet", arbitrum: "arb-mainnet",
-  optimism: "opt-mainnet", polygon: "polygon-mainnet",
-};
-
 export interface OutTransfer { to: string; value: number; asset: string; tsSec: number; }
 
 /**
  * 지갑(fromAddress)의 최근 아웃고잉 전송 — external(네이티브)+erc20. desc 정렬, sinceUnixSec 이후만.
  * Alchemy enhanced API(getLogs 아님)라 무료티어 OK. 키 없거나 미지원 체인이면 빈 배열.
+ * 체인 슬러그는 공용 레지스트리(EVM_CHAINS) — 5체인 사본이던 것을 18체인으로 통일.
  */
 export async function getOutgoingTransfers(wallet: string, chain: string, sinceUnixSec = 0, maxCount = 25): Promise<OutTransfer[]> {
   if (!env.ALCHEMY_API_KEY) return [];
-  const net = ALCHEMY_NET[chain];
+  const net = EVM_CHAINS[chain]?.alchemy;
   if (!net) return [];
   const url = `https://${net}.g.alchemy.com/v2/${env.ALCHEMY_API_KEY}`;
   try {

@@ -112,10 +112,16 @@ async function fetchMorphoMarkets(addrs: string[], revalidateS: number): Promise
 }
 
 // ── Euler Earn 큐레이터 볼트 (비-Morpho 큐레이터) — 공용 Goldsky 서브그래프 (무키, 멀티체인) ──
+// 슬러그 전수 프로브(2026-06-10): 실볼트 sonic·avalanche·bsc·unichain·swell·linea·plasma(+기존 3),
+// 빈 응답(미래 대비 포함) berachain·bob·gnosis·optimism·ink·hyperevm·worldchain. avax·polygon 슬러그는 404.
+const eulerSub = (slug: string) => `https://api.goldsky.com/api/public/project_cm4iagnemt1wp01xn4gh1agft/subgraphs/euler-v2-${slug}/latest/gn`;
 const EULER_ENDPOINTS: Record<string, string> = {
-  ethereum: "https://api.goldsky.com/api/public/project_cm4iagnemt1wp01xn4gh1agft/subgraphs/euler-v2-mainnet/latest/gn",
-  base: "https://api.goldsky.com/api/public/project_cm4iagnemt1wp01xn4gh1agft/subgraphs/euler-v2-base/latest/gn",
-  arbitrum: "https://api.goldsky.com/api/public/project_cm4iagnemt1wp01xn4gh1agft/subgraphs/euler-v2-arbitrum/latest/gn",
+  ethereum: eulerSub("mainnet"), base: eulerSub("base"), arbitrum: eulerSub("arbitrum"),
+  sonic: eulerSub("sonic"), avalanche: eulerSub("avalanche"), bsc: eulerSub("bsc"),
+  berachain: eulerSub("berachain"), unichain: eulerSub("unichain"), swell: eulerSub("swell"),
+  bob: eulerSub("bob"), gnosis: eulerSub("gnosis"), optimism: eulerSub("optimism"),
+  linea: eulerSub("linea"), ink: eulerSub("ink"), hyperliquid: eulerSub("hyperevm"),
+  plasma: eulerSub("plasma"), wc: eulerSub("worldchain"),
 };
 
 // DeFiLlama coins API — 토큰 가격+소수점 (Euler totalAssets 토큰단위 → USD 환산용)

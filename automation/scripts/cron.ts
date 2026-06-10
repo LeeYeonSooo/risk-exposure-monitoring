@@ -185,6 +185,18 @@ async function nonevmLendingLoop() {
   }
 }
 
+// 트랜잭션 플로우(Dune, kuromi flow_trace 포팅) — 24시간마다 상위 토큰의 코어 행위자/흐름 엣지 갱신.
+// Dune 크레딧 사용(토큰당 ~2): 일 1회 × 6토큰. DUNE_API_KEY 미설정이면 스크립트가 안내 후 종료(무해).
+async function flowsLoop() {
+  const ts = new Date().toISOString();
+  console.log(`\n══════ ${ts} — transaction flows (Dune) ══════`);
+  try {
+    await runScript("snapshot-flows.ts", ["--top", "6"]);
+  } catch (e) {
+    console.error("[cron] flows failed:", (e as Error).message);
+  }
+}
+
 async function main() {
   const channels = activeChannels();
   console.log("[cron] starting — 20min staggered per-chain snapshots + daily discovery");
@@ -209,6 +221,8 @@ async function main() {
   setInterval(reflexivityLoop, ONE_HOUR_MS); // 1시간마다 reflexivity 재계산 (loop_findings → 프론트 Tier0/상세그래프 라이브)
   await nonevmLendingLoop(); // 즉시 1회 — 비-EVM 렌딩(Solana/Sui 6프로토콜) baseline
   setInterval(nonevmLendingLoop, ONE_HOUR_MS); // 1시간마다 비-EVM reserve 이용률/LTV 알림
+  void flowsLoop(); // 즉시 1회 시도 — DUNE_API_KEY 없으면 안내만(상세그래프 플로우 레이어 데이터)
+  setInterval(flowsLoop, ONE_DAY_MS); // 24시간마다 상위 토큰 플로우 갱신 (Dune 크레딧 보호)
 }
 
 main().catch((e) => {

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, ArrowRight, Bell } from "lucide-react";
 
+import { AlertToasts } from "@/components/AlertToasts";
 import { SiteHeader } from "@/components/SiteHeader";
 import { formatUsd } from "@/lib/api";
 
@@ -133,6 +134,7 @@ export default function SearchLanding() {
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--color-bg)] lg:h-screen">
+      <AlertToasts />
       <SiteHeader />
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         {/* ── 좌: 검색 + 토큰 순위 (체크=관심) ── */}
@@ -182,24 +184,13 @@ export default function SearchLanding() {
               );
             })}
           </div>
-          {watch.size > 0 && (
-            <div className="flex items-center gap-2 border-t border-[var(--color-border-subtle)] px-5 py-2.5">
-              <span className="text-[11px] text-[var(--color-text-secondary)]">선택 {watch.size}개</span>
-              <button onClick={() => router.push(`/multi?tokens=${encodeURIComponent([...watch].join(","))}`)}
-                className="rounded-md bg-[var(--color-accent)] px-2.5 py-1 text-[11px] font-medium text-white hover:opacity-90">비교 뷰로 →</button>
-              <button onClick={() => setWatch(new Set())} className="ml-auto text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]">해제</button>
-            </div>
-          )}
         </aside>
 
         {/* ── 우: 모니터링 (실시간 알림) ── */}
         <main className="flex min-h-[48vh] min-w-0 flex-1 flex-col bg-[var(--color-bg)] lg:min-h-0">
           <div className="flex flex-wrap items-center gap-3 px-5 pb-3 pt-5 lg:px-6 lg:pt-6">
             <Bell size={17} className="text-[var(--color-accent)]" />
-            <span className="text-lg font-bold text-[var(--color-text-primary)]">모니터링 · 실시간 알림</span>
-            <span className="text-[11px] text-[var(--color-text-muted)]">
-              {watch.size ? `선택 ${watch.size}개 토큰` : "전체 토큰"} · diff 엔진 적재
-            </span>
+            <span className="text-lg font-bold text-[var(--color-text-primary)]">실시간 모니터링 알림</span>
             <div className="flex items-center gap-1.5 lg:ml-auto">
               {(["critical", "warning", "info"] as const).map((s) => (
                 <span key={s} className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium" style={{ borderColor: `${SEV_COLOR[s]}66`, color: SEV_COLOR[s], backgroundColor: `${SEV_COLOR[s]}14` }}>

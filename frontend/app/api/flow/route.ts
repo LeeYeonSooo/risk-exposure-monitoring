@@ -1,0 +1,307 @@
+import { NextResponse } from "next/server";
+import pg from "pg";
+
+import { buildFlowGraph } from "@/lib/flow-core";
+import type { RiskLevel } from "@/lib/flow-types";
+
+/**
+ * GET /api/flow?tokens=stETH,wstETH,…&chains=ethereum,arbitrum&topPct=0.9
+ *
+ * Builds the live relationship+flow graph (DeFiLlama + Morpho + RPC) for the
+ * requested tokens × chains, then overlays recent DB alerts as node risk.
+ * All inputs optional → defaults to the home view (top-5 ETH tokens incl stETH).
+ */
+export const dynamic = "force-dynamic";
+
+const DATABASE_URL = process.env.DATABASE_URL;
+let _pool: pg.Pool | null = null;
+function pool(): pg.Pool | null {
+  if (!DATABASE_URL) return null;
+  if (_pool) return _pool;
+  _pool = new pg.Pool({ connectionString: DATABASE_URL, max: 3 });
+  return _pool;
+}
+
+function parseList(v: string | null): string[] | undefined {
+  if (!v) return undefined;
+  return v.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+const SEV_RISK: Record<string, RiskLevel> = { critical: "danger", warning: "caution", info: "safe" };
+
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const tokens = parseList(url.searchParams.get("tokens"));
+  const chains = parseList(url.searchParams.get("chains"));
+  const topPct = url.searchParams.get("topPct") ? Number(url.searchParams.get("topPct")) : undefined;
+  const maxProto = url.searchParams.get("maxProto") ? Number(url.searchParams.get("maxProto")) : undefined;
+  const maxMkt = url.searchParams.get("maxMkt") ? Number(url.searchParams.get("maxMkt")) : undefined;
+
+  let graph;
+  try {
+    graph = await buildFlowGraph({ tokens, chains, topPct, maxProtocolsPerToken: maxProto, maxMarketsPerProtocol: maxMkt });
+  } catch (e) {
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+  }
+
+  // overlay recent alerts (last 48h) → risk on token/protocol nodes
+  const p = pool();
+  if (p) {
+    try {
+      const r = await p.query<{ token: string; protocol_node_id: string | null; severity: string }>(
+        `SELECT DISTINCT ON (token, coalesce(protocol_node_id,'')) token, protocol_node_id, severity
+         FROM alerts WHERE created_at > now() - interval '48 hours'
+         ORDER BY token, coalesce(protocol_node_id,''), created_at DESC`,
+      );
+      const rank: Record<RiskLevel, number> = { safe: 0, caution: 1, danger: 2 };
+      const bump = (id: string, risk: RiskLevel) => {
+        const n = graph.nodes.find((x) => x.id === id);
+        if (n && rank[risk] > rank[n.risk ?? "safe"]) n.risk = risk;
+      };
+      for (const a of r.rows) {
+        const risk = SEV_RISK[a.severity] ?? "safe";
+        if (risk === "safe") continue;
+        const sym = a.token.toUpperCase();
+        for (const n of graph.nodes) if (n.kind === "token" && n.token.toUpperCase() === sym) bump(n.id, risk);
+        if (a.protocol_node_id) {
+          // EXACT slug match only — substring 매칭은 "aave" 알림이 aave-v2/v3 전부에 위험 표시를
+          // 칠하는 식의 잘못된 리스크 귀속을 만든다 (위험 배지는 검증된 매핑에만).
+          const slug = a.protocol_node_id.replace(/^protocol:/, "").replace(/^dl:/, "").split("@")[0].replace(/_/g, "-");
+          const slugFlat = slug.replace(/-/g, "");
+          for (const n of graph.nodes) {
+            if (n.kind === "protocol" && n.protocol && (n.protocol === slug || n.protocol.replace(/-/g, "") === slugFlat)) bump(n.id, risk);
+          }
+        }
+      }
+    } catch {
+      /* alerts overlay is best-effort */
+    }
+
+    // ── enrich with DB real data: bridge mechanism, ouroboros loops, curator vaults ──
+    const tokenIdByTC = new Map(graph.nodes.filter((n) => n.kind === "token").map((n) => [`${n.token.toUpperCase()}|${n.chain}`, n.id] as const));
+    const tokenSyms = new Set(graph.nodes.filter((n) => n.kind === "token").map((n) => n.token.toUpperCase()));
+
+    // 1) bridge_authorities (snapshot-bridge-authority) → real lock_mint/burn_mint/xERC20/OFT/CCIP mechanism
+    try {
+      const ba = await p.query<{ token: string; chain: string; auth_type: string; note: string | null }>(
+        `SELECT DISTINCT ON (upper(token), chain) token, chain, auth_type, note FROM bridge_authorities ORDER BY upper(token), chain, auth_type`,
+      );
+      const byTC = new Map(ba.rows.map((r) => [`${r.token.toUpperCase()}|${r.chain}`, r] as const));
+      for (const e of graph.edges) {
+        if (e.kind !== "bridge" || !e.bridge) continue;
+        const tok = e.id.split(":")[1] ?? "";
+        const r = byTC.get(`${tok.toUpperCase()}|${e.bridge.toChain}`);
+        // 승격 시에도 수치 출처 괄호(온체인 공급 vs TVL 기준 추정)는 유지 — 출처 표기를 지우지 않는다
+        const prov = e.label?.match(/\(([^)]+)\)\s*$/)?.[1];
+        if (r) { e.bridge.mechanism = r.auth_type; e.label = `${tok} 브릿지 · ${r.auth_type}${r.note ? ` · ${r.note}` : ""}${prov ? ` (${prov})` : ""}`; }
+      }
+    } catch { /* table optional */ }
+
+    // 2) loop_findings (ouroboros/looping) → real token ↔ token relationship edges
+    try {
+      const lf = await p.query<{ collateral_symbol: string | null; loan_symbol: string | null; looped_usd: string | null; kind: string }>(
+        `SELECT collateral_symbol, loan_symbol, looped_usd, kind FROM loop_findings WHERE looped_usd IS NOT NULL ORDER BY looped_usd DESC NULLS LAST LIMIT 80`,
+      );
+      const seen = new Set<string>();
+      for (const r of lf.rows) {
+        const c = (r.collateral_symbol ?? "").toUpperCase(), l = (r.loan_symbol ?? "").toUpperCase();
+        if (!c || !l || c === l || !tokenSyms.has(c) || !tokenSyms.has(l)) continue;
+        const a = tokenIdByTC.get(`${c}|ethereum`), b = tokenIdByTC.get(`${l}|ethereum`);
+        if (!a || !b) continue;
+        const id = `loop:${[c, l].sort().join("-")}`; if (seen.has(id)) continue; seen.add(id);
+        graph.edges.push({ id, source: a, target: b, kind: "involves", tvlUsd: Number(r.looped_usd) || 0, weight: 0.7, chain: "ethereum", dir: "both", label: `🌀 루핑/ouroboros (${r.kind})` });
+      }
+    } catch { /* table optional */ }
+
+    // 3) vault_allocations (snapshot-curators) → real curator + size on vault nodes
+    try {
+      const va = await p.query<{ vault_name: string; curator: string | null; supply_usd: string | null }>(
+        `SELECT vault_name, max(curator) curator, sum(supply_usd) supply_usd FROM vault_allocations GROUP BY vault_name`,
+      );
+      const byName = new Map(va.rows.map((r) => [r.vault_name.toLowerCase(), r] as const));
+      for (const n of graph.nodes) {
+        if (n.kind !== "vault") continue;
+        const r = byName.get(n.label.toLowerCase());
+        if (r) { n.meta = { ...(n.meta ?? {}), curator: r.curator ?? n.meta?.curator, source: "curator-db" }; if (r.supply_usd) n.tvlUsd = Math.max(n.tvlUsd, Number(r.supply_usd)); }
+      }
+    } catch { /* table optional */ }
+
+    // 4) 마켓 오라클 인텔 — 우리 온체인 introspection(edges.attrs.topMarkets[].oracle) 을 오라클 엣지에 부착.
+    //    NAV/ORACLE_FREE(자기참조·하드코딩) = danger → 엣지 위 ◉ 가 빨강으로, 클릭 상세에 제공자/검증 표시.
+    try {
+      const tokUpper = graph.tokens.map((t) => t.symbol.toUpperCase());
+      const oi = await p.query<{ coll: string | null; loan: string | null; chain: string | null; oracle: { type?: string; provider?: string; description?: string; verified?: boolean; address?: string } | null }>(
+        `SELECT m->>'collateralAsset' AS coll, m->>'loanAsset' AS loan, n.chain, m->'oracle' AS oracle
+         FROM edges e
+         JOIN nodes n ON n.node_id = e.token_node_id
+         CROSS JOIN LATERAL jsonb_array_elements(e.attrs->'topMarkets') m
+         WHERE e.snapshot_ts > now() - interval '3 days'
+           AND jsonb_typeof(e.attrs->'topMarkets') = 'array'
+           AND (m->'oracle') IS NOT NULL
+           AND upper(split_part(replace(e.token_node_id, 'token:', ''), '@', 1)) = ANY($1)`,
+        [tokUpper],
+      );
+      const normL = (s: string) => s.toLowerCase().replace(/[^a-z0-9/]/g, "");
+      const intel = new Map<string, NonNullable<typeof oi.rows[number]["oracle"]>>();
+      for (const r of oi.rows) {
+        if (!r.coll || !r.loan || !r.oracle) continue;
+        const k = `${normL(`${r.coll}/${r.loan}`)}|${r.chain ?? "ethereum"}`;
+        if (!intel.has(k)) intel.set(k, r.oracle);
+      }
+      const nodeById = new Map(graph.nodes.map((n) => [n.id, n] as const));
+      for (const e of graph.edges) {
+        if (e.kind !== "oracle") continue;
+        const mkt = nodeById.get(e.source);
+        if (!mkt) continue;
+        const o = intel.get(`${normL(mkt.label)}|${mkt.chain}`);
+        if (!o) continue;
+        const danger = o.type === "NAV" || o.type === "ORACLE_FREE";
+        e.oracle = { type: o.type ?? null, provider: o.provider ?? null, description: o.description ?? null, verified: !!o.verified, address: o.address ?? null, danger };
+        if (danger) e.label = `${e.label ?? "오라클"} ⚠ 자기참조/NAV`;
+        else if (o.provider) e.label = `오라클 · ${o.provider}`;
+      }
+    } catch { /* intel optional */ }
+
+    // 5) 브릿지 = 노드 — 토큰A ↔ [브릿지 노드(메커니즘)] ↔ 토큰B. bridge_authorities 로 검증된
+    //    메커니즘이 라벨이 되고, 미검증이면 "브릿지 미확인"(주의색). 락/민트 방향은 라이브 tx 가 보여줌.
+    const MECH_KO: Record<string, string> = {
+      ccip_pool: "Chainlink CCIP", ccip_remote: "Chainlink CCIP", oft_peer: "LayerZero OFT",
+      xerc20: "xERC20", xerc20_lockbox: "xERC20 락박스", minter_role: "MINTER 권한", cctp: "Circle CCTP",
+      wormhole_ntt: "Wormhole NTT", axelar_its: "Axelar ITS", hyperlane: "Hyperlane",
+      op_bridge: "OP 브릿지", l2_canonical: "L2 캐노니컬", polygon_pos: "Polygon PoS", mint_event: "민트 이벤트(추정)",
+    };
+    const bridgeEdges = graph.edges.filter((e) => e.kind === "bridge");
+    if (bridgeEdges.length) {
+      graph.edges = graph.edges.filter((e) => e.kind !== "bridge");
+      for (const e of bridgeEdges) {
+        const tok = e.id.split(":")[1] ?? "";
+        const mech = e.bridge?.mechanism ?? null;
+        const nid = `bridge:${e.id}`;
+        graph.nodes.push({
+          id: nid, kind: "bridge", label: mech ? (MECH_KO[mech] ?? mech) : "브릿지 미확인",
+          token: tok, chain: e.bridge?.toChain ?? e.chain, tvlUsd: e.tvlUsd, risk: mech ? "safe" : "caution",
+          meta: { mechanism: mech, fromChain: e.bridge?.fromChain, toChain: e.bridge?.toChain, note: e.label ?? null },
+        });
+        graph.edges.push(
+          { id: `${e.id}:a`, source: e.source, target: nid, kind: "bridge", tvlUsd: e.tvlUsd, weight: e.weight, chain: e.bridge?.fromChain ?? e.chain, dir: "both", label: e.label, bridge: e.bridge },
+          { id: `${e.id}:b`, source: nid, target: e.target, kind: "bridge", tvlUsd: e.tvlUsd, weight: e.weight, chain: e.bridge?.toChain ?? e.chain, dir: "both", label: e.label, bridge: e.bridge },
+        );
+      }
+    }
+
+    // 6) Dune 추적 흐름(14일 집계, snapshot:flows) — 트랜잭션 분석을 "우리 그래프 노드"로 접기.
+    //    행위자 주소를 그래프 노드로 해석하고, 미지 중간(EOA/라우터)은 1-hop 까지 재귀로 건너뛴 뒤
+    //    (동일 자산 in→out, 금액 = 병목 min) 끝점끼리만 잇는다. 이미 정적으로 연결된 쌍은 제외 —
+    //    이 점선은 "정적 그래프엔 없던, 트랜잭션이 발견한 새 의존성"만 보강한다. 잡주소 노드 0.
+    try {
+      const tokUpper = graph.tokens.map((t) => t.symbol.toUpperCase());
+      const [fe, fn] = await Promise.all([
+        p.query<{ token_symbol: string; src: string; dst: string; asset_addr: string; asset_symbol: string | null; amount_usd: string | null; transfer_count: number; sample_tx: string | null }>(
+          `SELECT token_symbol, src, dst, asset_addr, asset_symbol, amount_usd, transfer_count, sample_tx
+           FROM flow_edges WHERE upper(token_symbol) = ANY($1) AND chain='ethereum'`,
+          [tokUpper],
+        ),
+        p.query<{ addr: string; label: string; kind: string; protocol_family: string | null }>(
+          `SELECT DISTINCT addr, label, kind, protocol_family FROM flow_nodes WHERE upper(token_symbol) = ANY($1) AND chain='ethereum'`,
+          [tokUpper],
+        ),
+      ]);
+      if (fe.rows.length) {
+        const normP = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+        // 그래프 측 해석 인덱스(이더리움 스코프)
+        const tokenByAddr = new Map<string, string>(); // addr → token node id
+        const protoByNorm = new Map<string, string>(); // norm(label|slug) → protocol node id
+        const labelByNorm = new Map<string, string>(); // norm(label) → market/vault node id
+        for (const n of graph.nodes) {
+          if (n.chain !== "ethereum") continue;
+          if (n.kind === "token" && n.address) tokenByAddr.set(n.address.toLowerCase(), n.id);
+          else if (n.kind === "protocol" && n.protocol) protoByNorm.set(normP(n.protocol), n.id);
+          else if (n.kind === "market" || n.kind === "vault") labelByNorm.set(normP(n.label), n.id);
+        }
+        // 행위자 주소 → 그래프 노드 id (못 풀면 null = 접기 대상).
+        // 라벨은 Etherscan 컨트랙트명(UniswapV3Pool·UniversalRouter…)이 흔해서 패밀리 별칭으로 해석.
+        const tokenBySym = new Map<string, string>();
+        for (const n of graph.nodes) if (n.kind === "token" && n.chain === "ethereum") tokenBySym.set(normP(n.label), n.id);
+        const PROTO_ALIAS: [RegExp, string][] = [
+          [/^uniswapv\d(pool|pair)?$/, "uniswap"], [/^universalrouter/, "uniswap"], [/^swaprouter/, "uniswap"],
+          [/^morpho/, "morpho"], [/^aave/, "aave"], [/^spark/, "spark"], [/^fluid/, "fluid"],
+          [/^curve/, "curve"], [/^aerodrome/, "aerodrome"], [/^gpv2settlement/, "cow"], [/^comet/, "compound"],
+        ];
+        const flowMeta = new Map(fn.rows.map((r) => [r.addr.toLowerCase(), r] as const));
+        const resolveActor = (addr: string): string | null => {
+          const a = addr.toLowerCase();
+          const direct = tokenByAddr.get(a);
+          if (direct) return direct;
+          const m = flowMeta.get(a);
+          if (!m) return null;
+          const nl = normP(m.label);
+          if (m.kind === "protocol" || m.kind === "contract") {
+            for (const c of [m.protocol_family ?? "", (m.protocol_family ?? "").replace(/_/g, "-"), m.label]) {
+              const hit = protoByNorm.get(normP(c)); if (hit) return hit;
+            }
+            // 별칭 → 그래프에 있는 그 패밀리의 프로토콜 노드 (없으면 null — 노드를 만들지 않는다)
+            for (const [re, fam] of PROTO_ALIAS) {
+              if (!re.test(nl)) continue;
+              for (const [k, id] of protoByNorm) if (k.includes(fam)) return id;
+            }
+            // 5자 이상 부분일치 — "uniswap v3 (universal_router)" → "uniswap-v3"
+            for (const [k, id] of protoByNorm) if (Math.min(k.length, nl.length) >= 5 && (nl.includes(k) || k.includes(nl))) return id;
+          }
+          if (m.kind === "token") { const hit = tokenBySym.get(nl); if (hit) return hit; }
+          const lb = labelByNorm.get(nl);
+          if (lb) return lb;
+          return null;
+        };
+        // 이미 정적으로 연결된 쌍(방향 무관) — trace 는 새 발견만
+        const connected = new Set<string>();
+        for (const e of graph.edges) { connected.add(`${e.source}|${e.target}`); connected.add(`${e.target}|${e.source}`); }
+
+        interface FRow { src: string; dst: string; asset: string; sym: string | null; usd: number; cnt: number; tx: string | null }
+        const rows: FRow[] = fe.rows.map((r) => ({ src: r.src.toLowerCase(), dst: r.dst.toLowerCase(), asset: r.asset_addr.toLowerCase(), sym: r.asset_symbol, usd: r.amount_usd != null ? Number(r.amount_usd) : 0, cnt: Number(r.transfer_count), tx: r.sample_tx }));
+        const agg = new Map<string, { src: string; dst: string; sym: string | null; usd: number; cnt: number; tx: string | null; via: boolean }>();
+        const addTrace = (a: string, b: string, r: { sym: string | null; usd: number; cnt: number; tx: string | null }, via: boolean) => {
+          if (a === b || connected.has(`${a}|${b}`)) return;
+          const k = `${a}|${b}`;
+          const cur = agg.get(k);
+          if (cur) { cur.usd += r.usd; cur.cnt += r.cnt; cur.via = cur.via || via; }
+          else agg.set(k, { src: a, dst: b, sym: r.sym, usd: r.usd, cnt: r.cnt, tx: r.tx, via });
+        };
+        // ① 직결: 양끝 다 해석되는 흐름
+        const inByU = new Map<string, FRow[]>(); const outByU = new Map<string, FRow[]>();
+        for (const r of rows) {
+          const a = resolveActor(r.src), b = resolveActor(r.dst);
+          if (a && b) { addTrace(a, b, r, false); continue; }
+          // ② 접기 준비: 한쪽만 미지 — 미지 주소를 경유지로 기록
+          if (a && !b) { const arr = inByU.get(r.dst) ?? []; arr.push(r); inByU.set(r.dst, arr); }
+          if (!a && b) { const arr = outByU.get(r.src) ?? []; arr.push(r); outByU.set(r.src, arr); }
+        }
+        // ② 1-hop 접기: known →(자산 X)→ 미지 u →(같은 자산 X)→ known. 금액 = 병목 min (날조 방지).
+        for (const [u, ins] of inByU) {
+          const outs = outByU.get(u);
+          if (!outs) continue;
+          const topIns = [...ins].sort((x, y) => y.usd - x.usd).slice(0, 4);
+          const topOuts = [...outs].sort((x, y) => y.usd - x.usd).slice(0, 4);
+          for (const i of topIns) for (const o of topOuts) {
+            if (i.asset !== o.asset) continue; // 같은 자산이 들어갔다 나와야 "경유"
+            const a = resolveActor(i.src)!, b = resolveActor(o.dst)!;
+            addTrace(a, b, { sym: i.sym, usd: Math.min(i.usd, o.usd), cnt: Math.min(i.cnt, o.cnt), tx: i.tx ?? o.tx }, true);
+          }
+        }
+        const traces = [...agg.values()].filter((t) => t.usd >= 10_000).sort((x, y) => y.usd - x.usd).slice(0, 24);
+        const maxU = Math.max(1, ...traces.map((t) => t.usd));
+        for (const t of traces) {
+          graph.edges.push({
+            id: `trace:${t.src}->${t.dst}`, source: t.src, target: t.dst, kind: "trace",
+            tvlUsd: t.usd, weight: Math.max(0.25, Math.min(1, Math.log10(t.usd + 1) / Math.log10(maxU + 1))),
+            chain: "ethereum", dir: "forward",
+            label: `추적 흐름 ${t.sym ?? "?"} ${t.usd >= 1e6 ? `$${(t.usd / 1e6).toFixed(1)}M` : `$${(t.usd / 1e3).toFixed(0)}K`} ×${t.cnt}${t.via ? " · 경유 접힘" : ""}`,
+            trace: { assetSymbol: t.sym, amountUsd: t.usd, count: t.cnt, windowDays: 14, sampleTx: t.tx, viaCollapsed: t.via },
+          });
+        }
+        if (traces.length) graph.notes = [...(graph.notes ?? []), `trace: ${traces.length}개 추적 흐름(14일, Dune)`];
+      }
+    } catch { /* flow_* tables optional */ }
+  }
+
+  return NextResponse.json(graph);
+}

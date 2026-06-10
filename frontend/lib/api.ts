@@ -17,6 +17,12 @@ export type NodeType = "Token" | "TokenProtocol" | "DefiProtocol" | "Oracle" | "
 export type RiskLevel = "safe" | "caution" | "danger";
 
 export interface NodeMetadata {
+  /** On-chain address for exact transaction-flow matching when available. */
+  address?: string | null;
+  /** Protocol core contract address, when distinct from the node address. */
+  coreContract?: string | null;
+  /** Protocol family key from the automation registry, e.g. aave_v3 or morpho_blue. */
+  family?: string | null;
   description?: string | null;
   chain?: string | null;
   symbol?: string | null;

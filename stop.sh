@@ -7,6 +7,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; cd "$ROOT"
 echo "■ cron 중지…"
 pkill -f "tsx scripts/cron.ts" 2>/dev/null || true
 echo "■ 프론트(:3000) 중지…"
+launchctl bootout "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.exposure.frontend.plist" 2>/dev/null || true
 lsof -ti:3000 2>/dev/null | xargs kill 2>/dev/null || true
 echo "■ DB 정지(데이터 유지)…"
 docker compose -f automation/docker-compose.yml stop || true

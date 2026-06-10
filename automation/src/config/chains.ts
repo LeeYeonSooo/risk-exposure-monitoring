@@ -36,6 +36,54 @@ export const ALCHEMY_AVAILABLE = !!ALCHEMY_URL;
 
 export const MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11" as const;
 
+// ─────────────────────────────────────────────────────────────
+// 디텍터 공용 EVM 체인 레지스트리 — bridge-authority·backing·mint/burn·로그스캔이 전부 이걸 소비.
+// 이전엔 파일마다 7/11체인 사본이 따로 놀았다. backing 은 목록 밖 체인이 하나라도 있으면
+// watch 전체를 skip 하므로(정합성 보호), 리스트 불일치가 곧 커버리지 구멍이었다.
+// (viem 클라이언트는 lib/rpc.ts CHAIN_RPC — 체인 객체가 필요해 별도. 그래프 파이프라인의
+//  Morpho/Aave 대상 체인은 scripts/snapshot-chain.ts CHAINS — pap 주소가 함께 있어 별도.)
+// ─────────────────────────────────────────────────────────────
+export interface EvmChainCfg {
+  chainId: number;
+  alchemy?: string;     // Alchemy 네트워크 슬러그 (키 있으면 우선, 전부 실키 프로브 검증됨)
+  publicRpc: string;    // 공개 RPC 폴백
+  avgBlockSec: number;  // 이벤트 시각 근사용 평균 블록타임(초)
+}
+export const EVM_CHAINS: Record<string, EvmChainCfg> = {
+  ethereum:   { chainId: 1,      alchemy: "eth-mainnet",        publicRpc: "https://ethereum-rpc.publicnode.com",           avgBlockSec: 12 },
+  base:       { chainId: 8453,   alchemy: "base-mainnet",       publicRpc: "https://base-rpc.publicnode.com",               avgBlockSec: 2 },
+  arbitrum:   { chainId: 42161,  alchemy: "arb-mainnet",        publicRpc: "https://arbitrum-one-rpc.publicnode.com",       avgBlockSec: 0.26 },
+  optimism:   { chainId: 10,     alchemy: "opt-mainnet",        publicRpc: "https://optimism-rpc.publicnode.com",           avgBlockSec: 2 },
+  polygon:    { chainId: 137,    alchemy: "polygon-mainnet",    publicRpc: "https://polygon-bor-rpc.publicnode.com",        avgBlockSec: 2.1 },
+  bsc:        { chainId: 56,     alchemy: "bnb-mainnet",        publicRpc: "https://bsc-rpc.publicnode.com",                avgBlockSec: 3 },
+  avalanche:  { chainId: 43114,  alchemy: "avax-mainnet",       publicRpc: "https://avalanche-c-chain-rpc.publicnode.com",  avgBlockSec: 2 },
+  gnosis:     { chainId: 100,    alchemy: "gnosis-mainnet",     publicRpc: "https://gnosis-rpc.publicnode.com",             avgBlockSec: 5 },
+  scroll:     { chainId: 534352, alchemy: "scroll-mainnet",     publicRpc: "https://scroll-rpc.publicnode.com",             avgBlockSec: 3 },
+  linea:      { chainId: 59144,  alchemy: "linea-mainnet",      publicRpc: "https://linea-rpc.publicnode.com",              avgBlockSec: 3 },
+  mantle:     { chainId: 5000,   alchemy: "mantle-mainnet",     publicRpc: "https://mantle-rpc.publicnode.com",             avgBlockSec: 2 },
+  metis:      { chainId: 1088,   alchemy: "metis-mainnet",      publicRpc: "https://metis-rpc.publicnode.com",              avgBlockSec: 2 },
+  unichain:   { chainId: 130,    alchemy: "unichain-mainnet",   publicRpc: "https://unichain-rpc.publicnode.com",           avgBlockSec: 1 },
+  worldchain: { chainId: 480,    alchemy: "worldchain-mainnet", publicRpc: "https://worldchain-mainnet.g.alchemy.com/public", avgBlockSec: 2 },
+  zksync:     { chainId: 324,    alchemy: "zksync-mainnet",     publicRpc: "https://mainnet.era.zksync.io",                 avgBlockSec: 1 },
+  sonic:      { chainId: 146,    alchemy: "sonic-mainnet",      publicRpc: "https://sonic-rpc.publicnode.com",              avgBlockSec: 0.6 },
+  celo:       { chainId: 42220,  alchemy: "celo-mainnet",       publicRpc: "https://forno.celo.org",                        avgBlockSec: 1 },
+  soneium:    { chainId: 1868,   alchemy: "soneium-mainnet",    publicRpc: "https://rpc.soneium.org",                       avgBlockSec: 2 },
+};
+export const EVM_CHAIN_KEYS = Object.keys(EVM_CHAINS);
+
+/** 디텍터용 RPC URL — env(${UPPER}_RPC_URL) > Alchemy(키 있으면) > 공개 RPC. 미등록 체인 null. */
+export function evmRpcUrl(chain: string): string | null {
+  if (chain === "ethereum") return RPC_URL; // 기존 해석(ALCHEMY → RPC_URL → public) 유지
+  const cfg = EVM_CHAINS[chain];
+  if (!cfg) return null;
+  const envUrl = process.env[`${chain.toUpperCase()}_RPC_URL`];
+  if (envUrl) return envUrl;
+  if (ALCHEMY_KEY && cfg.alchemy) return `https://${cfg.alchemy}.g.alchemy.com/v2/${ALCHEMY_KEY}`;
+  return cfg.publicRpc;
+}
+export function chainIdOf(chain: string): number | null { return EVM_CHAINS[chain]?.chainId ?? null; }
+export function avgBlockSecOf(chain: string): number { return EVM_CHAINS[chain]?.avgBlockSec ?? 12; }
+
 export const env = {
   ALCHEMY_API_KEY: ALCHEMY_KEY,
   ETHERSCAN_API_KEY: process.env.ETHERSCAN_API_KEY ?? "",

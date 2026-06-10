@@ -16,10 +16,17 @@ import { closePool, pool } from "@/db/client";
 import { insertAlert } from "@/db/upsert";
 
 const MORPHO_API = "https://blue-api.morpho.org/graphql";
+// Morpho vaults GraphQL 지원 체인 — 라이브 프로브로 확인(2026-06-10). fraxtal·ink·gnosis·avax 는
+// "unsupported chainId" 반환이라 제외. unichain 은 현재 ≥$5M 볼트 0이지만 쿼리 지원 → 생기면 자동 포착.
 const CHAINS: { id: number; name: string }[] = [
   { id: 1, name: "ethereum" },
   { id: 8453, name: "base" },
   { id: 42161, name: "arbitrum" },
+  { id: 10, name: "optimism" },
+  { id: 137, name: "polygon" },
+  { id: 130, name: "unichain" },
+  { id: 480, name: "worldchain" },
+  { id: 747474, name: "katana" },
 ];
 const MIN_AUM_USD = 5_000_000;
 const DERISK_MIN_USD = 1_000_000; // 이 미만 할당은 노이즈 — 디리스킹 알림 제외

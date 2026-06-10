@@ -1,6 +1,6 @@
 import { type Address, createPublicClient, getAddress, http, keccak256, type PublicClient, toHex } from "viem";
 
-import { env } from "@/config/chains";
+import { chainIdOf, evmRpcUrl } from "@/config/chains";
 import { detectBridgeStandards, resolveCcipTopology, type ExtraAuthType } from "./bridge-standards";
 import { discoverBridgesByMintEvents } from "./bridge-mint-events";
 import { archiveClientFor, hasArchiveRpc, publicClientFor, scanLogsRecent } from "./public-rpc";
@@ -18,24 +18,10 @@ import { archiveClientFor, hasArchiveRpc, publicClientFor, scanLogsRecent } from
  *   4) CCIP TokenAdminRegistry.getPool: 그 체인 CCIP 풀(burn&mint 시 mint 권한).
  */
 
-const ALCHEMY = env.ALCHEMY_API_KEY;
-const RPC: Record<string, string> = {
-  ethereum: ALCHEMY ? `https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY}` : "https://ethereum-rpc.publicnode.com",
-  base: ALCHEMY ? `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY}` : "https://base-rpc.publicnode.com",
-  arbitrum: ALCHEMY ? `https://arb-mainnet.g.alchemy.com/v2/${ALCHEMY}` : "https://arbitrum-one-rpc.publicnode.com",
-  optimism: "https://optimism-rpc.publicnode.com",
-  polygon: "https://polygon-bor-rpc.publicnode.com",
-  bsc: "https://bsc-rpc.publicnode.com",
-  gnosis: "https://gnosis-rpc.publicnode.com",
-  linea: "https://linea-rpc.publicnode.com",
-  scroll: "https://scroll-rpc.publicnode.com",
-  mantle: "https://mantle-rpc.publicnode.com",
-  avalanche: "https://avalanche-c-chain-rpc.publicnode.com",
-};
-
+// RPC 는 공용 레지스트리(config/chains.ts EVM_CHAINS, 18체인) — Alchemy(키) 우선, 공개 RPC 폴백.
 const _clients = new Map<string, PublicClient>();
 function clientFor(chain: string): PublicClient | null {
-  const url = RPC[chain];
+  const url = evmRpcUrl(chain);
   if (!url) return null;
   if (_clients.has(chain)) return _clients.get(chain)!;
   const c = createPublicClient({ transport: http(url, { retryCount: 2, retryDelay: 500, timeout: 25_000 }) }) as PublicClient;
@@ -76,11 +62,7 @@ const LZ_EIDS: Record<number, string> = {
   30111: "optimism", 30145: "gnosis", 30181: "mantle", 30183: "linea", 30184: "base", 30214: "scroll",
 };
 
-// 체인명 → chainId (추가 표준 프로브가 Arbitrum/zkSync 구분 등에 사용)
-const CHAIN_ID: Record<string, number> = {
-  ethereum: 1, base: 8453, arbitrum: 42161, optimism: 10, polygon: 137, bsc: 56,
-  gnosis: 100, linea: 59144, scroll: 534352, mantle: 5000, avalanche: 43114,
-};
+// 체인명 → chainId 는 공용 레지스트리(chainIdOf) 사용 — 추가 표준 프로브가 Arbitrum/zkSync 구분 등에 씀.
 
 export type AuthType = "xerc20" | "minter_role" | "oft_peer" | "ccip_pool" | "ccip_remote" | ExtraAuthType | "mint_event";
 export interface BridgeAuthority {
@@ -206,7 +188,7 @@ export async function readBridgeAuthority(tokenAddr: string, chain: string): Pro
   }
 
   // 6) 추가 브릿지 표준 (Method C) — Hyperlane/OP/Arbitrum·zkSync/Axelar/CCTP/Polygon PoS/Wormhole NTT/xERC20 lockbox.
-  const chainId = CHAIN_ID[chain];
+  const chainId = chainIdOf(chain);
   if (chainId) {
     const extra = await detectBridgeStandards(client, token, chainId).catch(() => [] as Awaited<ReturnType<typeof detectBridgeStandards>>);
     for (const e of extra) {

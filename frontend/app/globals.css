@@ -110,11 +110,6 @@
   outline-offset: 2px;
 }
 
-/* Slider accent */
-input[type="range"] {
-  accent-color: var(--color-accent);
-}
-
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 4px;

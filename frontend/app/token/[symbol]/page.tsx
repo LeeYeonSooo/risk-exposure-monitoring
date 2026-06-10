@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useParams } from "next/navigation";
-import { X } from "lucide-react";
+import Link from "next/link";
+import { Activity, X } from "lucide-react";
 
+import { AlertToasts } from "@/components/AlertToasts";
 import { SiteHeader } from "@/components/SiteHeader";
-import { DetailGraph } from "@/components/DetailGraph";
+import { chainOptions } from "@/lib/chains-ui";
 import { GraphCanvas } from "@/components/graph/GraphCanvas";
-import { type DossierData } from "@/components/graph/TokenDossier";
-import { RiskHistoryPanel } from "@/components/RiskHistoryPanel";
+import { TokenDossier, type DossierData } from "@/components/graph/TokenDossier";
 import { SAFE_NODE_STATE, formatUsd, type GraphEdge, type GraphNode, type NodeTickState } from "@/lib/api";
 import { applyConcentricLayout, type PoolLike, type MorphoMkt, type EulerVault } from "@/lib/concentric-layout";
 import { EDGE_TYPE_COLORS, EDGE_TYPE_LABELS } from "@/lib/edge-colors";
@@ -26,8 +27,8 @@ export default function TokenPage() {
   const sym = decodeURIComponent(params.symbol);
   // 탭 → 직교 컨트롤(깊이·형태). 스코프(체인내부/체인간)는 하나로 합침 — 여러 체인이면 자동으로
   // 컴팩트+브릿지(매크로), 한 체인만 보면 풀 디테일(마이크로). 멘탈모델 1개.
-  const [depth, setDepth] = useState<"protocol" | "market" | "curator">("curator"); // 기본 = 큐레이터까지 고정 노출(큐레이터 실사 도구 정체성). 프로토콜/+마켓으로 단순화 가능.
-  const [form, setForm] = useState<"map" | "detail">("map");     // 형태: 관계맵 / 상세그래프
+  const [depth, setDepth] = useState<"protocol" | "market" | "curator">("market"); // 기본은 체인→프로토콜→마켓 분포.
+  const [panelOpen, setPanelOpen] = useState(true);             // 우측 상세 패널 토글
   const [hiddenChains, setHiddenChains] = useState<Set<string>>(new Set());        // 체크 해제된(숨긴) 체인
   const [dbNodes, setDbNodes] = useState<Map<string, GraphNode>>(new Map());
   const [dbEdges, setDbEdges] = useState<GraphEdge[]>([]);
@@ -114,6 +115,8 @@ export default function TokenPage() {
     const order = ["ethereum", "base", "arbitrum", "optimism", "polygon", "gnosis", "linea", "scroll"];
     return [...s].sort((a, b) => (order.indexOf(a) === -1 ? 99 : order.indexOf(a)) - (order.indexOf(b) === -1 ? 99 : order.indexOf(b)));
   }, [mergedRelations, mergedNodes]);
+  // 관계맵·흐름맵 공통 체인 목록 = 실데이터 가능 전체 ∪ 이 토큰의 실제 노출 체인.
+  const chainOpts = useMemo(() => chainOptions(chains), [chains]);
 
   // 체인별 TVL → 최고 TVL 체인(기본 표시 대상).
   const topChain = useMemo(() => {
@@ -134,14 +137,13 @@ export default function TokenPage() {
   useEffect(() => { userToggledChains.current = false; }, [sym]);
   useEffect(() => {
     if (userToggledChains.current) return;
-    if (chains.length <= 1 || !topChain) return;
-    // 상세그래프는 멀티체인 마켓별 디테일(L2 오라클 포함)이 핵심 → 전 체인 표시.
-    //   관계맵은 가독성 위해 TVL 1위 체인만(기본). 사용자가 칩을 만지면 그 선택 유지.
-    if (form === "detail") { setHiddenChains(new Set()); return; }
-    setHiddenChains(new Set(chains.filter((c) => c !== topChain)));
-  }, [chains, topChain, form]);
+    if (!topChain) return;
+    // 기본은 top 체인만 보이게 — 나머지 공통 체인은 꺼두고 사용자가 켬.
+    setHiddenChains(new Set(chainOpts.map((c) => c.key).filter((c) => c !== topChain)));
+  }, [chainOpts, topChain]);
 
-  // (tokenNode·state 제거 — 우측 패널이 위험 히스토리(알림)만 쓰므로 불필요)
+  const tokenNode: GraphNode = useMemo(() => dbNodes.get(`token:${sym}`) ?? dbNodes.get([...tokenIdSet][0]) ?? ({ id: `token:${sym}`, type: "Token", label: sym, metadata: { symbol: sym, chain: "ethereum" }, active: true } as GraphNode), [dbNodes, tokenIdSet, sym]);
+  const state: NodeTickState = SAFE_NODE_STATE;
 
   // breadth 풀을 (체인|정규화슬러그) → 풀목록 으로. concentric 이 프로토콜별 마켓/풀 링2 로 씀.
   const poolsByKey = useMemo(() => {
@@ -159,20 +161,11 @@ export default function TokenPage() {
 
   // 4-링 동심원(체인별 원): 토큰→프로토콜→마켓/풀→볼트. GraphCanvas staticLayout 으로 고정 렌더.
   const [selNode, setSelNode] = useState<string | null>(null);
-  // +큐레이터(includeVaults)일 땐 라이브 Morpho(큐레이터 비어있음) 대신 DB topMarkets.fundingVaults
-  //   경로로 폴백시켜 진짜 큐레이터(Gauntlet·Steakhouse…)를 보이게 한다. 그 외 깊이는 라이브(breadth) 유지.
   const { topology: subTopology } = useMemo(
-    () => applyConcentricLayout({ symbol: sym, tokenIds: tokenIdSet, relations: mergedRelations, dbNodes: mergedNodes, hiddenChains, poolsByKey, tokenAddrByChain: tokenAddr, includeMarkets, includeVaults, morphoByChain: includeVaults ? {} : morphoByChain, eulerByChain, supplyByChain, bridgeAuthByChain: bridgeAuth, bridgeHub }),
+    () => applyConcentricLayout({ symbol: sym, tokenIds: tokenIdSet, relations: mergedRelations, dbNodes: mergedNodes, hiddenChains, poolsByKey, tokenAddrByChain: tokenAddr, includeMarkets, includeVaults, morphoByChain, eulerByChain, supplyByChain, bridgeAuthByChain: bridgeAuth, bridgeHub }),
     [sym, tokenIdSet, mergedRelations, mergedNodes, hiddenChains, poolsByKey, tokenAddr, includeMarkets, includeVaults, morphoByChain, eulerByChain, supplyByChain, bridgeAuth, bridgeHub],
   );
   const subNodeById = useMemo(() => { const m = new Map<string, GraphNode>(); for (const n of subTopology.nodes) m.set(n.id, n); return m; }, [subTopology]);
-  // 상세그래프 데이터 — 마켓+큐레이터 항상 on(깊이 토글과 무관하게 기본 표시).
-  // ★ morphoByChain 을 비워 전달 → 라이브 Morpho(큐레이터 비어있음) 대신 DB topMarkets.fundingVaults
-  //    경로로 폴백 → 정밀 큐레이터(Gauntlet·Steakhouse…)·aggLtv·ouroboros 가 살아난다. (관계맵은 라이브 그대로)
-  const detailTopology = useMemo(() => {
-    if (form !== "detail") return null;
-    return applyConcentricLayout({ symbol: sym, tokenIds: tokenIdSet, relations: mergedRelations, dbNodes: mergedNodes, hiddenChains, poolsByKey, tokenAddrByChain: tokenAddr, includeMarkets: true, includeVaults: true, morphoByChain: {}, eulerByChain, supplyByChain, bridgeAuthByChain: bridgeAuth, bridgeHub: false }).topology;
-  }, [form, sym, tokenIdSet, mergedRelations, mergedNodes, hiddenChains, poolsByKey, tokenAddr, eulerByChain, supplyByChain, bridgeAuth]);
   const subNodeStates = useMemo(() => {
     // ouroboros(같은 계열 담보↔대출) 신호 전면 제외 — "같은 계열이면 레버리지 가능"은 약한 추정 휴리스틱.
     const m: Record<string, NodeTickState> = {};
@@ -196,24 +189,6 @@ export default function TokenPage() {
     }
     return [...grouped.values()].sort((a, b) => b.pct - a.pct).slice(0, 6);
   }, [subTopology]);
-
-  // kuromi reflexivity 사기 판정 — dossier.loops(reflexivity-v1)에서 라이브로 (정적 JSON 수동복사 대체).
-  //   상세그래프(토큰/마켓 ⚠ 마커) + Tier0 판결이 공유 소비.
-  const reflex = useMemo(() => {
-    const r = dossier?.loops?.find((l) => l.source === "reflexivity-v1");
-    if (!r) return null;
-    const d = (r.detail ?? {}) as Record<string, unknown>;
-    return {
-      grade: (r.confidence ?? (d.grade as string | undefined)) ?? null,
-      oracle_class: (d.oracle_class as string | undefined) ?? null,
-      oracle_name: (d.oracle_name as string | undefined) ?? null,
-      looping: !!d.looping,
-      sole_borrower: !!d.sole_borrower,
-      concentration: (d.concentration as number | null | undefined) ?? null,
-      n_borrowers: (d.n_borrowers as number | undefined) ?? undefined,
-      n_markets: (d.n_markets as number | undefined) ?? undefined,
-    };
-  }, [dossier]);
 
   // Tier 0 판결 — 맵을 어떻게 돌리든 안 변하는 "이 토큰 위험한가" 한 줄.
   // 집중도(HHI)는 우측 도시에와 같은 relations(정밀) 기준으로 계산 → 두 곳 수치 일치.
@@ -245,10 +220,7 @@ export default function TokenPage() {
         else hardOracleProtos.add(r.otherLabel);        // 비-RWA 하드코딩 = 위험
       }
     }
-    // kuromi reflexivity(라이브) — bespoke/NAV 자기참조 ∧ HIGH+ 등급이면 사기/하드코딩 오라클로 승격(엣지 regex 보강).
-    const reflexGrade = reflex?.grade ?? "";
-    const reflexive = /HIGH|CRITICAL|DISTRESSED/i.test(reflexGrade) && /bespoke|nav/i.test(reflex?.oracle_class ?? "") && !isRwa;
-    const hardOracle = hardOracleProtos.size > 0 || reflexive;
+    const hardOracle = hardOracleProtos.size > 0;
     const rwaDiscount = rwaDiscountProtos.size > 0;
 
     // 무담보민팅 — Detector A(unbacked_supply: Σremote>backing) / Detector B(unmatched_mint: 소스 burn 없는 mint). Kelp rsETH형.
@@ -267,8 +239,7 @@ export default function TokenPage() {
     if (unbacked) factors.push(`무담보민팅 의심 ${unbackedAlerts.length}건${unbackedCrit ? "·critical" : ""}`);
     if (hhi >= 0.4) factors.push(`집중도 ${hhi.toFixed(2)}(쏠림)`);
     if (depeg) factors.push(`디페그 이력 ${depegAlerts.length}건${depegCrit ? "·critical" : ""}`);
-    if (reflexive) factors.push(`사기 루핑 의심(kuromi ${reflexGrade}·${reflex?.oracle_class}${reflex?.looping ? "·self-deal" : ""})`);
-    if (hardOracleProtos.size > 0) factors.push(`하드코딩 오라클(${[...hardOracleProtos].slice(0, 2).join("·")})`);
+    if (hardOracle) factors.push(`하드코딩 오라클(${[...hardOracleProtos].slice(0, 2).join("·")})`);
     let reason: string;
     if (!factors.length) {
       reason = "리스크 신호 없음 — 노출 분산 · 페그 정상 · 무담보민팅/하드코딩 오라클 없음.";
@@ -279,7 +250,7 @@ export default function TokenPage() {
       else if (hhi >= 0.5) reason += " → 한 곳에 쏠려 단일 실패점.";
     }
     return { hhi, conc, crit, warn, info, supply24h, depeg, hardOracle, rwaDiscount, unbacked, level, reason };
-  }, [relations, dossier, sym, reflex]);
+  }, [relations, dossier, sym]);
 
   const onGraphSelect = (id: string | null) => {
     if (id?.startsWith("island:")) return; // 체인 라벨 — 선택/패널 변화 없음 (드래그만)
@@ -303,6 +274,7 @@ export default function TokenPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--color-bg)] lg:h-screen">
+      <AlertToasts />
       <SiteHeader />
 
       {/* ── Tier 0 판결 바 (full-width 고정) — 맵을 어떻게 돌리든 안 변하는 "이 토큰 위험한가" ── */}
@@ -314,18 +286,11 @@ export default function TokenPage() {
             <span className="size-2 rounded-full bg-current" /> {verdict.level}
           </span>
           <Stat label="집중도(HHI)" value={`${verdict.hhi.toFixed(2)} · ${verdict.conc}`} warn={verdict.hhi >= 0.4} />
-          <Stat label="24h 공급" value={verdict.supply24h == null ? "—" : `${verdict.supply24h >= 0 ? "+" : ""}${verdict.supply24h.toFixed(2)}%`} warn={verdict.supply24h != null && Math.abs(verdict.supply24h) >= 2} />
           <Stat label="디페그" value={verdict.depeg ? "이력 있음" : "정상"} warn={verdict.depeg} />
           <Stat label="무담보민팅" value={verdict.unbacked ? "의심" : "정상"} warn={verdict.unbacked} />
           <Stat label="오라클" value={verdict.hardOracle ? "하드코딩" : verdict.rwaDiscount ? "RWA NAV(정상)" : "시장"} warn={verdict.hardOracle} />
           <Stat label="알림" value={`⚠ ${verdict.crit + verdict.warn}`} sub={`${verdict.crit}C·${verdict.warn}W·${verdict.info}i`} warn={verdict.crit > 0} />
           {dossierLoading && <span className="text-[10px] text-[var(--color-text-muted)]">판결 갱신 중…</span>}
-          <span className="w-full text-[11px] text-[var(--color-text-muted)] lg:ml-auto lg:w-auto">큐레이터 실사 — 하나의 익스포저 맵</span>
-        </div>
-        {/* 판결 근거 — 집중·디페그·루프·하드코딩 오라클 4신호를 합성한 한 줄 사유 */}
-        <div className="mt-1.5 flex items-start gap-2 text-[11px] leading-snug">
-          <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold" style={verdictStyle}>판결 근거</span>
-          <span className="text-[var(--color-text-secondary)]">{verdict.reason}</span>
         </div>
       </div>
 
@@ -336,29 +301,32 @@ export default function TokenPage() {
           <Seg active={depth === "market"} onClick={() => setDepth("market")}>+마켓</Seg>
           <Seg active={depth === "curator"} onClick={() => setDepth("curator")}>+큐레이터</Seg>
         </ControlGroup>
-        <ControlGroup label="보기">
-          <Seg active={form === "map"} onClick={() => setForm("map")}>관계맵</Seg>
-          <Seg active={form === "detail"} onClick={() => { setForm("detail"); setPicked(null); setSelNode(null); }}>상세그래프</Seg>
-        </ControlGroup>
-        {visibleChainCount > 1 || chains.length > 1 ? <span className="text-[10px] text-[var(--color-text-muted)]">{bridgeHub ? "매크로: 체인+브릿지" : "마이크로: 단일 체인"}</span> : null}
-        {chains.length > 1 && (
-          <div className="flex flex-wrap items-center gap-1">
-            <span className="text-[10px] uppercase text-[var(--color-text-muted)]">체인</span>
-            <button onClick={() => { userToggledChains.current = true; setHiddenChains((prev) => prev.size > 0 ? new Set() : new Set(chains)); setPicked(null); setSelNode(null); }}
-              className="rounded px-1.5 py-0.5 text-[10px] text-[var(--color-accent)] hover:underline">전체</button>
-            {chains.map((ch) => {
-              const on = !hiddenChains.has(ch);
-              return (
-                <button key={ch}
-                  onClick={() => { userToggledChains.current = true; setHiddenChains((prev) => { const n = new Set(prev); if (n.has(ch)) n.delete(ch); else n.add(ch); return n; }); setPicked(null); setSelNode(null); }}
-                  className={"flex items-center gap-1 rounded px-2 py-0.5 text-[11px] capitalize transition-colors " + (on ? "text-[var(--color-text-primary)] hover:bg-[var(--color-surface-raised)]" : "text-[var(--color-text-muted)] opacity-55 hover:opacity-90")}>
-                  <span className={"inline-block size-2.5 rounded-[3px] border transition-colors " + (on ? "border-[var(--color-accent)] bg-[var(--color-accent)]" : "border-[var(--color-border-subtle)] bg-transparent")} />
-                  {ch}
-                </button>
-              );
-            })}
-          </div>
-        )}
+        {(visibleChainCount > 1 || chains.length > 1) ? <span className="text-[10px] text-[var(--color-text-muted)]">{bridgeHub ? "매크로: 체인+브릿지" : "마이크로: 단일 체인"}</span> : null}
+        <div className="flex flex-wrap items-center gap-1">
+          <span className="text-[10px] uppercase text-[var(--color-text-muted)]">체인</span>
+          <button onClick={() => { userToggledChains.current = true; setHiddenChains((prev) => prev.size > 0 ? new Set() : new Set(chainOpts.map((c) => c.key))); setPicked(null); setSelNode(null); }}
+            className="rounded px-1.5 py-0.5 text-[10px] text-[var(--color-accent)] hover:underline">전체</button>
+          {chainOpts.map((c) => {
+            const ch = c.key;
+            const on = !hiddenChains.has(ch);
+            return (
+              <button key={ch}
+                onClick={() => { userToggledChains.current = true; setHiddenChains((prev) => { const n = new Set(prev); if (n.has(ch)) n.delete(ch); else n.add(ch); return n; }); setPicked(null); setSelNode(null); }}
+                className={"flex items-center gap-1 rounded px-2 py-0.5 text-[11px] transition-colors " + (on ? "text-[var(--color-text-primary)] hover:bg-[var(--color-surface-raised)]" : "text-[var(--color-text-muted)] opacity-55 hover:opacity-90")}>
+                <span className={"inline-block size-2.5 rounded-[3px] border transition-colors " + (on ? "border-[var(--color-accent)] bg-[var(--color-accent)]" : "border-[var(--color-border-subtle)] bg-transparent")} />
+                {c.label}
+              </button>
+            );
+          })}
+        </div>
+        <Link href={`/flow?token=${encodeURIComponent(sym)}`}
+          className="ml-auto flex items-center gap-1 rounded-md border border-[var(--color-border-subtle)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-accent)] hover:bg-[var(--color-surface-raised)]">
+          <Activity size={12} /> 흐름맵에서 보기
+        </Link>
+        <button onClick={() => setPanelOpen((o) => !o)} title="상세 패널 토글"
+          className="flex items-center gap-1.5 rounded-md border border-[var(--color-border-subtle)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-raised)]">
+          {panelOpen ? "상세 패널 ▸" : "◂ 상세 패널"}
+        </button>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
@@ -373,16 +341,12 @@ export default function TokenPage() {
                 <span className="max-w-[260px] text-[11px] leading-relaxed text-[var(--color-text-muted)]">전 체인 풀·마켓·큐레이터·브릿지·온체인 공급을 모으는 중입니다</span>
               </div>
             </div>
-          ) : form === "detail" ? (
-            detailTopology && detailTopology.nodes.length > 1
-              ? <DetailGraph sym={sym} topology={detailTopology} bridgeAuth={bridgeAuth} reflex={reflex} onSelect={setPicked} />
-              : <Empty msg={`${sym} 데이터 수집 중이거나 없음.`} />
           ) : subTopology.nodes.length > 1 ? (
             <GraphCanvas graphKey={`tok-${sym}-${depth}-${bridgeHub ? "macro" : "micro"}-${[...hiddenChains].sort().join(",") || "all"}-${subTopology.nodes.length}`} topology={subTopology} nodeStates={subNodeStates} selectedNodeId={selNode} onSelectNode={onGraphSelect} staticLayout />
           ) : (
             <Empty msg={`${sym} 의 온체인 엣지가 DB 에 없음 — 스냅샷 대상 토큰이 아닐 수 있어요.`} />
           )}
-          {!breadthLoading && form === "map" && subTopology.nodes.length > 1 && (
+          {!breadthLoading && subTopology.nodes.length > 1 && (
             <>
               <DistributionCard rows={distributionRows} />
               <GraphLegend bridge={bridgeHub} />
@@ -390,17 +354,19 @@ export default function TokenPage() {
           )}
         </div>
 
-        {/* 우: 상세 패널 — 마켓/볼트 클릭 시 그 상세, 아니면 토큰 도시에 */}
-        <aside className="w-full shrink-0 overflow-y-auto border-t border-[var(--color-border-subtle)] bg-[var(--color-surface)] lg:w-[400px] lg:border-l lg:border-t-0">
-          {picked ? (
-            <PickDetail d={picked} onClose={() => setPicked(null)} />
-          ) : (
-            <div className="px-5 py-4">
-              <div className="mb-3"><div className="text-lg font-semibold text-[var(--color-text-primary)]">{sym}</div><div className="text-[11px] text-[var(--color-text-muted)]">위험 히스토리</div></div>
-              <RiskHistoryPanel alerts={dossier?.alerts ?? []} counts={dossier?.alertCounts ?? {}} loading={dossierLoading} />
-            </div>
-          )}
-        </aside>
+        {/* 우: 상세 패널 (토글 가능) */}
+        {panelOpen && (
+          <aside className="w-full shrink-0 overflow-y-auto border-t border-[var(--color-border-subtle)] bg-[var(--color-surface)] lg:w-[400px] lg:border-l lg:border-t-0">
+            {picked ? (
+              <PickDetail d={picked} onClose={() => setPicked(null)} />
+            ) : (
+              <div className="px-5 py-4">
+                <div className="mb-3"><div className="text-lg font-semibold text-[var(--color-text-primary)]">{sym}</div></div>
+                <TokenDossier node={tokenNode} relations={relations} state={state} data={dossier} dataLoading={dossierLoading} />
+              </div>
+            )}
+          </aside>
+        )}
       </div>
     </div>
   );
@@ -481,25 +447,6 @@ function GraphLegend({ bridge }: { bridge: boolean }) {
 }
 
 function PickDetail({ d, onClose }: { d: Record<string, unknown>; onClose: () => void }) {
-  // 엣지(관계) 클릭 — DetailGraph 가 내려주는 _rel 페이로드를 제목+행으로 일반 렌더.
-  if (d._rel) {
-    const rows = (d.rows as Array<{ k: string; v: string }> | undefined) ?? [];
-    return (
-      <div className="px-5 py-4">
-        <div className="mb-3 flex items-start justify-between">
-          <div>
-            <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">관계 상세</div>
-            <div className="text-lg font-semibold text-[var(--color-text-primary)]">{String(d.title ?? "")}</div>
-          </div>
-          <button onClick={onClose} className="rounded p-1 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-raised)]"><X size={16} /></button>
-        </div>
-        <div className="space-y-1.5 text-[12px]">
-          {rows.map((r, i) => <Row key={i} k={r.k} v={r.v} />)}
-        </div>
-        {d.note ? <p className="pt-2 text-[10px] leading-snug text-[var(--color-text-muted)]">{String(d.note)}</p> : null}
-      </div>
-    );
-  }
   const isVault = "curator" in d || "allocationUsd" in d;
   const isPool = d.kind === "pool";
   const head = isVault ? "볼트 · 큐레이터" : isPool ? "풀/마켓 · DeFiLlama" : "마켓 상세";

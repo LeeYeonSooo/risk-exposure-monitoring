@@ -10,17 +10,26 @@
  */
 import process from "node:process";
 
-import { env } from "@/config/chains";
+import { env, EVM_CHAIN_KEYS } from "@/config/chains";
 import { closePool, query } from "@/db/client";
 import { insertAlert } from "@/db/upsert";
 import { fetchNewTransfers, isAllowlistedRecipient, type LedgerRow, MINT_BURN_SCHEMA, reconcile } from "@/snapshot/mint-burn-recon";
+import { BACKING_WATCHES } from "@/snapshot/supply-backing";
 import { RECOMMENDED_THRESHOLDS } from "@/config/alert-thresholds";
 
 const HOME = "ethereum"; // 홈 mint=발행(예치) → 매칭 불필요
 // 매칭 창은 config(mintBurn.matchWindowSeconds) 가 기본값 — env 로 override 가능.
 const WINDOW_SEC = Number(process.env.MINTBURN_WINDOW_SEC ?? RECOMMENDED_THRESHOLDS.mintBurn.matchWindowSeconds);
-const PROBE_CHAINS = ["ethereum", "base", "arbitrum", "optimism", "polygon", "bsc", "avalanche"];
+const PROBE_CHAINS = EVM_CHAIN_KEYS; // 공용 레지스트리(18체인) — 디텍터 간 리스트 단일화
 const MAX_TOKENS = Number(process.env.MINTBURN_MAX ?? 8);
+
+// Detector B = burn&mint 메시 가정. 모델이 다른 토큰은 구조적 FP 라 제외(헤더 설계 의도의 구현):
+//   ① 네이티브 발행 스테이블(Circle/Tether/PayPal) — 발행사가 체인별 직접 mint(소스 burn 없음)가 일상.
+//      이들의 무담보 감시는 Detector A(backing)·chain_supply_spike 담당.
+//   ② Detector A 수동 watch 토큰(BACKING_WATCHES) — lock&mint 라 A 가 권위(소스는 burn 이 아니라 lock).
+//   (WETH = 체인별 독립 wrap 컨트랙트(deposit mint/withdraw burn), cbBTC = Coinbase 체인별 네이티브 발행 — 동일 클래스.)
+const NATIVE_ISSUANCE_SKIP = new Set(["USDC", "USDT", "PYUSD", "EURC", "WETH", "CBBTC"]);
+const A_WATCHED = new Set(BACKING_WATCHES.map((w) => w.symbol.toUpperCase()));
 
 async function multichainTokens(): Promise<{ sym: string; byChain: Map<string, string> }[]> {
   const rows = (await query(
@@ -30,6 +39,7 @@ async function multichainTokens(): Promise<{ sym: string; byChain: Map<string, s
   for (const r of rows) {
     if (!PROBE_CHAINS.includes(r.chain)) continue;
     const sym = r.label.toUpperCase();
+    if (NATIVE_ISSUANCE_SKIP.has(sym) || A_WATCHED.has(sym)) continue; // B 모델 밖 → skip
     if (!m.has(sym)) m.set(sym, new Map());
     m.get(sym)!.set(r.chain, r.address);
   }
