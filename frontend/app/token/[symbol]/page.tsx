@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Activity, X } from "lucide-react";
 
-import { AlertToasts } from "@/components/AlertToasts";
+import { AlertDock } from "@/components/AlertDock";
 import { SiteHeader } from "@/components/SiteHeader";
 import { chainOptions } from "@/lib/chains-ui";
 import { GraphCanvas } from "@/components/graph/GraphCanvas";
@@ -274,7 +274,7 @@ export default function TokenPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--color-bg)] lg:h-screen">
-      <AlertToasts />
+      <AlertDock />
       <SiteHeader />
 
       {/* ── Tier 0 판결 바 (full-width 고정) — 맵을 어떻게 돌리든 안 변하는 "이 토큰 위험한가" ── */}

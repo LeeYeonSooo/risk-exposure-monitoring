@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { AlertToasts } from "@/components/AlertToasts";
+import { AlertDock } from "@/components/AlertDock";
 import { SiteHeader } from "@/components/SiteHeader";
 import { FlowControls } from "@/components/flow/FlowControls";
 import { FlowDetail } from "@/components/flow/FlowDetail";
@@ -64,7 +64,7 @@ function FlowPageInner() {
 
   return (
     <div className="flex h-screen flex-col bg-[var(--color-bg)]">
-      <AlertToasts />
+      <AlertDock />
       <SiteHeader />
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-4 py-2 lg:px-5">
         <span className="text-sm font-bold text-[var(--color-text-primary)]">흐름맵 <span className="text-[11px] font-normal text-[var(--color-text-muted)]">· 실시간 트랜잭션 (5분 윈도우 · 1분 지연)</span></span>

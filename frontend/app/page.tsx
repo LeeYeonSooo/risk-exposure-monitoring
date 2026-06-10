@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, ArrowRight, Bell } from "lucide-react";
 
-import { AlertToasts } from "@/components/AlertToasts";
+import { AlertDock } from "@/components/AlertDock";
 import { SiteHeader } from "@/components/SiteHeader";
 import { formatUsd } from "@/lib/api";
 
@@ -134,7 +134,7 @@ export default function SearchLanding() {
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--color-bg)] lg:h-screen">
-      <AlertToasts />
+      <AlertDock />
       <SiteHeader />
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         {/* ── 좌: 검색 + 토큰 순위 (체크=관심) ── */}

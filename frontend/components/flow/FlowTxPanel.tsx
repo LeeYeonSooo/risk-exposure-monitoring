@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronUp, ExternalLink, Zap } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, GripVertical, Zap } from "lucide-react";
 
 import { formatUsd } from "@/lib/api";
 import { buildRenderPlan } from "@/lib/flow-match";
 import type { FlowGraph, FlowTx } from "@/lib/flow-types";
+import { dragStyle, useDragPosition } from "@/lib/use-drag";
 
 /**
  * Transaction feed panel (bottom-left of the map): recent real transfers, each linking to
@@ -20,6 +21,7 @@ const KIND_LABEL: Record<FlowTx["kind"], string> = { deposit: "예치", withdraw
 
 export function FlowTxPanel({ txs, txLoading, txAt, txError, graph }: { txs: FlowTx[]; txLoading: boolean; txAt: number | null; txError?: string | null; graph?: FlowGraph | null }) {
   const [open, setOpen] = useState(true);
+  const drag = useDragPosition({ withinParent: true }); // 그래프 영역 안에서 끌어서 이동
   // float the transactions that ACTUALLY render on the graph (counterparty resolves to a node) to the top
   const { recent, onGraph, shown, mb } = useMemo(() => {
     // SAME plan TxFlowLayer renders (same nodes/edges/txs/cap) → `shown` EXACTLY equals the animated count.
@@ -34,8 +36,14 @@ export function FlowTxPanel({ txs, txLoading, txAt, txError, graph }: { txs: Flo
     return { recent: [...on, ...off].slice(0, 300), onGraph: isOn, shown: plan.length, mb: mintburn };
   }, [txs, graph]);
   return (
-    <div className="absolute bottom-3 left-3 z-10 w-80 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-surface)]/95 p-3 shadow-xl backdrop-blur">
-      <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-2 text-[11px]">
+    <div data-drag-root style={dragStyle(drag.pos)} className="absolute bottom-3 left-3 z-10 w-80 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-surface)]/95 p-3 shadow-xl backdrop-blur">
+      <button
+        onPointerDown={drag.onPointerDown}
+        onClick={() => { if (!drag.consumeMoved()) setOpen((o) => !o); }}
+        className="flex w-full cursor-grab items-center gap-2 text-[11px] active:cursor-grabbing"
+        title="클릭: 접기/펼치기 · 끌기: 이동"
+      >
+        <GripVertical size={12} className="text-[var(--color-text-muted)]" />
         <Zap size={13} className="text-[var(--color-accent)]" /><span className="font-semibold text-[var(--color-text-primary)]">트랜잭션 흐름</span>
         <span className="ml-auto text-[10px] text-[var(--color-text-muted)]">{txLoading ? "수집 중…" : txAt ? `갱신 ${Math.round((Date.now() - txAt) / 1000)}초 전` : ""}</span>
         {open ? <ChevronDown size={13} className="text-[var(--color-text-muted)]" /> : <ChevronUp size={13} className="text-[var(--color-text-muted)]" />}
