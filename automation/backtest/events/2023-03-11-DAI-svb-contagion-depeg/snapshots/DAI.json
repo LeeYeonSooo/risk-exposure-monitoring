@@ -1,0 +1,98 @@
+{
+  "meta": {
+    "token": "DAI",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2023-03-11T07:19:59Z",
+    "block": 16803316,
+    "block_source": "on-chain DAI/USD floor block (Chainlink 0xAed0..1ee9 = 0.89110864, -10.89%); totalSupply re-measured here"
+  },
+  "nodes": [
+    {
+      "node_id": "token:DAI",
+      "type": "Token",
+      "label": "DAI",
+      "address": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "DAI",
+        "total_supply": 5568713805,
+        "market_cap_usd": 5568713805
+      }
+    },
+    {
+      "node_id": "protocol:isolated_lender",
+      "type": "DefiProtocol",
+      "label": "isolated_lender",
+      "address": "",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "isolated_markets"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "DAI-lender-sighted",
+      "source": "token:DAI",
+      "target": "protocol:isolated_lender",
+      "classification": {
+        "edge_type": "collateral_isolated",
+        "venue_type": "isolated_market",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_usd": 200000000.0,
+        "amount_token": null,
+        "pct_of_supply": null
+      },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "",
+        "oracle_address": null,
+        "depeg_sensitive": true
+      },
+      "lending_risk": {
+        "lt": 0.86,
+        "ltv": null,
+        "utilization": 0.9,
+        "is_frozen": false
+      },
+      "meta": {
+        "confidence": 0.8
+      }
+    },
+    {
+      "edge_id": "DAI-lender-blind",
+      "source": "token:DAI",
+      "target": "protocol:isolated_lender",
+      "classification": {
+        "edge_type": "collateral_isolated",
+        "venue_type": "isolated_market",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_usd": 400000000.0,
+        "amount_token": null,
+        "pct_of_supply": null
+      },
+      "oracle": {
+        "oracle_type": "HARDCODED",
+        "oracle_provider": "",
+        "oracle_address": null,
+        "depeg_sensitive": false
+      },
+      "lending_risk": {
+        "lt": 0.86,
+        "ltv": null,
+        "utilization": 0.9,
+        "is_frozen": false
+      },
+      "meta": {
+        "confidence": 0.8
+      }
+    }
+  ]
+}

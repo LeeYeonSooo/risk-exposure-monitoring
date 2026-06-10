@@ -1,0 +1,46 @@
+{
+  "inputs": [
+    {
+      "input": "util:USDC-aave_v3-supply@25096819 (lockout 2026-05-15)",
+      "detector": "d07",
+      "measured": true,
+      "source": "onchain:aave_v3.getReserveData(USDC) words8/10 -> variableDebt.totalSupply()/(USDC.balanceOf(aUSDC)+variableDebt.totalSupply()) @ethereum:25096819",
+      "utilization": 0.976629,
+      "total_supplied_usd": 1947248208,
+      "available_liquidity_usd": 45508175.68
+    },
+    {
+      "input": "util:USDC-aave_v3-supply@25025077 (prev 2026-05-05)",
+      "detector": "d07",
+      "measured": true,
+      "source": "onchain:aave_v3.getReserveData(USDC) words8/10 -> variableDebt.totalSupply()/(USDC.balanceOf(aUSDC)+variableDebt.totalSupply()) @ethereum:25025077",
+      "utilization": 0.928526,
+      "total_supplied_usd": 1918552768,
+      "available_liquidity_usd": 137126842.33
+    },
+    {
+      "input": "util:USDC-aave_v3-supply@23479243 (calm 2025-10-01)",
+      "detector": "d07",
+      "measured": true,
+      "source": "onchain:aave_v3.getReserveData(USDC) words8/10 -> variableDebt.totalSupply()/(USDC.balanceOf(aUSDC)+variableDebt.totalSupply()) @ethereum:23479243",
+      "utilization": 0.790286,
+      "total_supplied_usd": 5597372448,
+      "available_liquidity_usd": 1173846833.03
+    },
+    {
+      "input": "util:USDC-aave_v3-supply@23429173 (calm_prev 2025-09-24)",
+      "detector": "d07",
+      "measured": true,
+      "source": "onchain:aave_v3.getReserveData(USDC) words8/10 -> variableDebt.totalSupply()/(USDC.balanceOf(aUSDC)+variableDebt.totalSupply()) @ethereum:23429173",
+      "utilization": 0.846916,
+      "total_supplied_usd": 6031132094,
+      "available_liquidity_usd": 923272087.1
+    },
+    {
+      "input": "baseline:USDC-aave_v3-supply:util_level (pre-lockout 2024-2025 history)",
+      "detector": "d07",
+      "measured": false,
+      "source": "asserted: host-fed pre-lockout historical util distribution (median 0.83, p_high 0.90, p_low 0.65, n 700)"
+    }
+  ]
+}

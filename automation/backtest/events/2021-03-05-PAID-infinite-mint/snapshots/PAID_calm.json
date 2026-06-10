@@ -1,0 +1,45 @@
+{
+  "_invariant": "NORMAL-PERIOD CONTROL: PAID V1 totalSupply at block 11961985 (~2021-03-03, days BEFORE the exploit) = 594,717,455.710 PAID — RE-CAPTURED & VERIFIED on-chain (Alchemy ETH archive, recapture 2026-06-07: totalSupply @ 11961985 = 594717455710e18 ✓; eth_getLogs Transfer ±1000 blk = 0 mints, 0 burns ✓). Stable, no unauthorized mint/burn. Same token, calm regime. Proves the mint signals are specific to the exploit, not to PAID-the-token.",
+  "meta": {
+    "token": "PAID",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2021-03-03T12:00:00Z",
+    "snapshot_block": 11961985,
+    "node_count": 1,
+    "edge_count": 0,
+    "data_source": "on-chain Alchemy ETH archive (recapture 2026-06-07, VERIFIED): PAID V1 0x8c8687fc965593dfb2f0b4eaefd55e9d8df348df totalSupply @ block 11961985 = 594717455710e18 (and 11948959, both 594717455710e18); Transfer logs ±1000 blk @ both = 0 mints / 0 burns"
+  },
+  "nodes": [
+    {
+      "node_id": "token:PAID",
+      "type": "Token",
+      "label": "PAID Network (V1, exploited)",
+      "address": "0x8c8687fc965593dfb2f0b4eaefd55e9d8df348df",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "PAID",
+        "decimals": 18,
+        "total_supply": 594717455710000000000000000,
+        "supply_samples": [
+          594717455710000000000000000,
+          594717455710000000000000000,
+          594717455710000000000000000,
+          594717455710000000000000000,
+          594717455710000000000000000,
+          594717455710000000000000000
+        ],
+        "mint_events": [],
+        "burn_events": [],
+        "authorized_minters": [
+          "0x53bc21d38281d6acdfe0b92e0b534a19c90344cc"
+        ],
+        "holders": null,
+        "market_cap_usd": 265000000,
+        "paused": false
+      }
+    }
+  ],
+  "edges": []
+}

@@ -1,0 +1,93 @@
+{
+  "event": "Elixir deUSD redemption-run supply collapse + catastrophic depeg 2025-11-04\u219211-07 \u2014 Stream Finance ~$93M external-manager loss impaired deUSD's ~$68M (~65%) Stream backing; ~80% of holders ran for redemptions, circulating supply collapsed (burn-on-redeem), price fell ~$1.00\u2192~$0.015 (\u2248-98%); Elixir wound deUSD down. Same Stream/Elixir cluster as xUSD but the DISTINCT test is the mass-redemption SUPPLY contraction, not unbacked-mint. See EVENT.md.",
+  "source": "Yahoo, Cryptopolitan, BeInCrypto, BlockEden, FXStreet, CoinGecko, Etherscan \u2014 see EVENT.md. DRAFT \u2014 promoted to label.json only via `python3 -m qa.cli ratify` after independent review. MEASURED re-capture 2026-06-07: supply curve is on-chain totalSupply() reads; depeg price stays asserted (off-chain CEX/DEX intraday low). See snapshots/fidelity.json.",
+  "closed": true,
+  "cases": [
+    {
+      "id": "redemption-run-supply-collapse-and-depeg",
+      "snapshot": "snapshots/deUSD_collapse.json",
+      "prev": "snapshots/deUSD_baseline.json",
+      "now": "2025-11-06T12:00:00Z",
+      "peg_probes": {
+        "deUSD-lender-collateral_isolated": {
+          "price": 0.015,
+          "peg": 1.0,
+          "asset_class": "stable",
+          "by_design_discount": false,
+          "source": "ASSERTED (measured=false): secondary-market/CEX intraday trough Nov 5-7 2025 (FXStreet 'down to $0.015 within hours'; reports range $0.015-$0.03). NOT an on-chain protocol-oracle reading at block 23740100 \u2014 known systemic off-chain-depeg gap; kept asserted, not fabricated. Label conclusion (catastrophic >= -90%) is robust to the $0.015-$0.03 spread."
+        }
+      },
+      "oracle_probes": {},
+      "should_fire": [
+        {
+          "signal_type": "SUPPLY_DELTA_ANOMALY",
+          "node_id": "token:deUSD",
+          "min_severity": "HIGH"
+        },
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "deUSD-lender-collateral_isolated",
+          "min_severity": "CRITICAL"
+        }
+      ],
+      "must_not_fire": [
+        {
+          "signal_type": "UNBACKED_SUPPLY",
+          "node_id": "token:deUSD"
+        },
+        {
+          "signal_type": "TOTAL_SUPPLY_SPIKE",
+          "node_id": "token:deUSD"
+        },
+        {
+          "signal_type": "LARGE_SINGLE_MINT",
+          "node_id": "token:deUSD"
+        }
+      ],
+      "max_emitted": null,
+      "beta": 2.0,
+      "note": "INCIDENT. Two facts, both must be caught. (1) SUPPLY_DELTA_ANOMALY @ \u2265HIGH: a redemption-run on a 'stable' token \u2014 ~80% of holders fled and deUSD is burned on redeem, so circulating totalSupply contracts sharply and SUSTAINEDLY over ~2\u20133 days. MEASURED (re-capture 2026-06-07, on-chain totalSupply() reads): the one-step curr-vs-prev contraction baseline(144.21M @block 23720447)\u2192trough(92.00M @block 23740100) = -36.20%; peak(154.02M @Oct-31)\u2192trough = -40.27%; the EVENT.md ~150M\u219292M \u2248 -39% verified contraction holds (measured Oct-27 150.41M\u2192trough 92.00M = -38.83%). A sudden multi-tens-of-percent contraction of a stablecoin's supply is a textbook TVL-shock / mass-exit and the core NEW pattern this event adds. Floor HIGH not CRITICAL: the direction (a large sustained SUPPLY DROP) is unambiguous and on-chain, but a one-step delta cannot alone distinguish an orderly protocol-led wind-down/migration from a panic run, so CRITICAL (page-now certainty) is not warranted on the supply signal ALONE \u2014 the depeg is what makes it page-now. (2) DEPEG @ CRITICAL: deUSD fell ~$1.00\u2192~$0.015 (\u2248-98%) on a liquidation venue \u2014 ~9x past USDC's already-catastrophic 13% SVB depeg, the most severe end of the scale; collateral is essentially worthless and positions liquidate / accrue bad debt. A near-total collapse of a $1-pegged collateral asset is the canonical CRITICAL. FIDELITY: the depeg price is ASSERTED (measured=false) \u2014 the ~$0.015 trough is an off-chain CEX/DEX intraday low, NOT a single on-chain protocol-oracle reading at block 23740100 (the known systemic off-chain-depeg gap); the conclusion (catastrophic >= -90%) is robust to the $0.015-$0.03 report spread, so the asserted value is faithful to the premise. must_not_fire guards: UNBACKED_SUPPLY must STAY SILENT \u2014 that is xUSD's signature (provable \u03a3supply>backing from one snapshot) and we do NOT assert deUSD's on-chain backing here; deUSD's break is a RUN, and firing UNBACKED would (a) re-test xUSD and (b) require off-chain NAV we cannot verify on Ethereum. TOTAL_SUPPLY_SPIKE and LARGE_SINGLE_MINT must STAY SILENT because the MEASURED supply move is a CONTRACTION/burn (-36.20%), not a mint \u2014 a detector that fires a 'spike' on a redemption collapse has its sign backwards."
+    },
+    {
+      "id": "calm-pre-stream-disclosure-fp-trap",
+      "snapshot": "snapshots/deUSD_calm.json",
+      "prev": "snapshots/deUSD_calm_prev.json",
+      "now": "2025-10-08T12:00:00Z",
+      "peg_probes": {
+        "deUSD-lender-collateral_isolated": {
+          "price": 1.0,
+          "peg": 1.0,
+          "asset_class": "stable",
+          "by_design_discount": false,
+          "source": "ASSERTED (measured=false): deUSD healthy ~$1.00, early-mid Oct 2025 (pre Nov-4 Stream disclosure)"
+        }
+      },
+      "oracle_probes": {},
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "SUPPLY_DELTA_ANOMALY",
+          "node_id": "token:deUSD"
+        },
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "deUSD-lender-collateral_isolated"
+        },
+        {
+          "signal_type": "UNBACKED_SUPPLY",
+          "node_id": "token:deUSD"
+        },
+        {
+          "signal_type": "TOTAL_SUPPLY_SPIKE",
+          "node_id": "token:deUSD"
+        }
+      ],
+      "max_emitted": {
+        "severity": "WARN",
+        "count": 0
+      },
+      "note": "NORMAL-PERIOD CONTROL / FP-trap on the SAME token, weeks BEFORE the Stream disclosure. deUSD is at ~$1.00 with a stable ~114M supply (MEASURED calm_prev \u2192 calm one-step = +0.0175%, only routine sub-threshold drift from organic mint/redeem flow, NOT a contraction). This proves the incident signals are SPECIFIC to the run, not to deUSD-the-token: DEPEG silent (at par), SUPPLY_DELTA_ANOMALY silent (no anomalous contraction \u2014 MEASURED flat), UNBACKED_SUPPLY silent (deUSD was healthily backed pre-event), TOTAL_SUPPLY_SPIKE silent (no mint spike). max_emitted asserts the NOISE CEILING: zero WARN-or-above on the whole calm snapshot (INFO housekeeping like coverage/new-market is fine). If the engine alarms on a calm, at-peg, stable-supply deUSD, the incident GREEN would be hollow."
+    }
+  ],
+  "ratified": "auto(reviewer)"
+}

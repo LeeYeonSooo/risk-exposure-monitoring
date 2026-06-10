@@ -1,0 +1,5 @@
+{
+  "verdict": "APPROVE",
+  "summary": "Re-captured draft: judgement fields (should_fire/must_not_fire/severities/baselines) byte-identical to prior label.json; measured util reproduces exactly (lockout 0.976629 avail $45.5M; calm 0.790286 avail $1.17B); fidelity marks 4 util inputs measured=true and util_level baseline measured=false (correctly degraded); no measured value contradicts a labelled premise.",
+  "draft_sha256": "960b9cb8de3d45b0f6000a77910a376732b823f2c31487c458e84ccb2a8c8325"
+}

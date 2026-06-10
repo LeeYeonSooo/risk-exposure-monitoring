@@ -1,0 +1,11 @@
+{
+  "inputs": [
+    {
+      "input": "peg_probe:GHO-morpho_blue-collateral_isolated@18600000",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:univ3 0x5c95d4b1c3321cf898d25949f41d50be2db5bc1d 0in1 @ethereum:18600000",
+      "price": 0.96472059
+    }
+  ]
+}

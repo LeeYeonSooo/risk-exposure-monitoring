@@ -1,0 +1,327 @@
+{
+  "root": "0xa1290d69c65a6fe4df752f95823fae25cb99e5a7",
+  "block": 25240905,
+  "edges": [
+    {
+      "from_token": "0xa1290d69c65a6fe4df752f95823fae25cb99e5a7",
+      "holder": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+      "amount": 431907.05340022163,
+      "frac": 0.7585,
+      "kind": "ledger:aave_v3",
+      "label": "InitializableImmutableAdminUpgradeabilityProxy",
+      "depth": 0,
+      "note": "singleton ledger; expand via adapter:aave_v3",
+      "resolved": true,
+      "children_sum": 404024.66,
+      "coverage": 0.9354
+    },
+    {
+      "from_token": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+      "holder": "0xcdfa7efe670869c6b6be4375654e0b206ef49c89",
+      "amount": 113215.71129656347,
+      "frac": 0.2621,
+      "kind": "contract",
+      "label": "TransparentUpgradeableProxy",
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+        "detail": {
+          "supplied": 113215.7113,
+          "underlying_symbol": "rsETH",
+          "ltv": 0.0,
+          "liq_threshold": 0.75
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+      "holder": "0xf7462251c14d2fb83c7ab96367a7985423c83010",
+      "amount": 75028.31169863963,
+      "frac": 0.1737,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+        "detail": {
+          "supplied": 75028.3117,
+          "underlying_symbol": "rsETH",
+          "ltv": 0.0,
+          "liq_threshold": 0.75
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+      "holder": "0x40e93a52f6af9fcd3b476aedadd7feabd9f7aba8",
+      "amount": 61702.655154493106,
+      "frac": 0.1429,
+      "kind": "safe",
+      "label": "GnosisSafeProxy",
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+        "detail": {
+          "supplied": 61702.6552,
+          "underlying_symbol": "rsETH",
+          "ltv": 0.0,
+          "liq_threshold": 0.75
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+      "holder": "0x973ddb8ee2c9cc87e853c8d46253840c63951683",
+      "amount": 39638.363504088906,
+      "frac": 0.0918,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+        "detail": {
+          "supplied": 39638.3635,
+          "underlying_symbol": "rsETH",
+          "ltv": 0.0,
+          "liq_threshold": 0.75
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+      "holder": "0x755013a759c6c56d95b687ef4b2b9864f3654e60",
+      "amount": 32235.56311011268,
+      "frac": 0.0746,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+        "detail": {
+          "supplied": 32235.5631,
+          "underlying_symbol": "rsETH",
+          "ltv": 0.0,
+          "liq_threshold": 0.75
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+      "holder": "0xd8495b95a3a6a85f4e3baa003e8b7ed1ed85562d",
+      "amount": 26552.911251960857,
+      "frac": 0.0615,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+        "detail": {
+          "supplied": 26552.9113,
+          "underlying_symbol": "rsETH",
+          "ltv": 0.0,
+          "liq_threshold": 0.75
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+      "holder": "0xa122687285dc5012141055a801045f069112e7c6",
+      "amount": 20814.08560011577,
+      "frac": 0.0482,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+        "detail": {
+          "supplied": 20814.0856,
+          "underlying_symbol": "rsETH",
+          "ltv": 0.0,
+          "liq_threshold": 0.75
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+      "holder": "0x8cb04249117d37fb42f3c805c1a60cfe801a0f6e",
+      "amount": 13925.067585517889,
+      "frac": 0.0322,
+      "kind": "contract",
+      "label": "TransparentUpgradeableProxy",
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+        "detail": {
+          "supplied": 13925.0676,
+          "underlying_symbol": "rsETH",
+          "ltv": 0.0,
+          "liq_threshold": 0.75
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+      "holder": "0x537c351c374b013f4db9bbe2b078803ecffc6d54",
+      "amount": 10971.815419557592,
+      "frac": 0.0254,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+        "detail": {
+          "supplied": 10971.8154,
+          "underlying_symbol": "rsETH",
+          "ltv": 0.0,
+          "liq_threshold": 0.75
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+      "holder": "0x9074212f22f75789ca3fa21a4b46d3a1489cc0a9",
+      "amount": 9940.179619630078,
+      "frac": 0.023,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+        "detail": {
+          "supplied": 9940.1796,
+          "underlying_symbol": "rsETH",
+          "ltv": 0.0,
+          "liq_threshold": 0.75
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0xa1290d69c65a6fe4df752f95823fae25cb99e5a7",
+      "holder": "0x85d456b2dff1fd8245387c0bfb64dfb700e98ef3",
+      "amount": 80547.67469212066,
+      "frac": 0.1415,
+      "kind": "contract",
+      "label": "RSETH_OFTAdapter",
+      "depth": 0
+    },
+    {
+      "from_token": "0xa1290d69c65a6fe4df752f95823fae25cb99e5a7",
+      "holder": "0x62de59c08eb5dae4b7e6f7a8cad3006d6965ec16",
+      "amount": 16205.649299663284,
+      "frac": 0.0285,
+      "kind": "ledger:kelp",
+      "label": "TransparentUpgradeableProxy",
+      "depth": 0,
+      "note": "singleton ledger; expand via adapter:kelp",
+      "resolved": false
+    },
+    {
+      "from_token": "0xa1290d69c65a6fe4df752f95823fae25cb99e5a7",
+      "holder": "0xa17581a9e3356d9a858b789d68b4d866e593ae94",
+      "amount": 9891.965761816911,
+      "frac": 0.0174,
+      "kind": "ledger:compound_v3",
+      "label": "TransparentUpgradeableProxy",
+      "depth": 0,
+      "note": "singleton ledger; expand via adapter:compound_v3",
+      "resolved": true,
+      "children_sum": 9879.83,
+      "coverage": 0.9988
+    },
+    {
+      "from_token": "0xa17581a9e3356d9a858b789d68b4d866e593ae94",
+      "holder": "0xd8495b95a3a6a85f4e3baa003e8b7ed1ed85562d",
+      "amount": 6412.834114005406,
+      "frac": 0.6483,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "compound_v3",
+      "position": {
+        "role": "collateral",
+        "venue": "0xa17581a9e3356d9a858b789d68b4d866e593ae94",
+        "detail": {
+          "collateral": 6412.8341,
+          "base_token": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+          "base_symbol": "WETH",
+          "base_borrow": 6767.5011,
+          "liq_factor": 0.93
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0xa17581a9e3356d9a858b789d68b4d866e593ae94",
+      "holder": "0xf7462251c14d2fb83c7ab96367a7985423c83010",
+      "amount": 3467.000000001535,
+      "frac": 0.3505,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "compound_v3",
+      "position": {
+        "role": "collateral",
+        "venue": "0xa17581a9e3356d9a858b789d68b4d866e593ae94",
+        "detail": {
+          "collateral": 3467.0,
+          "base_token": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+          "base_symbol": "WETH",
+          "base_borrow": 3352.0983,
+          "liq_factor": 0.93
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0xa1290d69c65a6fe4df752f95823fae25cb99e5a7",
+      "holder": "0x22162dbba43fe0477cdc5234e248264ec7c6ea7c",
+      "amount": 5941.008118993307,
+      "frac": 0.0104,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 0
+    }
+  ]
+}

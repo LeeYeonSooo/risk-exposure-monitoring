@@ -1,0 +1,1410 @@
+{
+  "nodes": [
+    {
+      "id": "0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
+      "type": "token",
+      "label": "0x4c9e…68b3",
+      "data": {
+        "category": "token",
+        "kind": "token",
+        "label": null,
+        "symbol": null,
+        "depth": -1,
+        "address": "0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
+        "approx": false
+      }
+    },
+    {
+      "id": "0x9d39a5de30e57443bff2a8307a4256c8797a3497",
+      "type": "protocol",
+      "label": "ERC4626 Vault",
+      "data": {
+        "category": "erc4626_vault",
+        "kind": "erc4626_vault",
+        "label": "",
+        "symbol": null,
+        "depth": 0,
+        "address": "0x9d39a5de30e57443bff2a8307a4256c8797a3497",
+        "approx": false
+      }
+    },
+    {
+      "id": "0x211cc4dd073734da055fbf44a2b4667d5e5fe5d2",
+      "type": "protocol",
+      "label": "opaque 0x211c…e5d2",
+      "data": {
+        "category": "opaque",
+        "kind": "opaque",
+        "label": "",
+        "symbol": null,
+        "depth": 1,
+        "address": "0x211cc4dd073734da055fbf44a2b4667d5e5fe5d2",
+        "approx": true
+      }
+    },
+    {
+      "id": "0x4579a27af00a62c0eb156349f31b345c08386419",
+      "type": "protocol",
+      "label": "Aave",
+      "data": {
+        "category": "ledger:aave_v3",
+        "kind": "ledger:aave_v3",
+        "label": "",
+        "symbol": null,
+        "depth": 1,
+        "address": "0x4579a27af00a62c0eb156349f31b345c08386419",
+        "approx": false
+      }
+    },
+    {
+      "id": "0x0591926d5d3b9cc48ae6efb8db68025ddc3adfa5",
+      "type": "protocol",
+      "label": "opaque 0x0591…dfa5",
+      "data": {
+        "category": "opaque",
+        "kind": "opaque",
+        "label": "",
+        "symbol": null,
+        "depth": 2,
+        "address": "0x0591926d5d3b9cc48ae6efb8db68025ddc3adfa5",
+        "approx": true
+      }
+    },
+    {
+      "id": "0x6142eb927529974c5cded66dafc57cb5aaaf73ab",
+      "type": "protocol",
+      "label": "EOA 0x6142…73ab",
+      "data": {
+        "category": "EOA",
+        "kind": "EOA",
+        "label": "EOA",
+        "symbol": null,
+        "depth": 2,
+        "address": "0x6142eb927529974c5cded66dafc57cb5aaaf73ab",
+        "approx": false
+      }
+    },
+    {
+      "id": "0xa9f86d9eaf339305cd36e76bc0de7ac5b024f075",
+      "type": "protocol",
+      "label": "opaque 0xa9f8…f075",
+      "data": {
+        "category": "opaque",
+        "kind": "opaque",
+        "label": "",
+        "symbol": null,
+        "depth": 1,
+        "address": "0xa9f86d9eaf339305cd36e76bc0de7ac5b024f075",
+        "approx": true
+      }
+    },
+    {
+      "id": "0xa998a89bc88d3e3e93dcd86455a1182f83433bfd",
+      "type": "protocol",
+      "label": "opaque 0xa998…3bfd",
+      "data": {
+        "category": "opaque",
+        "kind": "opaque",
+        "label": "",
+        "symbol": null,
+        "depth": 2,
+        "address": "0xa998a89bc88d3e3e93dcd86455a1182f83433bfd",
+        "approx": true
+      }
+    },
+    {
+      "id": "0x9cbf099ff424979439dfba03f00b5961784c06ce",
+      "type": "protocol",
+      "label": "EOA 0x9cbf…06ce",
+      "data": {
+        "category": "EOA",
+        "kind": "EOA",
+        "label": "EOA",
+        "symbol": null,
+        "depth": 1,
+        "address": "0x9cbf099ff424979439dfba03f00b5961784c06ce",
+        "approx": false
+      }
+    },
+    {
+      "id": "0xc0c7a4627fcdd79c6aeb1f408111fb77a2318526",
+      "type": "protocol",
+      "label": "EOA 0xc0c7…8526",
+      "data": {
+        "category": "EOA",
+        "kind": "EOA",
+        "label": "EOA",
+        "symbol": null,
+        "depth": 2,
+        "address": "0xc0c7a4627fcdd79c6aeb1f408111fb77a2318526",
+        "approx": false
+      }
+    },
+    {
+      "id": "0x2304eb247ae2dcf91ba372b458fc7e4ccc55ee42",
+      "type": "protocol",
+      "label": "opaque 0x2304…ee42",
+      "data": {
+        "category": "opaque",
+        "kind": "opaque",
+        "label": "",
+        "symbol": null,
+        "depth": 2,
+        "address": "0x2304eb247ae2dcf91ba372b458fc7e4ccc55ee42",
+        "approx": true
+      }
+    },
+    {
+      "id": "0xa580fe412dfbc2754bf0b9006075bd4b64a6752b",
+      "type": "protocol",
+      "label": "EOA 0xa580…752b",
+      "data": {
+        "category": "EOA",
+        "kind": "EOA",
+        "label": "EOA",
+        "symbol": null,
+        "depth": 2,
+        "address": "0xa580fe412dfbc2754bf0b9006075bd4b64a6752b",
+        "approx": false
+      }
+    },
+    {
+      "id": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "type": "protocol",
+      "label": "Morpho",
+      "data": {
+        "category": "ledger:morpho",
+        "kind": "ledger:morpho",
+        "label": "",
+        "symbol": null,
+        "depth": 1,
+        "address": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+        "approx": false
+      }
+    },
+    {
+      "id": "0xcf0a12cbd8088fc5f84ad431e71787157041cd69",
+      "type": "protocol",
+      "label": "EOA 0xcf0a…cd69",
+      "data": {
+        "category": "EOA",
+        "kind": "EOA",
+        "label": "EOA",
+        "symbol": null,
+        "depth": 2,
+        "address": "0xcf0a12cbd8088fc5f84ad431e71787157041cd69",
+        "approx": false
+      }
+    },
+    {
+      "id": "0xb00fe7a3e0eaa061de1f74af0d48de97c244f58d",
+      "type": "protocol",
+      "label": "EOA 0xb00f…f58d",
+      "data": {
+        "category": "EOA",
+        "kind": "EOA",
+        "label": "EOA",
+        "symbol": null,
+        "depth": 2,
+        "address": "0xb00fe7a3e0eaa061de1f74af0d48de97c244f58d",
+        "approx": false
+      }
+    },
+    {
+      "id": "0x9f1a1479191af103ff82fead23e950b6b3b2bd1a",
+      "type": "protocol",
+      "label": "EOA 0x9f1a…bd1a",
+      "data": {
+        "category": "EOA",
+        "kind": "EOA",
+        "label": "EOA",
+        "symbol": null,
+        "depth": 2,
+        "address": "0x9f1a1479191af103ff82fead23e950b6b3b2bd1a",
+        "approx": false
+      }
+    },
+    {
+      "id": "0x42715ba91deda3c692b9f540cee2fbb4dae78bbb",
+      "type": "protocol",
+      "label": "EOA 0x4271…8bbb",
+      "data": {
+        "category": "EOA",
+        "kind": "EOA",
+        "label": "EOA",
+        "symbol": null,
+        "depth": 2,
+        "address": "0x42715ba91deda3c692b9f540cee2fbb4dae78bbb",
+        "approx": false
+      }
+    },
+    {
+      "id": "0xdf81987465681d0515058fe0a47a3bd174012730",
+      "type": "protocol",
+      "label": "EOA 0xdf81…2730",
+      "data": {
+        "category": "EOA",
+        "kind": "EOA",
+        "label": "EOA",
+        "symbol": null,
+        "depth": 2,
+        "address": "0xdf81987465681d0515058fe0a47a3bd174012730",
+        "approx": false
+      }
+    },
+    {
+      "id": "0xecc692198f2c97702092f9f7e9e95b2f25e6a6e8",
+      "type": "protocol",
+      "label": "EOA 0xecc6…a6e8",
+      "data": {
+        "category": "EOA",
+        "kind": "EOA",
+        "label": "EOA",
+        "symbol": null,
+        "depth": 2,
+        "address": "0xecc692198f2c97702092f9f7e9e95b2f25e6a6e8",
+        "approx": false
+      }
+    },
+    {
+      "id": "0x65859153491f44e2226ca6ae37347c855158a4fb",
+      "type": "protocol",
+      "label": "EOA 0x6585…a4fb",
+      "data": {
+        "category": "EOA",
+        "kind": "EOA",
+        "label": "EOA",
+        "symbol": null,
+        "depth": 2,
+        "address": "0x65859153491f44e2226ca6ae37347c855158a4fb",
+        "approx": false
+      }
+    },
+    {
+      "id": "0x6efc48b8b6222924fa6ea95d174af5518b761177",
+      "type": "protocol",
+      "label": "EOA 0x6efc…1177",
+      "data": {
+        "category": "EOA",
+        "kind": "EOA",
+        "label": "EOA",
+        "symbol": null,
+        "depth": 2,
+        "address": "0x6efc48b8b6222924fa6ea95d174af5518b761177",
+        "approx": false
+      }
+    },
+    {
+      "id": "0x9ffe77146cc1da3edb87af163c6c32bab474b464",
+      "type": "protocol",
+      "label": "opaque 0x9ffe…b464",
+      "data": {
+        "category": "opaque",
+        "kind": "opaque",
+        "label": "",
+        "symbol": null,
+        "depth": 1,
+        "address": "0x9ffe77146cc1da3edb87af163c6c32bab474b464",
+        "approx": true
+      }
+    },
+    {
+      "id": "0xdbf4fb6c310c1c85d0b41b5dbca06096f2e7099f",
+      "type": "protocol",
+      "label": "opaque 0xdbf4…099f",
+      "data": {
+        "category": "opaque",
+        "kind": "opaque",
+        "label": "",
+        "symbol": null,
+        "depth": 1,
+        "address": "0xdbf4fb6c310c1c85d0b41b5dbca06096f2e7099f",
+        "approx": true
+      }
+    },
+    {
+      "id": "0x295f67fdb21255a3db82964445628a706fbe689e",
+      "type": "protocol",
+      "label": "EOA 0x295f…689e",
+      "data": {
+        "category": "EOA",
+        "kind": "EOA",
+        "label": "EOA",
+        "symbol": null,
+        "depth": 1,
+        "address": "0x295f67fdb21255a3db82964445628a706fbe689e",
+        "approx": false
+      }
+    },
+    {
+      "id": "0xcbf87044fa4cd42178d0393a1e7c7d9faeef545d",
+      "type": "protocol",
+      "label": "EOA 0xcbf8…545d",
+      "data": {
+        "category": "EOA",
+        "kind": "EOA",
+        "label": "EOA",
+        "symbol": null,
+        "depth": 1,
+        "address": "0xcbf87044fa4cd42178d0393a1e7c7d9faeef545d",
+        "approx": false
+      }
+    },
+    {
+      "id": "0x9ea38e09f41a9de53972a68268ba0dcc6d2fadf8",
+      "type": "protocol",
+      "label": "EOA 0x9ea3…adf8",
+      "data": {
+        "category": "EOA",
+        "kind": "EOA",
+        "label": "EOA",
+        "symbol": null,
+        "depth": 1,
+        "address": "0x9ea38e09f41a9de53972a68268ba0dcc6d2fadf8",
+        "approx": false
+      }
+    },
+    {
+      "id": "0x5d3a1ff2b6bab83b63cd9ad0787074081a52ef34",
+      "type": "protocol",
+      "label": "opaque 0x5d3a…ef34",
+      "data": {
+        "category": "opaque",
+        "kind": "opaque",
+        "label": "",
+        "symbol": null,
+        "depth": 0,
+        "address": "0x5d3a1ff2b6bab83b63cd9ad0787074081a52ef34",
+        "approx": true
+      }
+    },
+    {
+      "id": "0x3cc936b795a188f0e246cbb2d74c5bd190aecf18",
+      "type": "protocol",
+      "label": "EOA 0x3cc9…cf18",
+      "data": {
+        "category": "EOA",
+        "kind": "EOA",
+        "label": "EOA",
+        "symbol": null,
+        "depth": 0,
+        "address": "0x3cc936b795a188f0e246cbb2d74c5bd190aecf18",
+        "approx": false
+      }
+    },
+    {
+      "id": "0x4f5923fc5fd4a93352581b38b7cd26943012decf",
+      "type": "protocol",
+      "label": "Aave",
+      "data": {
+        "category": "ledger:aave_v3",
+        "kind": "ledger:aave_v3",
+        "label": "",
+        "symbol": null,
+        "depth": 0,
+        "address": "0x4f5923fc5fd4a93352581b38b7cd26943012decf",
+        "approx": false
+      }
+    },
+    {
+      "id": "0xc468315a2df54f9c076bd5cfe5002ba211f74ca6",
+      "type": "protocol",
+      "label": "EOA 0xc468…4ca6",
+      "data": {
+        "category": "EOA",
+        "kind": "EOA",
+        "label": "EOA",
+        "symbol": null,
+        "depth": 1,
+        "address": "0xc468315a2df54f9c076bd5cfe5002ba211f74ca6",
+        "approx": false
+      }
+    },
+    {
+      "id": "0xd93814273b33dd33b32cd345225cfb65deb048dd",
+      "type": "protocol",
+      "label": "EOA 0xd938…48dd",
+      "data": {
+        "category": "EOA",
+        "kind": "EOA",
+        "label": "EOA",
+        "symbol": null,
+        "depth": 1,
+        "address": "0xd93814273b33dd33b32cd345225cfb65deb048dd",
+        "approx": false
+      }
+    },
+    {
+      "id": "0x2a32219fa180752a9405734399937b1234780ad1",
+      "type": "protocol",
+      "label": "opaque 0x2a32…0ad1",
+      "data": {
+        "category": "opaque",
+        "kind": "opaque",
+        "label": "",
+        "symbol": null,
+        "depth": 1,
+        "address": "0x2a32219fa180752a9405734399937b1234780ad1",
+        "approx": true
+      }
+    },
+    {
+      "id": "0xfec2adfa296fe189f53089fd5ccd8c28dd559cf2",
+      "type": "protocol",
+      "label": "mPT-sUSDe",
+      "data": {
+        "category": "erc20_receipt",
+        "kind": "erc20_receipt",
+        "label": "",
+        "symbol": "mPT-sUSDe",
+        "depth": 1,
+        "address": "0xfec2adfa296fe189f53089fd5ccd8c28dd559cf2",
+        "approx": false
+      }
+    },
+    {
+      "id": "0xf6ff1f7fceb2ce6d26687eaab5988b445d0b94a2",
+      "type": "protocol",
+      "label": "opaque 0xf6ff…94a2",
+      "data": {
+        "category": "opaque",
+        "kind": "opaque",
+        "label": "",
+        "symbol": null,
+        "depth": 2,
+        "address": "0xf6ff1f7fceb2ce6d26687eaab5988b445d0b94a2",
+        "approx": true
+      }
+    },
+    {
+      "id": "0x3dd46846eed8d147841ae162c8425c08bd8e1b41",
+      "type": "protocol",
+      "label": "opaque 0x3dd4…1b41",
+      "data": {
+        "category": "opaque",
+        "kind": "opaque",
+        "label": "",
+        "symbol": null,
+        "depth": 2,
+        "address": "0x3dd46846eed8d147841ae162c8425c08bd8e1b41",
+        "approx": true
+      }
+    },
+    {
+      "id": "0x714167f0075d49c2d5ff57ddf8c2f81f119dfeb7",
+      "type": "protocol",
+      "label": "EOA 0x7141…feb7",
+      "data": {
+        "category": "EOA",
+        "kind": "EOA",
+        "label": "EOA",
+        "symbol": null,
+        "depth": 2,
+        "address": "0x714167f0075d49c2d5ff57ddf8c2f81f119dfeb7",
+        "approx": false
+      }
+    },
+    {
+      "id": "0x99a54e2f1857e54e3fd0dc1fd09b32195c91e684",
+      "type": "protocol",
+      "label": "opaque 0x99a5…e684",
+      "data": {
+        "category": "opaque",
+        "kind": "opaque",
+        "label": "",
+        "symbol": null,
+        "depth": 2,
+        "address": "0x99a54e2f1857e54e3fd0dc1fd09b32195c91e684",
+        "approx": true
+      }
+    },
+    {
+      "id": "0xb76e40277b79b78dfa954cbec863d0e4fd0656ca",
+      "type": "protocol",
+      "label": "opaque 0xb76e…56ca",
+      "data": {
+        "category": "opaque",
+        "kind": "opaque",
+        "label": "",
+        "symbol": null,
+        "depth": 2,
+        "address": "0xb76e40277b79b78dfa954cbec863d0e4fd0656ca",
+        "approx": true
+      }
+    },
+    {
+      "id": "0xd44383f58fa3266ec62ca6c3d1faa5afa3a776d7",
+      "type": "protocol",
+      "label": "EOA 0xd443…76d7",
+      "data": {
+        "category": "EOA",
+        "kind": "EOA",
+        "label": "EOA",
+        "symbol": null,
+        "depth": 2,
+        "address": "0xd44383f58fa3266ec62ca6c3d1faa5afa3a776d7",
+        "approx": false
+      }
+    },
+    {
+      "id": "0x6185ccd36ee2f9bf9b6fb835f6452cf874d3610f",
+      "type": "protocol",
+      "label": "EOA 0x6185…610f",
+      "data": {
+        "category": "EOA",
+        "kind": "EOA",
+        "label": "EOA",
+        "symbol": null,
+        "depth": 2,
+        "address": "0x6185ccd36ee2f9bf9b6fb835f6452cf874d3610f",
+        "approx": false
+      }
+    },
+    {
+      "id": "0x5912aa8d46aa411471aff0ed5c19a8e4f6e73d4a",
+      "type": "protocol",
+      "label": "EOA 0x5912…3d4a",
+      "data": {
+        "category": "EOA",
+        "kind": "EOA",
+        "label": "EOA",
+        "symbol": null,
+        "depth": 2,
+        "address": "0x5912aa8d46aa411471aff0ed5c19a8e4f6e73d4a",
+        "approx": false
+      }
+    },
+    {
+      "id": "0xbafa91d22c093e42e28d7be417e38244e4153f78",
+      "type": "protocol",
+      "label": "opaque 0xbafa…3f78",
+      "data": {
+        "category": "opaque",
+        "kind": "opaque",
+        "label": "",
+        "symbol": null,
+        "depth": 1,
+        "address": "0xbafa91d22c093e42e28d7be417e38244e4153f78",
+        "approx": true
+      }
+    },
+    {
+      "id": "0x53d87b3bd0b6d5c4cb8cc7877321ec61c66de0d3",
+      "type": "protocol",
+      "label": "opaque 0x53d8…e0d3",
+      "data": {
+        "category": "opaque",
+        "kind": "opaque",
+        "label": "",
+        "symbol": null,
+        "depth": 1,
+        "address": "0x53d87b3bd0b6d5c4cb8cc7877321ec61c66de0d3",
+        "approx": true
+      }
+    },
+    {
+      "id": "0x63bee4a7e4aa5d76dc6ab9b9d1852aabb9a40936",
+      "type": "protocol",
+      "label": "EOA 0x63be…0936",
+      "data": {
+        "category": "EOA",
+        "kind": "EOA",
+        "label": "EOA",
+        "symbol": null,
+        "depth": 0,
+        "address": "0x63bee4a7e4aa5d76dc6ab9b9d1852aabb9a40936",
+        "approx": false
+      }
+    },
+    {
+      "id": "0x33ae83071432116ae892693b45466949a38ac74c",
+      "type": "protocol",
+      "label": "EOA 0x33ae…c74c",
+      "data": {
+        "category": "EOA",
+        "kind": "EOA",
+        "label": "EOA",
+        "symbol": null,
+        "depth": 0,
+        "address": "0x33ae83071432116ae892693b45466949a38ac74c",
+        "approx": false
+      }
+    },
+    {
+      "id": "0x4865d4bcf4ab92e1c9ba5011560e7d4c36f54106",
+      "type": "protocol",
+      "label": "EOA 0x4865…4106",
+      "data": {
+        "category": "EOA",
+        "kind": "EOA",
+        "label": "EOA",
+        "symbol": null,
+        "depth": 0,
+        "address": "0x4865d4bcf4ab92e1c9ba5011560e7d4c36f54106",
+        "approx": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "0x4c9edd5852cd905f086c759e8383e09bff1e68b3->0x9d39a5de30e57443bff2a8307a4256c8797a3497#0",
+      "source": "0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
+      "target": "0x9d39a5de30e57443bff2a8307a4256c8797a3497",
+      "label": "39.4% 1,779,706,891",
+      "edge_type": "vault",
+      "amount": 1779706891.0388224,
+      "depth": 0
+    },
+    {
+      "id": "0x9d39a5de30e57443bff2a8307a4256c8797a3497->0x211cc4dd073734da055fbf44a2b4667d5e5fe5d2#1",
+      "source": "0x9d39a5de30e57443bff2a8307a4256c8797a3497",
+      "target": "0x211cc4dd073734da055fbf44a2b4667d5e5fe5d2",
+      "label": "36.7% 529,432,267",
+      "edge_type": "holds",
+      "amount": 529432267.170865,
+      "depth": 1
+    },
+    {
+      "id": "0x9d39a5de30e57443bff2a8307a4256c8797a3497->0x4579a27af00a62c0eb156349f31b345c08386419#2",
+      "source": "0x9d39a5de30e57443bff2a8307a4256c8797a3497",
+      "target": "0x4579a27af00a62c0eb156349f31b345c08386419",
+      "label": "13.8% 198,303,453",
+      "edge_type": "aave_v3",
+      "amount": 198303452.67507887,
+      "depth": 1,
+      "coverage": 0.7953
+    },
+    {
+      "id": "0x4579a27af00a62c0eb156349f31b345c08386419->0x0591926d5d3b9cc48ae6efb8db68025ddc3adfa5#3",
+      "source": "0x4579a27af00a62c0eb156349f31b345c08386419",
+      "target": "0x0591926d5d3b9cc48ae6efb8db68025ddc3adfa5",
+      "label": "예치 54,142,239 · LT 75%",
+      "edge_type": "lending",
+      "amount": 54142239.04946749,
+      "depth": 2,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x4579a27af00a62c0eb156349f31b345c08386419",
+        "detail": {
+          "supplied": 54142239.0495,
+          "underlying_symbol": "sUSDe",
+          "ltv": 0.0,
+          "liq_threshold": 0.75
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "id": "0x4579a27af00a62c0eb156349f31b345c08386419->0x6142eb927529974c5cded66dafc57cb5aaaf73ab#4",
+      "source": "0x4579a27af00a62c0eb156349f31b345c08386419",
+      "target": "0x6142eb927529974c5cded66dafc57cb5aaaf73ab",
+      "label": "예치 44,084,235 · LT 75%",
+      "edge_type": "lending",
+      "amount": 44084235.03027771,
+      "depth": 2,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x4579a27af00a62c0eb156349f31b345c08386419",
+        "detail": {
+          "supplied": 44084235.0303,
+          "underlying_symbol": "sUSDe",
+          "ltv": 0.0,
+          "liq_threshold": 0.75
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "id": "0x4579a27af00a62c0eb156349f31b345c08386419->0xa9f86d9eaf339305cd36e76bc0de7ac5b024f075#5",
+      "source": "0x4579a27af00a62c0eb156349f31b345c08386419",
+      "target": "0xa9f86d9eaf339305cd36e76bc0de7ac5b024f075",
+      "label": "예치 14,805,855 · LT 75%",
+      "edge_type": "lending",
+      "amount": 14805855.47772835,
+      "depth": 2,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x4579a27af00a62c0eb156349f31b345c08386419",
+        "detail": {
+          "supplied": 14805855.4777,
+          "underlying_symbol": "sUSDe",
+          "ltv": 0.0,
+          "liq_threshold": 0.75
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "id": "0x4579a27af00a62c0eb156349f31b345c08386419->0xa998a89bc88d3e3e93dcd86455a1182f83433bfd#6",
+      "source": "0x4579a27af00a62c0eb156349f31b345c08386419",
+      "target": "0xa998a89bc88d3e3e93dcd86455a1182f83433bfd",
+      "label": "예치 11,992,821 · LT 75%",
+      "edge_type": "lending",
+      "amount": 11992821.264958441,
+      "depth": 2,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x4579a27af00a62c0eb156349f31b345c08386419",
+        "detail": {
+          "supplied": 11992821.265,
+          "underlying_symbol": "sUSDe",
+          "ltv": 0.0,
+          "liq_threshold": 0.75
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "id": "0x4579a27af00a62c0eb156349f31b345c08386419->0x9cbf099ff424979439dfba03f00b5961784c06ce#7",
+      "source": "0x4579a27af00a62c0eb156349f31b345c08386419",
+      "target": "0x9cbf099ff424979439dfba03f00b5961784c06ce",
+      "label": "예치 9,872,737 · LT 75%",
+      "edge_type": "lending",
+      "amount": 9872737.15780079,
+      "depth": 2,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x4579a27af00a62c0eb156349f31b345c08386419",
+        "detail": {
+          "supplied": 9872737.1578,
+          "underlying_symbol": "sUSDe",
+          "ltv": 0.0,
+          "liq_threshold": 0.75
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "id": "0x4579a27af00a62c0eb156349f31b345c08386419->0xc0c7a4627fcdd79c6aeb1f408111fb77a2318526#8",
+      "source": "0x4579a27af00a62c0eb156349f31b345c08386419",
+      "target": "0xc0c7a4627fcdd79c6aeb1f408111fb77a2318526",
+      "label": "예치 8,969,221 · LT 75%",
+      "edge_type": "lending",
+      "amount": 8969221.13059588,
+      "depth": 2,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x4579a27af00a62c0eb156349f31b345c08386419",
+        "detail": {
+          "supplied": 8969221.1306,
+          "underlying_symbol": "sUSDe",
+          "ltv": 0.0,
+          "liq_threshold": 0.75
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "id": "0x4579a27af00a62c0eb156349f31b345c08386419->0x2304eb247ae2dcf91ba372b458fc7e4ccc55ee42#9",
+      "source": "0x4579a27af00a62c0eb156349f31b345c08386419",
+      "target": "0x2304eb247ae2dcf91ba372b458fc7e4ccc55ee42",
+      "label": "예치 7,350,018 · LT 75%",
+      "edge_type": "lending",
+      "amount": 7350017.76,
+      "depth": 2,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x4579a27af00a62c0eb156349f31b345c08386419",
+        "detail": {
+          "supplied": 7350017.76,
+          "underlying_symbol": "sUSDe",
+          "ltv": 0.0,
+          "liq_threshold": 0.75
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "id": "0x4579a27af00a62c0eb156349f31b345c08386419->0xa580fe412dfbc2754bf0b9006075bd4b64a6752b#10",
+      "source": "0x4579a27af00a62c0eb156349f31b345c08386419",
+      "target": "0xa580fe412dfbc2754bf0b9006075bd4b64a6752b",
+      "label": "예치 6,498,904 · LT 75%",
+      "edge_type": "lending",
+      "amount": 6498903.890837209,
+      "depth": 2,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x4579a27af00a62c0eb156349f31b345c08386419",
+        "detail": {
+          "supplied": 6498903.8908,
+          "underlying_symbol": "sUSDe",
+          "ltv": 0.0,
+          "liq_threshold": 0.75
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "id": "0x9d39a5de30e57443bff2a8307a4256c8797a3497->0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb#11",
+      "source": "0x9d39a5de30e57443bff2a8307a4256c8797a3497",
+      "target": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "label": "10.2% 147,334,088",
+      "edge_type": "morpho",
+      "amount": 147334087.58712727,
+      "depth": 1,
+      "coverage": 0.5949
+    },
+    {
+      "id": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb->0xcf0a12cbd8088fc5f84ad431e71787157041cd69#12",
+      "source": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "target": "0xcf0a12cbd8088fc5f84ad431e71787157041cd69",
+      "label": "담보 23,330,303 · 차입 24,998,912 USDtb · LLTV 92%",
+      "edge_type": "morpho",
+      "amount": 23330302.977193948,
+      "depth": 2,
+      "via": "morpho",
+      "position": {
+        "role": "collateral",
+        "venue": "0x88a18b2f4d94e7ad27a381b15531c06abf05a7c99dd5d3c3679875fed6f7e742",
+        "detail": {
+          "collateral": 23330302.9772,
+          "loan_token": "0xc139190f447e929f090edeb554d95abb8b18ac1c",
+          "loan_symbol": "USDtb",
+          "borrow": 24998912.3691,
+          "lltv": 0.915,
+          "utilization": 0.9031
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "id": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb->0xb00fe7a3e0eaa061de1f74af0d48de97c244f58d#13",
+      "source": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "target": "0xb00fe7a3e0eaa061de1f74af0d48de97c244f58d",
+      "label": "담보 10,981,390 · 차입 12,336,935 PYUSD · LLTV 92%",
+      "edge_type": "morpho",
+      "amount": 20730398.652382262,
+      "depth": 2,
+      "via": "morpho",
+      "position": {
+        "role": "collateral",
+        "venue": "0x90ef0c5a0dc7c4de4ad4585002d44e9d411d212d2f6258e94948beecf8b4c0d5",
+        "detail": {
+          "collateral": 10981389.8171,
+          "loan_token": "0x6c3ea9036406852006290770bedfcaba0e23a0e8",
+          "loan_symbol": "PYUSD",
+          "borrow": 12336935.4882,
+          "lltv": 0.915,
+          "utilization": 0.9017
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "id": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb->0x9f1a1479191af103ff82fead23e950b6b3b2bd1a#14",
+      "source": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "target": "0x9f1a1479191af103ff82fead23e950b6b3b2bd1a",
+      "label": "담보 12,868,189 · 차입 14,502,070 PYUSD · LLTV 92%",
+      "edge_type": "morpho",
+      "amount": 12868189.060915781,
+      "depth": 2,
+      "via": "morpho",
+      "position": {
+        "role": "collateral",
+        "venue": "0x90ef0c5a0dc7c4de4ad4585002d44e9d411d212d2f6258e94948beecf8b4c0d5",
+        "detail": {
+          "collateral": 12868189.0609,
+          "loan_token": "0x6c3ea9036406852006290770bedfcaba0e23a0e8",
+          "loan_symbol": "PYUSD",
+          "borrow": 14502069.8644,
+          "lltv": 0.915,
+          "utilization": 0.9017
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "id": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb->0x42715ba91deda3c692b9f540cee2fbb4dae78bbb#15",
+      "source": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "target": "0x42715ba91deda3c692b9f540cee2fbb4dae78bbb",
+      "label": "담보 10,457,892 · 차입 11,217,053 USDtb · LLTV 92%",
+      "edge_type": "morpho",
+      "amount": 10457892.378633156,
+      "depth": 2,
+      "via": "morpho",
+      "position": {
+        "role": "collateral",
+        "venue": "0x88a18b2f4d94e7ad27a381b15531c06abf05a7c99dd5d3c3679875fed6f7e742",
+        "detail": {
+          "collateral": 10457892.3786,
+          "loan_token": "0xc139190f447e929f090edeb554d95abb8b18ac1c",
+          "loan_symbol": "USDtb",
+          "borrow": 11217052.5501,
+          "lltv": 0.915,
+          "utilization": 0.9031
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "id": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb->0xdf81987465681d0515058fe0a47a3bd174012730#16",
+      "source": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "target": "0xdf81987465681d0515058fe0a47a3bd174012730",
+      "label": "담보 5,826,399 · 차입 6,240,374 USDtb · LLTV 92%",
+      "edge_type": "morpho",
+      "amount": 5826398.860615145,
+      "depth": 2,
+      "via": "morpho",
+      "position": {
+        "role": "collateral",
+        "venue": "0x88a18b2f4d94e7ad27a381b15531c06abf05a7c99dd5d3c3679875fed6f7e742",
+        "detail": {
+          "collateral": 5826398.8606,
+          "loan_token": "0xc139190f447e929f090edeb554d95abb8b18ac1c",
+          "loan_symbol": "USDtb",
+          "borrow": 6240374.3709,
+          "lltv": 0.915,
+          "utilization": 0.9031
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "id": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb->0xecc692198f2c97702092f9f7e9e95b2f25e6a6e8#17",
+      "source": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "target": "0xecc692198f2c97702092f9f7e9e95b2f25e6a6e8",
+      "label": "담보 3,035,269 · 차입 3,340,216 USDtb · LLTV 92%",
+      "edge_type": "morpho",
+      "amount": 5296168.654253835,
+      "depth": 2,
+      "via": "morpho",
+      "position": {
+        "role": "collateral",
+        "venue": "0x88a18b2f4d94e7ad27a381b15531c06abf05a7c99dd5d3c3679875fed6f7e742",
+        "detail": {
+          "collateral": 3035268.6057,
+          "loan_token": "0xc139190f447e929f090edeb554d95abb8b18ac1c",
+          "loan_symbol": "USDtb",
+          "borrow": 3340215.5875,
+          "lltv": 0.915,
+          "utilization": 0.9031
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "id": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb->0x65859153491f44e2226ca6ae37347c855158a4fb#18",
+      "source": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "target": "0x65859153491f44e2226ca6ae37347c855158a4fb",
+      "label": "담보 4,588,071 · 차입 4,816,102 PYUSD · LLTV 92%",
+      "edge_type": "morpho",
+      "amount": 4588071.144198165,
+      "depth": 2,
+      "via": "morpho",
+      "position": {
+        "role": "collateral",
+        "venue": "0x90ef0c5a0dc7c4de4ad4585002d44e9d411d212d2f6258e94948beecf8b4c0d5",
+        "detail": {
+          "collateral": 4588071.1442,
+          "loan_token": "0x6c3ea9036406852006290770bedfcaba0e23a0e8",
+          "loan_symbol": "PYUSD",
+          "borrow": 4816102.0397,
+          "lltv": 0.915,
+          "utilization": 0.9017
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "id": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb->0x6efc48b8b6222924fa6ea95d174af5518b761177#19",
+      "source": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "target": "0x6efc48b8b6222924fa6ea95d174af5518b761177",
+      "label": "담보 4,554,263 · 차입 5,062,884 USDtb · LLTV 92%",
+      "edge_type": "morpho",
+      "amount": 4554263.3737725215,
+      "depth": 2,
+      "via": "morpho",
+      "position": {
+        "role": "collateral",
+        "venue": "0x88a18b2f4d94e7ad27a381b15531c06abf05a7c99dd5d3c3679875fed6f7e742",
+        "detail": {
+          "collateral": 4554263.3738,
+          "loan_token": "0xc139190f447e929f090edeb554d95abb8b18ac1c",
+          "loan_symbol": "USDtb",
+          "borrow": 5062883.5597,
+          "lltv": 0.915,
+          "utilization": 0.9031
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "id": "0x9d39a5de30e57443bff2a8307a4256c8797a3497->0x9ffe77146cc1da3edb87af163c6c32bab474b464#20",
+      "source": "0x9d39a5de30e57443bff2a8307a4256c8797a3497",
+      "target": "0x9ffe77146cc1da3edb87af163c6c32bab474b464",
+      "label": "6.6% 95,442,138",
+      "edge_type": "holds",
+      "amount": 95442137.51794422,
+      "depth": 1
+    },
+    {
+      "id": "0x9d39a5de30e57443bff2a8307a4256c8797a3497->0xdbf4fb6c310c1c85d0b41b5dbca06096f2e7099f#21",
+      "source": "0x9d39a5de30e57443bff2a8307a4256c8797a3497",
+      "target": "0xdbf4fb6c310c1c85d0b41b5dbca06096f2e7099f",
+      "label": "4.1% 59,375,172",
+      "edge_type": "holds",
+      "amount": 59375172.47216373,
+      "depth": 1
+    },
+    {
+      "id": "0x9d39a5de30e57443bff2a8307a4256c8797a3497->0x295f67fdb21255a3db82964445628a706fbe689e#22",
+      "source": "0x9d39a5de30e57443bff2a8307a4256c8797a3497",
+      "target": "0x295f67fdb21255a3db82964445628a706fbe689e",
+      "label": "2.4% 35,071,230",
+      "edge_type": "holds",
+      "amount": 35071229.98673058,
+      "depth": 1
+    },
+    {
+      "id": "0x9d39a5de30e57443bff2a8307a4256c8797a3497->0xcbf87044fa4cd42178d0393a1e7c7d9faeef545d#23",
+      "source": "0x9d39a5de30e57443bff2a8307a4256c8797a3497",
+      "target": "0xcbf87044fa4cd42178d0393a1e7c7d9faeef545d",
+      "label": "2.1% 30,976,579",
+      "edge_type": "holds",
+      "amount": 30976579.012279186,
+      "depth": 1
+    },
+    {
+      "id": "0x9d39a5de30e57443bff2a8307a4256c8797a3497->0x9ea38e09f41a9de53972a68268ba0dcc6d2fadf8#24",
+      "source": "0x9d39a5de30e57443bff2a8307a4256c8797a3497",
+      "target": "0x9ea38e09f41a9de53972a68268ba0dcc6d2fadf8",
+      "label": "1.9% 27,933,219",
+      "edge_type": "holds",
+      "amount": 27933218.632731777,
+      "depth": 1
+    },
+    {
+      "id": "0x4c9edd5852cd905f086c759e8383e09bff1e68b3->0x5d3a1ff2b6bab83b63cd9ad0787074081a52ef34#25",
+      "source": "0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
+      "target": "0x5d3a1ff2b6bab83b63cd9ad0787074081a52ef34",
+      "label": "38.3% 1,730,016,342",
+      "edge_type": "holds",
+      "amount": 1730016341.6206195,
+      "depth": 0
+    },
+    {
+      "id": "0x4c9edd5852cd905f086c759e8383e09bff1e68b3->0x3cc936b795a188f0e246cbb2d74c5bd190aecf18#26",
+      "source": "0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
+      "target": "0x3cc936b795a188f0e246cbb2d74c5bd190aecf18",
+      "label": "7.3% 330,885,540",
+      "edge_type": "holds",
+      "amount": 330885539.9439223,
+      "depth": 0
+    },
+    {
+      "id": "0x4c9edd5852cd905f086c759e8383e09bff1e68b3->0x4f5923fc5fd4a93352581b38b7cd26943012decf#27",
+      "source": "0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
+      "target": "0x4f5923fc5fd4a93352581b38b7cd26943012decf",
+      "label": "3.3% 148,990,123",
+      "edge_type": "aave_v3",
+      "amount": 148990122.94513,
+      "depth": 0,
+      "coverage": 2.0067
+    },
+    {
+      "id": "0x4f5923fc5fd4a93352581b38b7cd26943012decf->0xc468315a2df54f9c076bd5cfe5002ba211f74ca6#28",
+      "source": "0x4f5923fc5fd4a93352581b38b7cd26943012decf",
+      "target": "0xc468315a2df54f9c076bd5cfe5002ba211f74ca6",
+      "label": "예치 124,582,727 · LT 75%",
+      "edge_type": "lending",
+      "amount": 124582726.64855461,
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x4f5923fc5fd4a93352581b38b7cd26943012decf",
+        "detail": {
+          "supplied": 124582726.6486,
+          "underlying_symbol": "USDe",
+          "ltv": 0.0,
+          "liq_threshold": 0.75
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "id": "0x4f5923fc5fd4a93352581b38b7cd26943012decf->0xd93814273b33dd33b32cd345225cfb65deb048dd#29",
+      "source": "0x4f5923fc5fd4a93352581b38b7cd26943012decf",
+      "target": "0xd93814273b33dd33b32cd345225cfb65deb048dd",
+      "label": "예치 110,314,142 · LT 75%",
+      "edge_type": "lending",
+      "amount": 110314142.038075,
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x4f5923fc5fd4a93352581b38b7cd26943012decf",
+        "detail": {
+          "supplied": 110314142.0381,
+          "underlying_symbol": "USDe",
+          "ltv": 0.0,
+          "liq_threshold": 0.75
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "id": "0x4f5923fc5fd4a93352581b38b7cd26943012decf->0x9cbf099ff424979439dfba03f00b5961784c06ce#30",
+      "source": "0x4f5923fc5fd4a93352581b38b7cd26943012decf",
+      "target": "0x9cbf099ff424979439dfba03f00b5961784c06ce",
+      "label": "예치 21,149,489 · LT 75%",
+      "edge_type": "lending",
+      "amount": 21149489.011135466,
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x4f5923fc5fd4a93352581b38b7cd26943012decf",
+        "detail": {
+          "supplied": 21149489.0111,
+          "underlying_symbol": "USDe",
+          "ltv": 0.0,
+          "liq_threshold": 0.75
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "id": "0x4f5923fc5fd4a93352581b38b7cd26943012decf->0xa9f86d9eaf339305cd36e76bc0de7ac5b024f075#31",
+      "source": "0x4f5923fc5fd4a93352581b38b7cd26943012decf",
+      "target": "0xa9f86d9eaf339305cd36e76bc0de7ac5b024f075",
+      "label": "예치 17,963,237 · LT 75%",
+      "edge_type": "lending",
+      "amount": 17963237.069118287,
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x4f5923fc5fd4a93352581b38b7cd26943012decf",
+        "detail": {
+          "supplied": 17963237.0691,
+          "underlying_symbol": "USDe",
+          "ltv": 0.0,
+          "liq_threshold": 0.75
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "id": "0x4f5923fc5fd4a93352581b38b7cd26943012decf->0x2a32219fa180752a9405734399937b1234780ad1#32",
+      "source": "0x4f5923fc5fd4a93352581b38b7cd26943012decf",
+      "target": "0x2a32219fa180752a9405734399937b1234780ad1",
+      "label": "예치 10,109,645 · LT 75%",
+      "edge_type": "lending",
+      "amount": 10109644.608701782,
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x4f5923fc5fd4a93352581b38b7cd26943012decf",
+        "detail": {
+          "supplied": 10109644.6087,
+          "underlying_symbol": "USDe",
+          "ltv": 0.0,
+          "liq_threshold": 0.75
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "id": "0x4f5923fc5fd4a93352581b38b7cd26943012decf->0xfec2adfa296fe189f53089fd5ccd8c28dd559cf2#33",
+      "source": "0x4f5923fc5fd4a93352581b38b7cd26943012decf",
+      "target": "0xfec2adfa296fe189f53089fd5ccd8c28dd559cf2",
+      "label": "예치 5,882,614 · LT 75%",
+      "edge_type": "lending",
+      "amount": 5882613.974178212,
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x4f5923fc5fd4a93352581b38b7cd26943012decf",
+        "detail": {
+          "supplied": 5882613.9742,
+          "underlying_symbol": "USDe",
+          "ltv": 0.0,
+          "liq_threshold": 0.75
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "id": "0xfec2adfa296fe189f53089fd5ccd8c28dd559cf2->0xf6ff1f7fceb2ce6d26687eaab5988b445d0b94a2#34",
+      "source": "0xfec2adfa296fe189f53089fd5ccd8c28dd559cf2",
+      "target": "0xf6ff1f7fceb2ce6d26687eaab5988b445d0b94a2",
+      "label": "43.4% 1,299,331",
+      "edge_type": "holds",
+      "amount": 1299330.7520965738,
+      "depth": 2
+    },
+    {
+      "id": "0xfec2adfa296fe189f53089fd5ccd8c28dd559cf2->0x3dd46846eed8d147841ae162c8425c08bd8e1b41#35",
+      "source": "0xfec2adfa296fe189f53089fd5ccd8c28dd559cf2",
+      "target": "0x3dd46846eed8d147841ae162c8425c08bd8e1b41",
+      "label": "33.7% 1,009,964",
+      "edge_type": "holds",
+      "amount": 1009964.4592864024,
+      "depth": 2
+    },
+    {
+      "id": "0xfec2adfa296fe189f53089fd5ccd8c28dd559cf2->0x714167f0075d49c2d5ff57ddf8c2f81f119dfeb7#36",
+      "source": "0xfec2adfa296fe189f53089fd5ccd8c28dd559cf2",
+      "target": "0x714167f0075d49c2d5ff57ddf8c2f81f119dfeb7",
+      "label": "4.9% 147,885",
+      "edge_type": "holds",
+      "amount": 147885.09042369362,
+      "depth": 2
+    },
+    {
+      "id": "0xfec2adfa296fe189f53089fd5ccd8c28dd559cf2->0x99a54e2f1857e54e3fd0dc1fd09b32195c91e684#37",
+      "source": "0xfec2adfa296fe189f53089fd5ccd8c28dd559cf2",
+      "target": "0x99a54e2f1857e54e3fd0dc1fd09b32195c91e684",
+      "label": "4.5% 135,890",
+      "edge_type": "holds",
+      "amount": 135890.19113160414,
+      "depth": 2
+    },
+    {
+      "id": "0xfec2adfa296fe189f53089fd5ccd8c28dd559cf2->0xb76e40277b79b78dfa954cbec863d0e4fd0656ca#38",
+      "source": "0xfec2adfa296fe189f53089fd5ccd8c28dd559cf2",
+      "target": "0xb76e40277b79b78dfa954cbec863d0e4fd0656ca",
+      "label": "3.3% 100,000",
+      "edge_type": "holds",
+      "amount": 100000.0,
+      "depth": 2
+    },
+    {
+      "id": "0xfec2adfa296fe189f53089fd5ccd8c28dd559cf2->0xd44383f58fa3266ec62ca6c3d1faa5afa3a776d7#39",
+      "source": "0xfec2adfa296fe189f53089fd5ccd8c28dd559cf2",
+      "target": "0xd44383f58fa3266ec62ca6c3d1faa5afa3a776d7",
+      "label": "1.8% 52,992",
+      "edge_type": "holds",
+      "amount": 52991.81464989022,
+      "depth": 2
+    },
+    {
+      "id": "0xfec2adfa296fe189f53089fd5ccd8c28dd559cf2->0x6185ccd36ee2f9bf9b6fb835f6452cf874d3610f#40",
+      "source": "0xfec2adfa296fe189f53089fd5ccd8c28dd559cf2",
+      "target": "0x6185ccd36ee2f9bf9b6fb835f6452cf874d3610f",
+      "label": "1.7% 49,923",
+      "edge_type": "holds",
+      "amount": 49922.85797455583,
+      "depth": 2
+    },
+    {
+      "id": "0xfec2adfa296fe189f53089fd5ccd8c28dd559cf2->0x5912aa8d46aa411471aff0ed5c19a8e4f6e73d4a#41",
+      "source": "0xfec2adfa296fe189f53089fd5ccd8c28dd559cf2",
+      "target": "0x5912aa8d46aa411471aff0ed5c19a8e4f6e73d4a",
+      "label": "1.6% 49,102",
+      "edge_type": "holds",
+      "amount": 49102.24040142371,
+      "depth": 2
+    },
+    {
+      "id": "0x4f5923fc5fd4a93352581b38b7cd26943012decf->0xbafa91d22c093e42e28d7be417e38244e4153f78#42",
+      "source": "0x4f5923fc5fd4a93352581b38b7cd26943012decf",
+      "target": "0xbafa91d22c093e42e28d7be417e38244e4153f78",
+      "label": "예치 4,662,236 · LT 75%",
+      "edge_type": "lending",
+      "amount": 4662236.343776033,
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x4f5923fc5fd4a93352581b38b7cd26943012decf",
+        "detail": {
+          "supplied": 4662236.3438,
+          "underlying_symbol": "USDe",
+          "ltv": 0.0,
+          "liq_threshold": 0.75
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "id": "0x4f5923fc5fd4a93352581b38b7cd26943012decf->0x53d87b3bd0b6d5c4cb8cc7877321ec61c66de0d3#43",
+      "source": "0x4f5923fc5fd4a93352581b38b7cd26943012decf",
+      "target": "0x53d87b3bd0b6d5c4cb8cc7877321ec61c66de0d3",
+      "label": "예치 4,320,566 · LT 75%",
+      "edge_type": "lending",
+      "amount": 4320566.1748119285,
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x4f5923fc5fd4a93352581b38b7cd26943012decf",
+        "detail": {
+          "supplied": 4320566.1748,
+          "underlying_symbol": "USDe",
+          "ltv": 0.0,
+          "liq_threshold": 0.75
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "id": "0x4c9edd5852cd905f086c759e8383e09bff1e68b3->0x63bee4a7e4aa5d76dc6ab9b9d1852aabb9a40936#44",
+      "source": "0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
+      "target": "0x63bee4a7e4aa5d76dc6ab9b9d1852aabb9a40936",
+      "label": "2.3% 105,000,000",
+      "edge_type": "holds",
+      "amount": 105000000.2,
+      "depth": 0
+    },
+    {
+      "id": "0x4c9edd5852cd905f086c759e8383e09bff1e68b3->0x33ae83071432116ae892693b45466949a38ac74c#45",
+      "source": "0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
+      "target": "0x33ae83071432116ae892693b45466949a38ac74c",
+      "label": "2.3% 104,000,000",
+      "edge_type": "holds",
+      "amount": 104000000.0,
+      "depth": 0
+    },
+    {
+      "id": "0x4c9edd5852cd905f086c759e8383e09bff1e68b3->0x4865d4bcf4ab92e1c9ba5011560e7d4c36f54106#46",
+      "source": "0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
+      "target": "0x4865d4bcf4ab92e1c9ba5011560e7d4c36f54106",
+      "label": "1.3% 58,564,671",
+      "edge_type": "holds",
+      "amount": 58564671.30455657,
+      "depth": 0
+    }
+  ],
+  "metadata": {
+    "root": "0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
+    "block": 25249738,
+    "edge_count": 47,
+    "source": "feeder/crawl + adapters/crawl_to_frontend.py"
+  }
+}

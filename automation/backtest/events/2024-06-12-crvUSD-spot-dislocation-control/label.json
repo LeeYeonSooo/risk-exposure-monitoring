@@ -1,0 +1,35 @@
+{
+  "event": "2024-06-12 crvUSD spot dislocation (FALSE-POSITIVE DISCIPLINE CONTROL) \u2014 during the 2024-06-12 CRV liquidation cascade, crvUSD SPOT prices in thin individual Curve pools briefly wicked UPWARD toward ~$1.10 (transient) and the PegKeeper V2 deviation check (\u00b10.0005 band) reverted for ~45 min, BUT the manipulation-resistant crvUSD EMA AGGREGATOR \u2014 the price() that Curve LlamaLend markets actually denominate against and a lending monitor ingests \u2014 HELD at $0.99842760 (REAL on-chain MEASURED @ block 20075607). The ingested price never left the peg band; only thin spot pools wicked. The monitor MUST stay quiet (no DEPEG). Complements the USDe CEX-wick control (off-chain wick) with an on-chain spot-vs-EMA-oracle case. See EVENT.md.",
+  "source": "LlamaRisk crvUSD Upward Depeg incident report 2024-06-12 (https://llamarisk.com/research/crvusd-incident-report-20240612): aggregator EMA held peg vs thin pool spot; PegKeeper \u00b10.0005 deviation-check revert ~45 min/~525 blocks; LlamaLend denominates against the aggregator; full liquidation, no bad debt. On-chain MEASURED (Alchemy eth archive, this re-capture): crvUSD aggregator 0x18672b1b\u20264E62 price() (selector 0xa035b1fe) = 998427599842524685/1e18 = $0.99842760 @ block 20075607 (ts 2024-06-12T11:59:59Z); crvUSD 0xf939E0A0\u20261b4E totalSupply() (0x18160ddd) = 725,352,070.0035696. measured_pct=100. See EVENT.md.",
+  "closed": true,
+  "cases": [
+    {
+      "id": "crvusd-emaoracle-held-spot-wick",
+      "snapshot": "snapshots/crvusd.json",
+      "now": "2024-06-12T12:00:00Z",
+      "beta": 2.0,
+      "peg_probes": {
+        "crvUSD-llamalend-collateral": {
+          "price": 0.9984275998425247,
+          "peg": 1.0,
+          "asset_class": "stable",
+          "by_design_discount": false,
+          "source": "onchain:crvUSD-aggregator.price() (0xa035b1fe) @ethereum:20075607 = 998427599842524685/1e18 = $0.99842760 (REAL on-chain MEASURED, this re-capture; deviation -0.157% vs $1.00, in-band); thin spot pools wicked to ~$1.10 transiently (documented, NOT the ingested price)"
+        }
+      },
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "crvUSD-llamalend-collateral"
+        }
+      ],
+      "max_emitted": {
+        "severity": "WARN",
+        "count": 0
+      },
+      "note": "ON-CHAIN SPOT-vs-EMA-ORACLE FP CONTROL. During the 2024-06-12 CRV liquidation cascade, liquidators bought crvUSD to repay a large CRV-collateralized crvUSD debt, and crvUSD SPOT in thin individual Curve pools transiently wicked UPWARD toward ~$1.10. The PegKeeper V2 deviation check (\u00b10.0005 band) reverted, so PegKeepers could not supply crvUSD for ~45 min (~525 blocks) \u2014 a property of thin pool spot, not of the ingested oracle. The price a lending monitor consumes is the manipulation-resistant crvUSD EMA AGGREGATOR (0x18672b1b\u20264E62), which all Curve LlamaLend markets denominate against \u2014 NOT raw pool spot. That aggregator price() = $0.99842760 @ block 20075607 (REAL on-chain MEASURED this re-capture: eth_call selector 0xa035b1fe -> raw 998427599842524685/1e18 = $0.99842759842524685; previously modelled as the rounded 0.9984), deviation -0.157% vs $1.00, inside the stable peg band. So the ingested mark never left peg; only thin spot pools wicked, transiently and upward, with no bad debt accrued. by_design_discount=false because this is NOT a structural sub-par equilibrium \u2014 it is an in-band ingested price during a transient spot dislocation. Firing DEPEG here would be a wrong-source artifact (alerting on a thin-venue spot the monitor neither ingests nor should). The DEPEG must stay silent and the snapshot must raise NO WARN-or-above signal (noise ceiling) \u2014 a benign on-chain spot wick where the ingested oracle held peg must not wake the operator. Pairs with the USDe 2025-10-11 CEX-wick control (off-chain wick) as the on-chain analogue. MEASURED RE-CAPTURE: the load-bearing depeg input is now read on-chain (not hand-typed); the measured value PRESERVES the benign premise (in-band, no band/floor crossed). measured_pct=100 (peg + totalSupply both measured)."
+    }
+  ],
+  "ratified": "auto(reviewer)"
+}

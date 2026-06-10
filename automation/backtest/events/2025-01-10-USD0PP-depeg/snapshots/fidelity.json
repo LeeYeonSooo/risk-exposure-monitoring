@@ -1,0 +1,25 @@
+{
+  "inputs": [
+    {
+      "input": "peg_probe:USD0PP-morpho_blue-collateral_isolated@21594531",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:chainlink 0xFC9e30Cf89f8A00dba3D34edf8b65BCDAdeCC1cB @ethereum:21594531",
+      "price": 0.90977632
+    },
+    {
+      "input": "peg_probe:USD0PP-morpho_blue-collateral_isolated_2@21594531",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:chainlink 0xFC9e30Cf89f8A00dba3D34edf8b65BCDAdeCC1cB @ethereum:21594531",
+      "price": 0.90977632
+    },
+    {
+      "input": "peg_probe:USD0PP-morpho_blue-collateral_isolated@21616615",
+      "detector": "d08",
+      "measured": false,
+      "source": "asserted (no on-chain source given)",
+      "price": 0.997
+    }
+  ]
+}

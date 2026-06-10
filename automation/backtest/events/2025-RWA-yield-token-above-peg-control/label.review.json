@@ -1,0 +1,5 @@
+{
+  "verdict": "APPROVE",
+  "summary": "Re-captured DRAFT control verified data-only & still benign: (a) should_fire/must_not_fire/max_emitted/closed UNCHANGED vs prior label.json (only price/peg swapped representative 1.127 -> MEASURED on-chain NAV 1.08863422); (b) measured value keeps both cases calm — case1 peg==NAV -> 0.00% deviation -> fully silent (DEPEG must_not_fire, WARN ceiling 0); case2 naive $1 peg = +8.86% UPWARD (SAFE direction, collateral worth MORE than par), now further INSIDE the band (<+10% vs old +12.7%), nowhere near any downward liquidation/catastrophe floor -> WARN review-nudge should_fire with HIGH-or-above forbidden; (c) fidelity decisive depeg input peg_probe@22606143 measured=true (onchain Chainlink USYC/USD oracle 0x4c48bcb2160F8e0aDbf9D4F3B034f1e36d1f8b3e), price 1.08863422 consistent across peg_probes/fidelity.json/snapshot _measured; host-fed topology correctly disclosed. edge_id USYC-morpho-collateral + all probe keys exist in snapshots/usyc.json.",
+  "draft_sha256": "dfb9ea7aadaf691cdb58b1436492b7df4b7c1d6f6d5157c7b5d1f1068c497719"
+}

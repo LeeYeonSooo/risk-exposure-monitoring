@@ -1,0 +1,63 @@
+{
+  "event": "LUNA oracle freeze \u2014 Chainlink LUNA/USD pinned at $0.107 minAnswer floor while market crashed to ~$0.01; Venus-class lending venue priced collateral off the frozen feed and took ~$11.2M bad debt (2022-05-13).",
+  "source": "BeInCrypto, Cointelegraph, The Record (Recorded Future), Halborn post-mortem, Venus official statement, ChainCatcher \u2014 see EVENT.md",
+  "closed": true,
+  "cases": [
+    {
+      "id": "oracle-frozen-stale-and-divergent",
+      "snapshot": "snapshots/LUNA.json",
+      "now": "2022-05-13T22:13:34Z",
+      "oracle_probes": {
+        "LUNA-isolated-collateral": {
+          "updated_at": 1652372614,
+          "answer": 0.107,
+          "round_id": 100,
+          "answered_in_round": 100,
+          "asset_class": "altcoin",
+          "reference_answer": 0.01,
+          "feed_address": "0xea0c70019a3a015db8f0f6f7c8b21e2c64e7b9f5",
+          "oracle_address": "0xea0c70019a3a015db8f0f6f7c8b21e2c64e7b9f5",
+          "market_size_usd": 24000000
+        }
+      },
+      "should_fire": [
+        {
+          "signal_type": "ORACLE_FREEZE",
+          "edge_id": "LUNA-isolated-collateral",
+          "min_severity": "HIGH"
+        }
+      ],
+      "must_not_fire": [],
+      "beta": 2.0,
+      "note": "At the frozen-feed moment the Chainlink LUNA/USD aggregator had not updated for ~30h (updated_at 1652372614 vs now 1652480014 = 107400s \u2248 29.8h) \u2014 far beyond an altcoin 4h heartbeat \u00d7 1.75 = 7h limit, indeed > 3\u00d7 the limit. Independently, the last answer ($0.107) diverges ~90% from any honest cross-reference (market ~$0.01). Either flag alone is an actionable ORACLE_FREEZE; together it is unambiguous. This is the exact failure mode that cost Venus ~$11.2M, so the monitor MUST page (HIGH floor; CRITICAL appropriate given staleness > 3\u00d7 limit). Silence here = inheriting the blind feed. (MEASURED on-chain @block 14770000: oracle probe KEPT ASSERTED, measured=False \u2014 the LUNA/USD feed that froze was on BSC (Venus's chain), which this Alchemy key cannot reach (403/not-entitled); on Ethereum no canonical Chainlink LUNA/USD feed existed, and the label's feed_address 0xea0c70019a3a015db8f0f6f7c8b21e2c64e7b9f5 has NO code at block 14770000 (latestRoundData returns 0x). Per firewall rule, NO oracle_feed was passed so the probe degrades to the researched values rather than fabricating a feed read; capture_probes recorded oracle_probe:LUNA-isolated-collateral@14770000 measured=False in snapshots/fidelity.json. The divergent market ~$0.01 is corroborated off-chain (DEX/CEX spot); a thin Wormhole-LUNA/WETH UniV3 pool 0x33f6e97ea6f5dfa6691176b33ad5677e08fb6b38 exists on Ethereum but is a DIFFERENT quantity than the frozen Venus oracle answer and is not wired into the oracle probe.)"
+    },
+    {
+      "id": "healthy-fresh-feed-fp-trap",
+      "snapshot": "snapshots/LUNA.json",
+      "now": "2022-05-01T12:00:00Z",
+      "oracle_probes": {
+        "LUNA-isolated-collateral": {
+          "updated_at": 1651406400,
+          "answer": 85.0,
+          "round_id": 50,
+          "answered_in_round": 50,
+          "asset_class": "altcoin",
+          "reference_answer": 85.2,
+          "feed_address": "0xea0c70019a3a015db8f0f6f7c8b21e2c64e7b9f5",
+          "oracle_address": "0xea0c70019a3a015db8f0f6f7c8b21e2c64e7b9f5",
+          "market_size_usd": 24000000
+        }
+      },
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "ORACLE_FREEZE",
+          "edge_id": "LUNA-isolated-collateral"
+        }
+      ],
+      "beta": 2.0,
+      "note": "FP-trap: days BEFORE the collapse (2022-05-01) LUNA traded ~$85 with a fresh Chainlink feed (updated_at 1651406400 = now exactly, 0s stale) and the answer matched the market within ~0.2% (85.0 vs 85.2 reference). A healthy, fresh, correct feed must NOT raise ORACLE_FREEZE. Guards against a hair-trigger that pages on every normal feed read. (MEASURED on-chain @block 14691832 (= ETH block at ts 1651406400, resolved via block_at_timestamp): oracle probe KEPT ASSERTED, measured=False \u2014 same reason as the sighted case: the frozen feed lived on BSC (unreachable on this key) and no canonical Ethereum Chainlink LUNA/USD feed existed, so NO oracle_feed was passed and the calm pre-collapse probe degrades to the researched values rather than fabricating a feed read. capture_probes recorded oracle_probe:LUNA-isolated-collateral@14691832 measured=False in snapshots/fidelity.json.)"
+    }
+  ],
+  "ratified": "auto(reviewer)"
+}

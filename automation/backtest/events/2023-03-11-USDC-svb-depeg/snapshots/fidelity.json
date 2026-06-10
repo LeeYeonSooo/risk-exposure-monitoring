@@ -1,0 +1,25 @@
+{
+  "inputs": [
+    {
+      "input": "peg_probe:USDC-lender-collateral_market_oracle@16803515",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:chainlink 0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6 @ethereum:16803515",
+      "price": 0.8833
+    },
+    {
+      "input": "peg_probe:USDC-lender-collateral_hardcoded_oracle@16803515",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:chainlink 0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6 @ethereum:16803515",
+      "price": 0.8833
+    },
+    {
+      "input": "peg_probe:USDC-lender-collateral_market_oracle@16820114",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:chainlink 0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6 @ethereum:16820114",
+      "price": 0.9983
+    }
+  ]
+}

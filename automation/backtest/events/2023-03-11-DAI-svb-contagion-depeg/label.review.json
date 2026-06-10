@@ -1,0 +1,5 @@
+{
+  "verdict": "APPROVE",
+  "summary": "Re-anchor faithful: should_fire/must_not_fire/edge_ids/severities IDENTICAL to prior label.json (only the anchor block + measured inputs moved). Depeg cases re-anchored to MEASURED on-chain Chainlink DAI/USD floor block 16803316 (2023-03-11T07:19:59Z) = 0.89110864 = -10.89%, matching EVENT.md's documented -10% to -11% band floor (robust, not cherry-picked); -10.89% past the >=10% CRITICAL tier (sighted CRITICAL, blind HARDCODED HIGH). FP-trap re-anchored to recovery block 16820707 (2023-03-13T18:00Z) = 0.99775901 = -0.22%, benign far from any floor. fidelity.json marks all four re-measured inputs measured=true with block-anchored on-chain sources (reanchored-measured, not off-chain). DAI-lender-sighted (MARKET) + DAI-lender-blind (HARDCODED) exist in snapshots/DAI.json; snapshot meta block = depeg anchor.",
+  "draft_sha256": "008da1c19612bcbc2b9923b68e47e1191faedca81cf121365d47f5c944dd738d"
+}

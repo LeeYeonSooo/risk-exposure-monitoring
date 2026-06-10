@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Exposure 자동화 cron 상시 구동(설계 D#11) — 20분 스태거 스냅샷 + 디스커버리/큐레이터/브릿지/Detector A·B.
+  ⚠️ OPT-IN: 무료티어 RPC(Alchemy/publicnode)를 연속 호출한다. 비용 0 이지만 무료 한도를 소모하므로
+     "돈 안 나가는" 기조 하에서도 항상 켜둘지는 운영자 판단. 끄려면 unload.
+  env: DATABASE_URL/ALCHEMY_API_KEY 등은 automation/.env (dotenv) 에서 로드된다.
+       알림 채널은 .env 에 SLACK_WEBHOOK_URL / TELEGRAM_BOT_TOKEN+TELEGRAM_CHAT_ID / ALERT_WEBHOOK_URL.
+
+  설치:  cp ops/com.exposure.cron.plist ~/Library/LaunchAgents/
+         launchctl load  ~/Library/LaunchAgents/com.exposure.cron.plist
+  해제:  launchctl unload ~/Library/LaunchAgents/com.exposure.cron.plist
+  로그:  /tmp/exposure-cron.log  ·  /tmp/exposure-cron.err
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.exposure.cron</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>cd /ABSOLUTE/PATH/TO/risk-exposure-monitoring/automation &amp;&amp; exec npm run cron</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/ABSOLUTE/PATH/TO/risk-exposure-monitoring/automation</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>30</integer>
+  <key>StandardOutPath</key>
+  <string>/tmp/exposure-cron.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/exposure-cron.err</string>
+</dict>
+</plist>

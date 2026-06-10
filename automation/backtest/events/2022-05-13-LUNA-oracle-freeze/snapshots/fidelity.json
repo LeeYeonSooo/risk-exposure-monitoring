@@ -1,0 +1,16 @@
+{
+  "inputs": [
+    {
+      "input": "oracle_probe:LUNA-isolated-collateral@14770000",
+      "detector": "d04b",
+      "measured": false,
+      "source": "asserted (no feed given)"
+    },
+    {
+      "input": "oracle_probe:LUNA-isolated-collateral@14691832",
+      "detector": "d04b",
+      "measured": false,
+      "source": "asserted (no feed given)"
+    }
+  ]
+}

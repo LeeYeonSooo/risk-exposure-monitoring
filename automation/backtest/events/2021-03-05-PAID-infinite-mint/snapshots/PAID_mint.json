@@ -1,0 +1,64 @@
+{
+  "_invariant": "Real PAID Network (V1, exploited contract 0x8c86…8df) infinite-mint, 2021-03-05. ALL values RE-CAPTURED & VERIFIED on-chain (Alchemy ETH archive, recapture 2026-06-07): totalSupply @ 11979831/11979832/11979840 = 594717455710e18 / 535245710139e18 / 594717455710e18 ✓; mint Transfer(0x0→0x18738290…, 59471745571e18, tx 0x4bb1…55a0) @ 11979840 ✓; burn Transfer(0xd500aa2c…→0x0, 59471745571e18, tx 0x3a48…4b9b) @ 11979832 ✓; owner()=0x53bc…44cc ✓; decimals()=18 ✓; block ts 1614967279 (burn) & 1614967389 (mint) = 110s gap ✓. The attacker (compromised owner key 0x53bc…44cc) BURNED 59,471,745.571 PAID from 0xd500aa2c… (tx 0x3a48…4b9b, 18:01:19Z, block 11979832) then 110s later MINTED the SAME 59,471,745.571 PAID from 0x0 to NON-authorized exploiter 0x18738290… (tx 0x4bb1…55a0, 18:03:09Z, block 11979840). Net totalSupply over the window is FLAT (594,717,455.710 → 594,717,455.710), so a net-supply-diff monitor (d05) and an equal-amount mint/burn reconciliation (d11) are BOTH EVADED by the burn-then-remint. The single-tx %-of-supply mint check is the only thing that sees the individual 10%-of-supply unauthorized mint. snapshot_ts/now is set ~1h after so any window logic is past its settle. See snapshots/fidelity.json (90.9% measured; only off-chain price stays asserted).",
+  "meta": {
+    "token": "PAID",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2021-03-05T19:00:00Z",
+    "snapshot_block": 11979840,
+    "node_count": 1,
+    "edge_count": 0,
+    "data_source": "on-chain Alchemy ETH archive (recapture 2026-06-07, all reads VERIFIED): PAID V1 0x8c8687fc965593dfb2f0b4eaefd55e9d8df348df totalSupply @ blocks 11979831/11979832/11979840; mint tx 0x4bb10927ea7afc2336033574b74ebd6f73ef35ac0db1bb96229627c9d77555a0; burn tx 0x3a483dd881d98541ebbd51e9a64daa700546bae9c2b33a30c2192f9981334b9b; owner() 0x53bc21d38281d6acdfe0b92e0b534a19c90344cc; decimals() 18",
+    "coverage_pct": 0.5
+  },
+  "nodes": [
+    {
+      "node_id": "token:PAID",
+      "type": "Token",
+      "label": "PAID Network (V1, exploited)",
+      "address": "0x8c8687fc965593dfb2f0b4eaefd55e9d8df348df",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "PAID",
+        "decimals": 18,
+        "total_supply": 594717455710000000000000000,
+        "supply_samples": [
+          594717455710000000000000000,
+          594717455710000000000000000,
+          594717455710000000000000000,
+          594717455710000000000000000,
+          594717455710000000000000000,
+          594717455710000000000000000
+        ],
+        "mint_events": [
+          {
+            "amount": 59471745571000000000000000,
+            "to": "0x18738290af1aaf96f0acfa945c9c31ab21cd65be",
+            "tx_hash": "0x4bb10927ea7afc2336033574b74ebd6f73ef35ac0db1bb96229627c9d77555a0",
+            "chain": "ethereum",
+            "home": false,
+            "ts": 1614967389
+          }
+        ],
+        "burn_events": [
+          {
+            "amount": 59471745571000000000000000,
+            "from": "0xd500aa2cffb70f460f4da6afa038ce35bed029bc",
+            "tx_hash": "0x3a483dd881d98541ebbd51e9a64daa700546bae9c2b33a30c2192f9981334b9b",
+            "chain": "ethereum",
+            "ts": 1614967279
+          }
+        ],
+        "authorized_minters": [
+          "0x53bc21d38281d6acdfe0b92e0b534a19c90344cc"
+        ],
+        "holders": null,
+        "market_cap_usd": 265000000,
+        "paused": false,
+        "_note": "MEASURED on-chain (recapture 2026-06-07): exploiter 0x18738290… is NOT the authorized owner/minter owner()=0x53bc…44cc (read @ 11979831), so the mint is unauthorized (non-home, non-allowlisted). The mint is 59,471,745.571 / 594,717,455.710 = 10.00% of supply = 1000 bps (>= single_tx_mint_bps). The equal 110s-earlier burn keeps net supply flat AND matches the mint within the 1800s recon window — the burn-remint EVASION. Only the single-tx %-of-supply check catches it. mint ts 1614967389, burn ts 1614967279 (gap 110s) both read from block headers."
+      }
+    }
+  ],
+  "edges": []
+}

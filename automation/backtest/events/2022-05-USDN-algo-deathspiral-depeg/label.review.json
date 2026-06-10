@@ -1,0 +1,8 @@
+{
+  "verdict": "APPROVE",
+  "summary": "Re-review after 2 added should_fire: all 4 facets traceable to one -24% on-chain USDN collapse (depeg -21% via peg_probes; supply, edge core_weight collateral, and market_size liquidity each -24.15% in the snapshot pair); edge_id/node_id and probe keys exist; fidelity disclosed.",
+  "per_case": {
+    "usdn-deathspiral-depeg-and-exit": "APPROVE - DEPEG@HIGH faithful: USDN $0.79 = -21% break on USDN-curve-pool (oracle.depeg_sensitive=true, collateral_isolated), past USDC/SVB ~13% page-now, undercollateralized (not a recovered blip). SUPPLY_DELTA_ANOMALY@WARN faithful: token:USDN totalSupply 107.4M->81.4M (-24.15%) real on-chain redemption exit; WARN floor right (one-step delta can't certify panic vs orderly). WHALE_UNWIND@WARN faithful (ADDED): edge core_weight amount_token 32.21M->24.43M and amount_usd $25.77M->$19.55M = -24.15% collateral outflow in lockstep as USDN fled the dying market; documented bank-run exit, real symptom not benign rebalance; WARN defensible. UTIL_LIQUIDITY_DROP@WARN faithful (ADDED): top_markets market_size_usd $25.77M->$19.55M = -24.15% liquidity evaporation as pool died; WARN defensible. All four are distinct readouts (price/supply/collateral/liquidity) of the SAME -24% collapse, not false positives. must_not_fire [] acceptable for single all-out incident; no overclaim; keys consistent; off-chain Waves mechanism + injected depeg + real on-chain supply/collateral/liquidity disclosed."
+  },
+  "draft_sha256": "cab774d42bc0b085205cd6f273f2c72c41d149dd604f84162f9a204f03627339"
+}

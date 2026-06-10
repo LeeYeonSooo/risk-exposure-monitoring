@@ -1,0 +1,52 @@
+{
+  "name": "wbtc-mapping-automation",
+  "version": "0.1.0",
+  "description": "Token-centric dependency mapping pipeline — bipartite snapshots, Multicall3 + Morpho GraphQL + Dune labels.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "snapshot:one": "tsx scripts/snapshot-one.ts",
+    "snapshot:all": "tsx scripts/snapshot-all.ts",
+    "snapshot:chain": "tsx scripts/snapshot-chain.ts",
+    "snapshot:chainsupply": "tsx scripts/snapshot-chain-supply.ts",
+    "snapshot:bridgeauth": "tsx scripts/snapshot-bridge-authority.ts",
+    "snapshot:backing": "tsx scripts/snapshot-backing.ts",
+    "snapshot:mintburn": "tsx scripts/snapshot-mintburn.ts",
+    "snapshot:valuedrift": "tsx scripts/snapshot-value-drift.ts",
+    "snapshot:reflexivity": "tsx scripts/snapshot-reflexivity.ts",
+    "snapshot:nonevm": "tsx scripts/snapshot-nonevm-lending.ts",
+    "snapshot:wallets": "tsx scripts/snapshot-wallets.ts",
+    "discover:wallets": "tsx scripts/discover-curator-wallets.ts",
+    "snapshot:curators": "tsx scripts/snapshot-curators.ts",
+    "discover": "tsx scripts/discover.ts",
+    "discover:dry": "tsx scripts/discover.ts --dry-run",
+    "review": "tsx scripts/review-queue.ts",
+    "scan:risks": "tsx scripts/scan-current-risks.ts",
+    "prune": "tsx scripts/prune-snapshots.ts",
+    "validate": "tsx scripts/validate-accuracy.ts",
+    "backtest": "tsx scripts/backtest.ts",
+    "seed:risk": "tsx scripts/seed-risk-watchlist.ts",
+    "watchlist": "tsx scripts/watchlist-admin.ts",
+    "init-db": "tsx scripts/init-db.ts",
+    "cron": "tsx scripts/cron.ts",
+    "typecheck": "tsc --noEmit",
+    "scan:derisk": "tsx scripts/scan-curator-derisk.ts"
+  },
+  "dependencies": {
+    "@mrgnlabs/marginfi-client-v2": "^6.4.2",
+    "@mrgnlabs/mrgn-common": "^2.0.7",
+    "@solana/web3.js": "^1.98.4",
+    "dotenv": "^16.4.5",
+    "graphql": "^16.9.0",
+    "graphql-request": "^7.1.0",
+    "pg": "^8.13.0",
+    "playwright": "^1.60.0",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

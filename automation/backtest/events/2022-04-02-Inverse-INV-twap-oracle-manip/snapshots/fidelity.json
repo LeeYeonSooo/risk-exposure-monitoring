@@ -1,0 +1,32 @@
+{
+  "inputs": [
+    {
+      "input": "peg_probe:INV-inverse-collateral@manipulated-answer@14506358",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:univ2 0x328dfd0139e26cb0fef7b0742b49b0fe4325f821 @ethereum:14506358",
+      "price": 0.16671548
+    },
+    {
+      "input": "peg_probe:INV-inverse-collateral@honest-reference@14506358",
+      "detector": "d08",
+      "measured": true,
+      "source": "offchain:defillama ethereum:0x41D5D79431A913C4aE7d69a668ecdfE5fF9DFB68 @1648897434",
+      "price": 379.59464509
+    },
+    {
+      "input": "peg_probe:INV-inverse-collateral@control-answer@14500234",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:univ2 0x328dfd0139e26cb0fef7b0742b49b0fe4325f821 @ethereum:14500234",
+      "price": 8.44598311
+    },
+    {
+      "input": "peg_probe:INV-inverse-collateral@control-reference@14500234",
+      "detector": "d08",
+      "measured": true,
+      "source": "offchain:defillama ethereum:0x41D5D79431A913C4aE7d69a668ecdfE5fF9DFB68 @1648814418",
+      "price": 380.25901489
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "event": "Neutrino USD (USDN) algorithmic-stablecoin DEATH SPIRAL during the Terra/UST contagion (May 2022). USDN was WAVES-collateralized: WAVES fell -> USDN broke peg -> protocol minted/sold more WAVES -> further decay (reflexive death spiral). First depeg ~$0.78-$0.82 in early April 2022; terminal contagion collapse in May 2022 (USDN ~$0.79 on KuCoin, May-11, per CoinDesk; WAVES -26% to ~$9). Ethereum-bridged USDN supply collapsed 107.4M->81.4M (-24%) over May-10->15, and ~176M->67M overall. Mechanism (WAVES collateral ratio) is off-chain on Waves; the depeg + supply-exit symptom is Ethereum-readable (depeg injected via peg_probes, supply collapse is a real archive read). See EVENT.md.",
+  "source": "CoinDesk (2022-05-11; 2022-04-04; 2022-06-01), Cointelegraph, Crypto Briefing, Coinmonks/Medium (Alan Au) \u2014 see EVENT.md. DRAFT \u2014 promoted to label.json only via `python3 -m qa.cli ratify` after independent review.",
+  "closed": true,
+  "cases": [
+    {
+      "id": "usdn-deathspiral-depeg-and-exit",
+      "snapshot": "snapshots/usdn_collapse.json",
+      "prev": "snapshots/usdn_prev.json",
+      "now": "2022-05-15T12:00:00Z",
+      "peg_probes": {
+        "USDN-curve-pool": {
+          "price": 0.79,
+          "peg": 1.0,
+          "asset_class": "stable",
+          "by_design_discount": false,
+          "source": "CoinDesk 2022-05-11 'Crisis in Terra's UST Stablecoin Spreads to Neutrino USD on Waves Protocol' \u2014 USDN traded at 79 cents on KuCoin during the May-2022 Terra contagion window (May-11 mid ~$0.88-$0.90; intra-day low ~$0.79); same band as the April-2022 first depeg low (~$0.78-$0.82)."
+        }
+      },
+      "oracle_probes": {},
+      "should_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "USDN-curve-pool",
+          "min_severity": "HIGH"
+        },
+        {
+          "signal_type": "SUPPLY_DELTA_ANOMALY",
+          "node_id": "token:USDN",
+          "min_severity": "WARN"
+        },
+        {
+          "signal_type": "WHALE_UNWIND",
+          "edge_id": "USDN-curve-pool",
+          "min_severity": "WARN"
+        },
+        {
+          "signal_type": "UTIL_LIQUIDITY_DROP",
+          "edge_id": "USDN-curve-pool",
+          "min_severity": "WARN"
+        }
+      ],
+      "must_not_fire": [],
+      "max_emitted": null,
+      "beta": 2.0,
+      "note": "INCIDENT \u2014 the reflexive algo-stable death-spiral archetype. A death spiral does not hit one dimension \u2014 it hits EVERY dimension at once, and the monitor faithfully catches all four facets of the SAME -24% USDN collapse. None of these are false positives; they are correlated symptoms of a single dying market. (1) DEPEG @ >=HIGH on USDN-curve-pool (PRICE): USDN broke its $1 peg to ~$0.79 (a ~21% break) on a depeg-sensitive collateral/lending venue (oracle.depeg_sensitive=true; USDN is collateral_isolated against USDC) during the Terra contagion. 21% is well past USDC's ~13% SVB break (itself a page-now incident) \u2014 collateral is materially impaired and positions are exposed to liquidation / haircuts. HIGH is the floor; this is not a recovered blip but a structural break of an undercollateralized algo-stable (founder later conceded undercollateralization), so HIGH is the right severity and the depeg is what makes the cluster page-now. (2) SUPPLY_DELTA_ANOMALY @ >=WARN on token:USDN (TOKEN SUPPLY): the bridged-USDN totalSupply contracted 107,369,748 -> 81,445,200 (-24%) over the May-10->15 exit week (real on-chain read at blocks 14745349 -> 14776687) as holders ran for redemptions and the bridge drained \u2014 a textbook downward supply contraction / mass-redemption exit, the on-chain signature of a stablecoin bank-run. WARN is the floor: the direction (a large, sustained SUPPLY DROP) is unambiguous and on-chain, but a single one-step delta cannot by itself distinguish a panic run from an orderly wind-down. (3) WHALE_UNWIND @ >=WARN on USDN-curve-pool (COLLATERAL OUTFLOW): the same -24% collapse is the collateral fleeing the market \u2014 USDN holders pulled their collateral out of the pool/market as it died (core_weight / collateral on the edge dropped -24% in lockstep). A -24% collateral outflow in an exit week is a real, faithful unwind symptom, not a benign rebalance; WARN is the defensible floor. (4) UTIL_LIQUIDITY_DROP @ >=WARN on USDN-curve-pool (MARKET LIQUIDITY): the market size / liquidity of the USDN-curve-pool collapsed the same -24% as USDN drained out \u2014 liquidity evaporating as the pool died is a faithful liquidity-drop symptom of the death spiral, so WARN is the floor. All four (price, supply, collateral, liquidity) are different readouts of the one -24% USDN collapse, so all four SHOULD fire \u2014 silencing any of them would blind the monitor to a real facet of a genuine death spiral. The mechanism (WAVES collateral-ratio decay -> mint/sell WAVES -> further decay) lives off-chain on the Waves chain and is described as fact but not asserted as an on-chain measurement; the depeg price is injected via peg_probes (no canonical Ethereum USDN/USD oracle for this venue). must_not_fire is empty for this single incident case."
+    }
+  ],
+  "ratified": "auto(reviewer)"
+}

@@ -1,0 +1,101 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://defi-dependency-map/schemas/node.json",
+  "title": "Node Schema",
+  "description": "디파이 의존성 그래프의 노드. 5개 프로토콜 모듈이 모두 이 형식을 따름.",
+  "type": "object",
+  "required": ["address", "chain_id", "type", "protocol"],
+  "properties": {
+    "address": {
+      "type": "string",
+      "pattern": "^0x[a-f0-9]{40}$|^[a-z0-9_-]+$",
+      "description": "이더리움 주소(소문자) 또는 논리 식별자(예: 'lido-eth-staking'). 체크섬 X."
+    },
+    "chain_id": {
+      "type": "integer",
+      "description": "체인 ID (Ethereum=1, Arbitrum=42161 등)"
+    },
+    "type": {
+      "type": "string",
+      "description": "노드 타입. shared/vocab/node_types.md 의 표준 어휘 사용.",
+      "enum": [
+        "market_registry",
+        "protocol_pool",
+        "protocol_admin",
+        "access_control",
+        "oracle",
+        "price_feed",
+        "price_adapter",
+        "treasury",
+        "a_token",
+        "variable_debt_token",
+        "underlying_asset",
+        "lst_token",
+        "lrt_token",
+        "pt_token",
+        "yt_token",
+        "sy_token",
+        "stable_token",
+        "stability_module",
+        "vault",
+        "user",
+        "liquidator_bot",
+        "mev_bot",
+        "curator",
+        "operator",
+        "external_contract",
+        "multisig",
+        "governance_token",
+        "staked_governance",
+        "safety_module",
+        "withdrawal_nft",
+        "lido_oracle",
+        "beacon_chain_oracle"
+      ]
+    },
+    "protocol": {
+      "type": ["string", "null"],
+      "description": "소속 프로토콜. 예: 'aave-v3', 'lido', 'sky', 'morpho', 'pendle', 'chainlink'. 외부 자산이면 null.",
+      "enum": ["aave-v3", "lido", "sky", "morpho", "pendle", "chainlink", "eigenlayer", "external", null]
+    },
+    "label": {
+      "type": "string",
+      "description": "사람이 읽을 라벨 (예: 'Aave V3 Main Pool', 'wstETH Token')"
+    },
+    "market_id": {
+      "type": ["string", "null"],
+      "description": "시장 식별자 '{chain_id}:{market_address}'. 시장 단위 분리 필요한 경우만."
+    },
+    "metadata": {
+      "type": "object",
+      "description": "자유 형식 메타데이터. 노드 타입별로 다름.",
+      "additionalProperties": true
+    }
+  },
+  "examples": [
+    {
+      "address": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "chain_id": 1,
+      "type": "protocol_pool",
+      "protocol": "aave-v3",
+      "label": "Aave V3 Ethereum Main Pool",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "addresses_provider": "0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+        "asset_count": 30
+      }
+    },
+    {
+      "address": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "chain_id": 1,
+      "type": "lst_token",
+      "protocol": "lido",
+      "label": "wstETH",
+      "metadata": {
+        "underlying": "stETH",
+        "rebasing": false,
+        "wrapper_of": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84"
+      }
+    }
+  ]
+}

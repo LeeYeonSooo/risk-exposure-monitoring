@@ -1,0 +1,68 @@
+{
+  "_invariant": "NEGATIVE CONTROL. USDe (Ethena delta-neutral synthetic dollar) exposure at the 2025-10-10/11 ~$19B liquidation cascade. The ~$0.62-0.65 print existed ONLY on Binance (no primary-dealer plumbing + a self-referential oracle on its own thin order book). ON-CHAIN / on Curve the peg HELD: deviations < 100 bps, ~$0.997. Primary-dealer mint/redeem kept working (>$2B redeemed in 24h), USDe stayed overcollateralized (~$66M surplus, attested by Chaos Labs/Chainlink/Llama Risk/Harris & Trotter), and supply fell CLEANLY from ~$14.6B peak to ~$5.9-6B via honored redemptions — the system working, not a depeg. One Aave V3 collateral edge with a MARKET USDe/USD oracle. The ON-CHAIN price (~0.997) is injected per-case via peg_probes; the off-chain $0.65 wick is correctly NOT ingested. The monitor MUST stay quiet (no DEPEG, no WARN+).",
+  "meta": {
+    "token": "USDe",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2025-10-11",
+    "node_count": 2,
+    "edge_count": 1,
+    "data_source": "Representative USDe Aave V3 collateral exposure for the Oct-2025 cascade window. Load-bearing facts are documentary: on-chain Curve deviation < 100 bps (~$0.997) vs the Binance-only $0.65 wick, attested overcollateralization, and the clean redemption-driven supply drawdown. USDe 0x4c9EDD5852cd905f086C759E8383e09bff1E68B3 (Ethereum, 18dp).",
+    "coverage_pct": 0.6
+  },
+  "nodes": [
+    {
+      "node_id": "token:USDe",
+      "type": "Token",
+      "label": "Ethena USDe (delta-neutral synthetic dollar)",
+      "address": "0x4c9EDD5852cd905f086C759E8383e09bff1E68B3",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "USDe",
+        "decimals": 18,
+        "total_supply": 6000000000,
+        "holders": null,
+        "market_cap_usd": 6000000000,
+        "paused": false,
+        "_note": "Delta-neutral synthetic dollar (spot collateral hedged with short perps). During the 2025-10-10/11 ~$19B cascade USDe printed ~$0.62-0.65 ON BINANCE ONLY — that venue lacked a primary-dealer mint/redeem relationship and its oracle referenced only its own thin order book. ON-CHAIN / on Curve the peg HELD (deviations < 100 bps, ~$0.997). Redemptions worked (>$2B in 24h), USDe stayed overcollateralized (~$66M surplus, independently attested), and circulating supply fell CLEANLY from a ~$14.6B peak to ~$5.9-6B via honored par redemptions. No insolvency, no unbacked supply, no on-chain depeg.",
+        "bridges": {}
+      }
+    },
+    {
+      "node_id": "protocol:aave_v3",
+      "type": "DefiProtocol",
+      "label": "Aave V3",
+      "address": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "mono_pool",
+        "core_contract": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+        "governance": "governance",
+        "_note": "Representative Aave V3 USDe collateral market for the era. Healthy and well-collateralized; at the on-chain ~$0.997 mark the position sits well above the LT 0.90 liquidation line."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "USDe-aave_v3-collateral",
+      "source": "token:USDe",
+      "target": "protocol:aave_v3",
+      "classification": { "edge_type": "collateral", "venue_type": "mono_pool", "protocol_class": "lending" },
+      "core_weight": { "amount_token": 200000000, "amount_usd": 199400000, "pct_of_supply": 0.033, "pct_of_protocol_tvl": null },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "Market USDe/USD (tracks the real on-chain ~$0.997 mark; the $0.65 Binance wick is off-chain and not referenced)",
+        "oracle_address": null,
+        "depeg_sensitive": true
+      },
+      "lending_risk": { "ltv": null, "lt": 0.90, "liquidation_bonus": null, "supply_cap": null, "borrow_cap": null, "reserve_factor": null, "utilization": 0.5, "is_frozen": false, "emode_category": null },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": null,
+      "top_pools": null,
+      "meta": { "snapshot_block": null, "snapshot_ts": "2025-10-11", "verifiable_onchain": true, "confidence": "HIGH", "data_source": "USDe Aave V3 collateral, LT 0.90. At the on-chain ~$0.997 mark the position is far above the liquidation line — the on-chain peg held. The off-chain $0.65 Binance wick is excluded from the price feed by design." }
+    }
+  ]
+}

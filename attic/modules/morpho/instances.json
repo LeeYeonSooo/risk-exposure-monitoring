@@ -1,0 +1,113 @@
+{
+  "_description": "Morpho Blue + VaultV2 의 구조적 노드/엣지. events.json 의 contracts 를 본인 표준 어휘로 변환.",
+  "_protocol": "morpho",
+  "_chain_id": 1,
+  "_source": "modules/morpho/events.json (사용자 제공 schema)",
+  "_note": "VaultV2 인스턴스는 동적 발견 — vaultV2Factory.CreateVaultV2 이벤트로 추후 머지. 본 파일은 startup 정적 인프라만.",
+  "nodes": [
+    {
+      "address": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "chain_id": 1,
+      "type": "protocol_pool",
+      "protocol": "morpho",
+      "label": "Morpho Blue",
+      "market_id": "1:0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "metadata": {
+        "role": "singleton lending pool — 모든 마켓이 이 컨트랙트 안에 존재",
+        "deploy_block": 18883124,
+        "kind": "isolated_markets",
+        "emits": [
+          "Supply",
+          "Withdraw",
+          "Borrow",
+          "Repay",
+          "SupplyCollateral",
+          "WithdrawCollateral",
+          "Liquidate",
+          "FlashLoan",
+          "SetAuthorization",
+          "IncrementNonce",
+          "AccrueInterest"
+        ]
+      }
+    },
+    {
+      "address": "0xa1d94f746defa1928926b84fb2596c06926c0405",
+      "chain_id": 1,
+      "type": "market_registry",
+      "protocol": "morpho",
+      "label": "Morpho VaultV2 Factory",
+      "metadata": {
+        "role": "VaultV2 인스턴스 CREATE2 배포 — CreateVaultV2 이벤트로 신규 vault 발견",
+        "emits": [
+          "CreateVaultV2"
+        ]
+      }
+    },
+    {
+      "address": "0x32bb1c0d48d8b1b3363e86eeb9a0300bad61ccc1",
+      "chain_id": 1,
+      "type": "protocol_admin",
+      "protocol": "morpho",
+      "label": "Morpho Market V1 Adapter Factory",
+      "metadata": {
+        "role": "VaultV2 → Morpho Blue 마켓 연결 adapter 배포",
+        "kind": "adapter_factory"
+      }
+    },
+    {
+      "address": "0xd1b8e2dee25c2b89dcd2f98448a7ce87d6f63394",
+      "chain_id": 1,
+      "type": "protocol_admin",
+      "protocol": "morpho",
+      "label": "Morpho Vault V1 (MetaMorpho) Adapter Factory",
+      "metadata": {
+        "role": "VaultV2 → MetaMorpho V1 연결 adapter 배포",
+        "kind": "adapter_factory"
+      }
+    }
+  ],
+  "static_edges": [
+    {
+      "edge_id": "morpho:vault_factory->blue",
+      "edge_type": "delegation",
+      "from": "0xa1d94f746defa1928926b84fb2596c06926c0405",
+      "to": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "protocol": "morpho",
+      "chain_id": 1,
+      "metadata": {
+        "layer": "factory_to_singleton",
+        "data": "Factory 가 배포하는 VaultV2 들이 결국 Morpho Blue 마켓에 자산을 allocate"
+      }
+    },
+    {
+      "edge_id": "morpho:market_adapter_factory->blue",
+      "edge_type": "vault_allocation",
+      "from": "0x32bb1c0d48d8b1b3363e86eeb9a0300bad61ccc1",
+      "to": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "protocol": "morpho",
+      "chain_id": 1,
+      "metadata": {
+        "layer": "adapter_factory_to_singleton",
+        "data": "MorphoMarketV1Adapter 가 VaultV2 → Morpho Blue 자금 경로를 만듦"
+      }
+    },
+    {
+      "edge_id": "morpho:vault_adapter_factory->factory",
+      "edge_type": "vault_allocation",
+      "from": "0xd1b8e2dee25c2b89dcd2f98448a7ce87d6f63394",
+      "to": "0xa1d94f746defa1928926b84fb2596c06926c0405",
+      "protocol": "morpho",
+      "chain_id": 1,
+      "metadata": {
+        "layer": "metamorpho_adapter",
+        "data": "MetaMorpho V1 adapter 가 VaultV2 와 기존 MetaMorpho 풀을 연결"
+      }
+    }
+  ],
+  "_auto_merge_stats": {
+    "auto_nodes_added": 0,
+    "preserved_human_nodes": 4,
+    "total_nodes": 4
+  }
+}

@@ -1,0 +1,1 @@
+{"addr": "0x5ee5bf7ae06d1be5997a1a72006fe6c607ec6de8", "kind": "ledger:aave_v3", "label": null, "expandable": false, "adapter": "aave_v3", "note": "singleton ledger; expand via adapter:aave_v3"}

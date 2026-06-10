@@ -1,0 +1,33 @@
+{
+  "_description": "{프로토콜명}에서 감지할 모든 이벤트. 각 이벤트의 출처/시그니처/발생 트리거/만드는 엣지를 정리.",
+  "_protocol": "{프로토콜 식별자}",
+  "_naming": "event_id는 'Contract.EventName' 형식 권장",
+
+  "events": [
+    {
+      "event_id": "Example.EventName",
+      "source_contract": "이벤트가 발생하는 컨트랙트 (예: Pool, Oracle 등)",
+      "signature": "EventName(address indexed param1, uint256 param2, ...)",
+      "triggered_by": "어떤 함수 호출로 발생하는지 (예: 'Pool.supply() 호출')",
+      "description": "이 이벤트가 의미하는 것",
+      "produces_edges": [
+        {
+          "edge_type": "supply",
+          "from": "user (msg.sender)",
+          "to": "Pool",
+          "asset": "이벤트에서 가져올 자산 필드명",
+          "amount": "이벤트에서 가져올 양 필드명"
+        }
+      ],
+      "related_side_events": ["Token.Transfer", "Pool.ReserveDataUpdated"]
+    }
+  ],
+
+  "_TODO": [
+    "1. 본인 프로토콜의 핵심 이벤트 5~15개 식별",
+    "2. 각 이벤트의 ABI 시그니처 확인 (Etherscan에서 확인 가능)",
+    "3. shared/vocab/edge_types.md 의 어휘로 produces_edges 작성",
+    "4. msg.sender ≠ onBehalfOf 같은 위임 케이스 분기 처리",
+    "5. 실제 예시: modules/aave/events.json 참고 (24개 이벤트)"
+  ]
+}

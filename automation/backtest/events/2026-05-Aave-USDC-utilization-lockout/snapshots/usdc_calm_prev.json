@@ -1,0 +1,86 @@
+{
+  "_invariant": "prev for calm control: util 84.69% (real), size ~$6.03B.",
+  "meta": {
+    "token": "USDC",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2025-09-24T12:00:00Z",
+    "snapshot_block": 23429173,
+    "data_source": "on-chain Alchemy archive @ block 23429173: Aave V3 USDC util = variableDebt.totalSupply()/(USDC.balanceOf(aUSDC)+variableDebt.totalSupply()) = 5107860006848935/6031132093949543 = 0.846916; aToken=0x98c23e9d8f34fefb1b7bd6a91b7ff122f4e16f5c, variableDebt=0x72e95b8931767c79ba4eee721354d6e99a61d004 (getReserveData words 8/10)"
+  },
+  "nodes": [
+    {
+      "node_id": "token:USDC",
+      "type": "Token",
+      "label": "USD Coin",
+      "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "USDC",
+        "decimals": 6,
+        "market_cap_usd": 6031132094
+      }
+    },
+    {
+      "node_id": "protocol:aave_v3",
+      "type": "DefiProtocol",
+      "label": "Aave V3",
+      "address": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "mono_pool"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "USDC-aave_v3-supply",
+      "source": "token:USDC",
+      "target": "protocol:aave_v3",
+      "classification": {
+        "edge_type": "supply",
+        "venue_type": "shared_pool",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 6031132094,
+        "amount_usd": 6031132094,
+        "pct_of_supply": 0.05,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "Aave USDC/USD",
+        "oracle_address": null,
+        "depeg_sensitive": false
+      },
+      "lending_risk": {
+        "ltv": 0.77,
+        "lt": 0.8,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": 0.1,
+        "utilization": 0.846916,
+        "is_frozen": false,
+        "emode_category": null,
+        "_measured_available_usd": 923272087.1,
+        "_measured_variable_debt_usd": 5107860006.85
+      },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        {
+          "loan_asset": "USDC",
+          "collateral_asset": "USDC",
+          "lltv": 0.8,
+          "market_size_usd": 6031132094,
+          "oracle_address": null,
+          "utilization": 0.846916
+        }
+      ]
+    }
+  ]
+}

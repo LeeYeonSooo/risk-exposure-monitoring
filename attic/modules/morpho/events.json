@@ -1,0 +1,487 @@
+{
+  "schema": "morpho-user-events-v2",
+  "description": "Morpho Blue + VaultV2 사용자 관련 이벤트 22개와 의존성 엣지의 기계 가독 정리",
+  "totalEvents": 22,
+  "categories": {
+    "direct": "사용자가 트랜잭션을 직접 호출해 발생",
+    "indirect": "사용자가 호출하지 않지만 포지션 가치/건강도 변동"
+  },
+  "constants": {
+    "MORPHO_BLUE_MAINNET": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+    "MORPHO_BLUE_DEPLOY_BLOCK": 18883124
+  },
+  "contracts": {
+    "description": "이벤트 추적 대상 컨트랙트 주소. 'TODO'는 배포 환경에 맞게 채워야 함.",
+    "ethereum": {
+      "morphoBlue": {
+        "address": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+        "deployBlock": 18883124,
+        "emits": [
+          "Supply", "Withdraw", "Borrow", "Repay",
+          "SupplyCollateral", "WithdrawCollateral",
+          "Liquidate", "FlashLoan",
+          "SetAuthorization", "IncrementNonce", "AccrueInterest"
+        ],
+        "note": "싱글톤. 모든 마켓이 이 컨트랙트 안에 존재.",
+        "source": "well-known mainnet 주소"
+      },
+      "vaultV2Factory": {
+        "address": "0xA1D94F746dEfa1928926b84fB2596c06926C0405",
+        "emits": ["CreateVaultV2"],
+        "note": "CREATE2로 VaultV2 컨트랙트 배포. 이 이벤트로 신규 vault 발견."
+      },
+      "vaultV2Instances": {
+        "address": "dynamic — VaultV2Factory.CreateVaultV2 이벤트로 발견",
+        "emits": [
+          "Deposit", "Withdraw", "Transfer", "Approval",
+          "AllowanceUpdatedByTransferFrom", "Permit",
+          "ForceDeallocate", "AccrueInterest", "Allocate", "Deallocate"
+        ],
+        "note": "각 vault가 별도 컨트랙트. factory 이벤트 인덱싱으로 동적 발견 후 추적."
+      },
+      "morphoMarketV1AdapterV2Factory": {
+        "address": "0x32BB1c0D48D8b1B3363e86eeB9A0300BAd61ccc1",
+        "note": "VaultV2 → Morpho Blue 마켓 연결용 adapter 배포"
+      },
+      "morphoVaultV1AdapterFactory": {
+        "address": "0xD1B8E2dee25c2b89DCD2f98448a7ce87d6F63394",
+        "note": "VaultV2 → Vault V1(MetaMorpho) 연결용 adapter 배포"
+      }
+    }
+  },
+  "fieldSchema": {
+    "id": "이벤트 고유 번호",
+    "name": "이벤트 이름 (Solidity)",
+    "category": "direct(사용자가 직접 호출해서 발생) | indirect(시스템 내부에서 발생)",
+    "role": {
+      "summary": "이 이벤트가 어떤 의미인지",
+      "trigger": "언제 발생하는지",
+      "effect": "어떤 결과가 일어나는지",
+      "analogy": "이해를 돕는 일상 비유"
+    },
+    "signature": "Solidity event 시그니처",
+    "indexedParams": "indexed 파라미터 이름",
+    "trackedUsers": "추적할 사용자 필드",
+    "edges": "자금/지분/권한 이동 (from/to/via/amount/direction)",
+    "stateUpdate": "상태 변경 공식"
+  },
+  "events": [
+    {
+      "id": 1, "name": "Supply", "category": "direct",
+      "role": {
+        "summary": "USDC를 빌려주려고 마켓에 넣었어요",
+        "trigger": "사용자가 마켓에 자산(loanToken)을 공급할 때",
+        "effect": "사용자는 supply share를 받음. 시간이 지나면 이자 붙어서 share당 가치가 올라감",
+        "analogy": "은행 예금 — 통장에 넣으면 이자 받음"
+      },
+      "signature": "event Supply(bytes32 indexed id, address indexed caller, address indexed onBehalf, uint256 assets, uint256 shares)",
+      "indexedParams": ["id", "caller", "supplier"],
+      "trackedUsers": ["supplier"],
+      "edges": [
+        {"from": "caller", "to": "Market(id)", "via": "loanToken", "amount": "assets", "direction": "asset_in"},
+        {"from": "Market(id)", "to": "supplier", "via": "supplyShares", "amount": "shares", "direction": "share_mint"}
+      ],
+      "stateUpdate": "position[id][supplier].supplyShares += shares; market[id].totalSupplyShares += shares; market[id].totalSupplyAssets += assets"
+    },
+    {
+      "id": 2, "name": "Withdraw", "category": "direct",
+      "role": {
+        "summary": "내가 넣었던 USDC 빼주세요",
+        "trigger": "공급자가 자산을 회수할 때",
+        "effect": "supply share 소각하고 자산 받음 (지금까지 누적된 이자 포함)",
+        "analogy": "은행 예금 인출"
+      },
+      "signature": "event Withdraw(bytes32 indexed id, address caller, address indexed onBehalf, address indexed receiver, uint256 assets, uint256 shares)",
+      "indexedParams": ["id", "supplier", "receiver(supplier, borrower, other EOA)"],
+      "trackedUsers": ["supplier", "receiver(supplier, borrower, other EOA)"],
+      "edges": [
+        {"from": "supplier", "to": "burn", "via": "supplyShares", "amount": "shares", "direction": "share_burn"},
+        {"from": "Market(id)", "to": "receiver(supplier, borrower, other EOA)", "via": "loanToken", "amount": "assets", "direction": "asset_out"}
+      ],
+      "stateUpdate": "position[id][supplier].supplyShares -= shares; market[id].totalSupplyShares -= shares; market[id].totalSupplyAssets -= assets"
+    },
+    {
+      "id": 3, "name": "Borrow", "category": "direct",
+      "role": {
+        "summary": "wstETH 담보로 USDC 빌릴게요",
+        "trigger": "차입자가 담보 잡고 자산을 빌릴 때",
+        "effect": "사용자에게 borrow share 부과 (시간 지날수록 갚을 금액 ↑), 자산은 receiver에게 전달",
+        "analogy": "집 담보 대출 — 빌린 만큼 이자가 계속 쌓임"
+      },
+      "signature": "event Borrow(bytes32 indexed id, address caller, address indexed onBehalf, address indexed receiver, uint256 assets, uint256 shares)",
+      "indexedParams": ["id", "borrower", "receiver(borrower, other EOA)"],
+      "trackedUsers": ["borrower", "receiver(borrower, other EOA)"],
+      "edges": [
+        {"from": "Market(id)", "to": "receiver(borrower, other EOA)", "via": "loanToken", "amount": "assets", "direction": "asset_out"},
+        {"from": "Market(id)", "to": "borrower", "via": "borrowShares", "amount": "shares", "direction": "share_mint"}
+      ],
+      "stateUpdate": "position[id][borrower].borrowShares += shares; market[id].totalBorrowShares += shares; market[id].totalBorrowAssets += assets",
+      "healthCheck": "borrow 후 _isHealthy(borrower) 통과 필요"
+    },
+    {
+      "id": 4, "name": "Repay", "category": "direct",
+      "role": {
+        "summary": "빌린 거 갚을게요",
+        "trigger": "차입자가 부채를 상환할 때",
+        "effect": "borrow share 소각 (부채 줄어듦). 누구든 남의 부채도 대신 갚아줄 수 있음",
+        "analogy": "대출 상환"
+      },
+      "signature": "event Repay(bytes32 indexed id, address indexed caller, address indexed onBehalf, uint256 assets, uint256 shares)",
+      "indexedParams": ["id", "caller", "borrower"],
+      "trackedUsers": ["borrower"],
+      "edges": [
+        {"from": "caller", "to": "Market(id)", "via": "loanToken", "amount": "assets", "direction": "asset_in"},
+        {"from": "borrower", "to": "burn", "via": "borrowShares", "amount": "shares", "direction": "share_burn"}
+      ],
+      "stateUpdate": "position[id][borrower].borrowShares -= shares; market[id].totalBorrowShares -= shares; market[id].totalBorrowAssets -= assets"
+    },
+    {
+      "id": 5, "name": "SupplyCollateral", "category": "direct",
+      "role": {
+        "summary": "담보를 맡길게요",
+        "trigger": "차입하려고 담보를 예치할 때",
+        "effect": "담보 자산이 마켓에 묶임. 이자 안 붙음 (share가 아니라 자산 단위로 직접 기록)",
+        "analogy": "전당포에 시계 맡기기 — 시계는 그대로 보관됨"
+      },
+      "signature": "event SupplyCollateral(bytes32 indexed id, address indexed caller, address indexed onBehalf, uint256 assets)",
+      "indexedParams": ["id", "caller", "borrower"],
+      "trackedUsers": ["borrower"],
+      "edges": [
+        {"from": "caller", "to": "Market(id)", "via": "collateralToken", "amount": "assets", "direction": "asset_in"}
+      ],
+      "stateUpdate": "position[id][borrower].collateral += assets",
+      "note": "collateral은 share 단위 없이 자산 단위로 직접 기록"
+    },
+    {
+      "id": 6, "name": "WithdrawCollateral", "category": "direct",
+      "role": {
+        "summary": "담보 돌려받을게요",
+        "trigger": "담보를 인출할 때",
+        "effect": "담보 자산을 receiver가 받음. 인출 후 헬스체크 통과해야 함 (부채 있으면 무리한 인출 불가)",
+        "analogy": "전당포에서 시계 찾기 — 빌린 돈 다 갚지 않았으면 일부만 가능"
+      },
+      "signature": "event WithdrawCollateral(bytes32 indexed id, address caller, address indexed onBehalf, address indexed receiver, uint256 assets)",
+      "indexedParams": ["id", "borrower", "receiver(borrower, other EOA)"],
+      "trackedUsers": ["borrower", "receiver(borrower, other EOA)"],
+      "edges": [
+        {"from": "Market(id)", "to": "receiver(borrower, other EOA)", "via": "collateralToken", "amount": "assets", "direction": "asset_out"}
+      ],
+      "stateUpdate": "position[id][borrower].collateral -= assets",
+      "healthCheck": "withdraw 후 _isHealthy(borrower) 통과 필요"
+    },
+    {
+      "id": 7, "name": "Liquidate", "category": "direct",
+      "role": {
+        "summary": "부채가 위험해진 사람의 담보를 할인가에 가져가요",
+        "trigger": "누군가의 LTV > LLTV가 됐을 때, 누구든 청산 가능",
+        "effect": "청산자는 부채 일부 갚고 담보를 1.68~15% 할인가로 가져감. 차입자는 담보 잃음. 담보가 0 됐는데 부채 남으면 bad debt (공급자 손실 분담)",
+        "analogy": "부동산 경매 — 대출 못 갚는 집을 시세보다 싸게 가져가는 메커니즘"
+      },
+      "signature": "event Liquidate(bytes32 indexed id, address indexed caller, address indexed borrower, uint256 repaidAssets, uint256 repaidShares, uint256 seizedAssets, uint256 badDebtAssets, uint256 badDebtShares)",
+      "indexedParams": ["id", "caller", "borrower"],
+      "trackedUsers": ["borrower", "caller"],
+      "edges": [
+        {"from": "caller", "to": "Market(id)", "via": "loanToken", "amount": "repaidAssets", "direction": "asset_in"},
+        {"from": "Market(id)", "to": "caller", "via": "collateralToken", "amount": "seizedAssets", "direction": "asset_out"},
+        {"from": "borrower", "to": "burn", "via": "borrowShares", "amount": "repaidShares", "direction": "share_burn"},
+        {"from": "borrower", "to": "loss", "via": "collateral", "amount": "seizedAssets", "direction": "collateral_loss"}
+      ],
+      "stateUpdate": "position[id][borrower].borrowShares -= repaidShares; position[id][borrower].collateral -= seizedAssets; if (badDebtAssets > 0) market[id].totalSupplyAssets -= badDebtAssets",
+      "badDebtImpact": "badDebtAssets > 0이면 해당 마켓의 모든 supplier에 손실 분담 (직접 이벤트 없음)"
+    },
+    {
+      "id": 8, "name": "FlashLoan", "category": "direct",
+      "role": {
+        "summary": "한 트랜잭션 안에서 잠깐 빌리고 갚을게요",
+        "trigger": "사용자가 무담보로 일시 차입할 때",
+        "effect": "같은 tx 안에 반드시 갚아야 함 (안 갚으면 revert). 수수료 0 (Aave와 다름)",
+        "analogy": "영업시간 중에만 빌려주는 무이자 대출 — 문 닫기 전(=tx 끝나기 전)에 반드시 반납"
+      },
+      "signature": "event FlashLoan(address indexed caller, address indexed token, uint256 assets)",
+      "indexedParams": ["caller", "token"],
+      "trackedUsers": ["caller"],
+      "edges": [
+        {"from": "Morpho", "to": "caller", "via": "token", "amount": "assets", "direction": "flashloan_out"},
+        {"from": "caller", "to": "Morpho", "via": "token", "amount": "assets", "direction": "flashloan_return", "note": "동일 tx 내 반환 필수"}
+      ],
+      "callback": "IMorphoFlashLoanCallback.onMorphoFlashLoan",
+      "stateUpdate": "없음 (영구 상태 변경 없음, 일시적 자금 흐름만)"
+    },
+    {
+      "id": 9, "name": "SetAuthorization", "category": "direct",
+      "role": {
+        "summary": "내 포지션을 누가 만질 수 있게 허용/차단",
+        "trigger": "사용자가 다른 주소에게 자기 포지션 조작 권한을 줄 때",
+        "effect": "authorized 주소가 authorizer의 withdraw/borrow/withdrawCollateral 호출 가능",
+        "analogy": "은행 위임장 — 내 통장을 친구가 조작할 수 있게 권한 부여"
+      },
+      "signature": "event SetAuthorization(address indexed caller, address indexed authorizer, address indexed authorized, bool newIsAuthorized)",
+      "indexedParams": ["caller", "authorizer", "authorized"],
+      "trackedUsers": ["authorizer", "authorized"],
+      "edges": [
+        {"from": "authorizer", "to": "authorized", "via": "permission", "amount": "newIsAuthorized", "direction": "auth_toggle"}
+      ],
+      "stateUpdate": "isAuthorized[authorizer][authorized] = newIsAuthorized",
+      "note": "setAuthorizationWithSig 호출 시 caller != authorizer 가능 (relayer)",
+      "delegationInfo": {
+        "showsRecipient": "authorized",
+        "showsGrantOrRevoke": "newIsAuthorized (true=부여, false=취소)",
+        "scope": "Morpho Blue 포지션 조작 권한 (withdraw, borrow, withdrawCollateral)",
+        "emittedFor": "직접 호출(setAuthorization) + 서명 기반(setAuthorizationWithSig) 모두"
+      }
+    },
+    {
+      "id": 10, "name": "IncrementNonce", "category": "direct",
+      "role": {
+        "summary": "서명 한 번 썼으니 카운터 +1",
+        "trigger": "setAuthorizationWithSig (서명 기반 권한 위임)을 사용할 때",
+        "effect": "같은 서명을 두 번 못 쓰게 nonce 증가 (replay 방지)",
+        "analogy": "일회용 비밀번호 — 한 번 사용하면 자동으로 다음 번호로 넘어감"
+      },
+      "signature": "event IncrementNonce(address indexed caller, address indexed authorizer, uint256 usedNonce)",
+      "indexedParams": ["caller", "authorizer"],
+      "trackedUsers": ["authorizer"],
+      "edges": [
+        {"from": "authorizer", "to": "nonce", "via": "signature_nonce", "amount": "usedNonce", "direction": "nonce_consume"}
+      ],
+      "stateUpdate": "nonce[authorizer]++ (서명 재사용 방지)",
+      "delegationInfo": {
+        "showsRecipient": "없음 (동시 emit되는 SetAuthorization 참조)",
+        "showsGrantOrRevoke": "간접적 — 서명 기반 위임 발생 신호",
+        "scope": "Morpho Blue 서명 기반 위임 (replay 방지용 nonce 사용)",
+        "emittedFor": "setAuthorizationWithSig 호출 시만"
+      }
+    },
+    {
+      "id": 11, "name": "Deposit", "category": "direct",
+      "role": {
+        "summary": "Vault에 자산 예치하고 share 받기",
+        "trigger": "사용자가 vault에 자산을 넣을 때",
+        "effect": "vault share(ERC20) 발행받음. vault가 자동으로 Morpho 등에 재공급 (캐스케이드)",
+        "analogy": "펀드 가입 — 내 돈은 펀드 매니저(=curator)가 알아서 굴림"
+      },
+      "signature": "event Deposit(address indexed sender, address indexed onBehalf, uint256 assets, uint256 shares)",
+      "indexedParams": ["sender", "depositor"],
+      "trackedUsers": ["depositor"],
+      "edges": [
+        {"from": "sender", "to": "Vault", "via": "asset", "amount": "assets", "direction": "asset_in"},
+        {"from": "Vault", "to": "depositor", "via": "vaultShares", "amount": "shares", "direction": "share_mint"}
+      ],
+      "stateUpdate": "balanceOf[depositor] += shares; totalSupply += shares; _totalAssets += assets",
+      "cascade": "AccrueInterest → Transfer(0, onBehalf) → ERC20.Transfer(user→vault) → Allocate → Adapter.Allocate → Morpho.Supply"
+    },
+    {
+      "id": 12, "name": "Withdraw", "category": "direct",
+      "role": {
+        "summary": "Vault에서 자산 빼기",
+        "trigger": "사용자가 vault에서 자산을 회수할 때",
+        "effect": "share 소각하고 자산 받음. 필요 시 vault가 Morpho에서 자금 회수 (캐스케이드)",
+        "analogy": "펀드 환매"
+      },
+      "signature": "event Withdraw(address indexed sender, address indexed receiver, address indexed onBehalf, uint256 assets, uint256 shares)",
+      "indexedParams": ["sender", "receiver(depositor, other EOA)", "depositor"],
+      "trackedUsers": ["depositor", "receiver(depositor, other EOA)"],
+      "edges": [
+        {"from": "depositor", "to": "burn", "via": "vaultShares", "amount": "shares", "direction": "share_burn"},
+        {"from": "Vault", "to": "receiver(depositor, other EOA)", "via": "asset", "amount": "assets", "direction": "asset_out"}
+      ],
+      "stateUpdate": "balanceOf[depositor] -= shares; totalSupply -= shares; _totalAssets -= assets",
+      "cascade": "필요시 Deallocate → Adapter.Deallocate → Morpho.Withdraw"
+    },
+    {
+      "id": 13, "name": "Transfer", "category": "direct",
+      "role": {
+        "summary": "Vault share를 다른 사람에게 보내기",
+        "trigger": "vault share(ERC20) 이동 시 (mint/burn 포함)",
+        "effect": "from의 share가 to로 이동. mint=from 0, burn=to 0인 특수 케이스",
+        "analogy": "펀드 좌수를 친구한테 양도 — 펀드 회사를 거치지 않고 직접 명의 변경"
+      },
+      "signature": "event Transfer(address indexed from, address indexed to, uint256 shares)",
+      "indexedParams": ["from", "to"],
+      "trackedUsers": ["from", "to"],
+      "edges": [
+        {"from": "from", "to": "to", "via": "vaultShares", "amount": "shares", "direction": "share_transfer"}
+      ],
+      "stateUpdate": "balanceOf[from] -= shares; balanceOf[to] += shares",
+      "specialCases": {
+        "mint": "from == address(0) (line 910)",
+        "burn": "to == address(0) (line 917)"
+      }
+    },
+    {
+      "id": 14, "name": "Approval", "category": "direct",
+      "role": {
+        "summary": "내 vault share를 누가 쓸 수 있게 허용",
+        "trigger": "사용자가 approve() 호출 시",
+        "effect": "spender가 owner의 share를 일정량까지 transferFrom 가능",
+        "analogy": "신용카드 한도 부여 — 다른 사람이 내 돈을 일정 한도까지 쓸 수 있게 함"
+      },
+      "signature": "event Approval(address indexed owner, address indexed spender, uint256 shares)",
+      "indexedParams": ["owner", "spender"],
+      "trackedUsers": ["owner", "spender"],
+      "edges": [
+        {"from": "owner", "to": "spender", "via": "allowance", "amount": "shares", "direction": "allowance_set"}
+      ],
+      "stateUpdate": "allowance[owner][spender] = shares",
+      "delegationInfo": {
+        "showsRecipient": "spender",
+        "showsGrantOrRevoke": "shares 값 (0이면 취소, >0이면 부여)",
+        "scope": "VaultV2 share 사용 권한 (ERC20 allowance)",
+        "emittedFor": "approve() 직접 호출"
+      }
+    },
+    {
+      "id": 15, "name": "AllowanceUpdatedByTransferFrom", "category": "direct",
+      "role": {
+        "summary": "위임받은 사람이 share 썼으니 잔량 갱신",
+        "trigger": "transferFrom 호출 후 (무한 allowance인 경우는 제외)",
+        "effect": "남은 allowance 추적용. 100만원 한도에 30만원 쓰면 70만원으로 갱신",
+        "analogy": "신용카드 한도 차감"
+      },
+      "signature": "event AllowanceUpdatedByTransferFrom(address indexed owner, address indexed spender, uint256 shares)",
+      "indexedParams": ["owner", "spender"],
+      "trackedUsers": ["owner", "spender"],
+      "edges": [
+        {"from": "owner", "to": "spender", "via": "allowance", "amount": "shares", "direction": "allowance_decrease"}
+      ],
+      "stateUpdate": "allowance[owner][spender] = remaining (이전 - 사용분)",
+      "delegationInfo": {
+        "showsRecipient": "spender",
+        "showsGrantOrRevoke": "위임이 사용된 후 남은 한도 갱신",
+        "scope": "VaultV2 share allowance 사용 흔적",
+        "emittedFor": "transferFrom 호출 후 (무한 allowance 제외)"
+      }
+    },
+    {
+      "id": 16, "name": "Permit", "category": "direct",
+      "role": {
+        "summary": "서명만으로 allowance 부여 (gas 0)",
+        "trigger": "사용자가 서명한 메시지를 누군가가 제출했을 때 (ERC-2612)",
+        "effect": "tx 비용 없이 권한 부여. 사용자 본인이 tx 보낼 필요 없음",
+        "analogy": "종이 위임장 — 직접 은행 가지 않고 사인만 해서 위임"
+      },
+      "signature": "event Permit(address indexed owner, address indexed spender, uint256 shares, uint256 nonce, uint256 deadline)",
+      "indexedParams": ["owner", "spender"],
+      "trackedUsers": ["owner", "spender"],
+      "edges": [
+        {"from": "owner", "to": "spender", "via": "allowance", "amount": "shares", "direction": "allowance_set_via_sig"}
+      ],
+      "stateUpdate": "allowance[owner][spender] = shares; nonces[owner]++",
+      "delegationInfo": {
+        "showsRecipient": "spender",
+        "showsGrantOrRevoke": "shares 값 (서명으로 부여)",
+        "scope": "VaultV2 share 사용 권한 (서명 기반)",
+        "emittedFor": "permit() 호출 시 (ERC-2612)"
+      }
+    },
+    {
+      "id": 17, "name": "ForceDeallocate", "category": "direct",
+      "role": {
+        "summary": "패널티 내고 강제로 자산 빼내기",
+        "trigger": "vault에 idle 자산이 부족할 때, 사용자가 패널티를 부담해 즉시 출금",
+        "effect": "adapter에서 자산 회수 + sender가 추가 penalty 부담. allocation 조작 방지 메커니즘",
+        "analogy": "정기예금 중도해지 수수료 — 약속한 시점 전에 빼면 페널티"
+      },
+      "signature": "event ForceDeallocate(address indexed sender, address adapter, uint256 assets, address indexed onBehalf, bytes32[] ids, uint256 penaltyAssets)",
+      "indexedParams": ["sender", "depositor"],
+      "trackedUsers": ["sender", "depositor"],
+      "edges": [
+        {"from": "adapter", "to": "Vault", "via": "asset", "amount": "assets", "direction": "asset_in"},
+        {"from": "sender", "to": "Vault", "via": "asset", "amount": "penaltyAssets", "direction": "penalty_paid"}
+      ],
+      "stateUpdate": "강제 회수 + sender의 share에서 penalty 차감",
+      "purpose": "allocation 조작 방지를 위한 패널티 메커니즘"
+    },
+    {
+      "id": 18, "name": "AccrueInterest", "category": "indirect",
+      "context": "Morpho Blue market",
+      "role": {
+        "summary": "마켓에 이자가 누적됐어요",
+        "trigger": "Morpho Blue 마켓 호출 함수가 실행되기 직전 (자동)",
+        "effect": "차입자: 갚을 금액 ↑, 공급자: 받을 금액 ↑, feeRecipient: supply share 무상 발행 ⚠️ (Supply 이벤트 없이!)",
+        "analogy": "시계 톡톡 — 매번 호출할 때마다 그동안의 이자를 정산"
+      },
+      "signature": "event AccrueInterest(bytes32 indexed id, uint256 prevBorrowRate, uint256 interest, uint256 feeShares)",
+      "indexedParams": ["id"],
+      "trackedUsers": ["해당 id에 포지션 있는 모든 사용자"],
+      "edges": [
+        {"from": "borrowers", "to": "suppliers", "via": "interest", "amount": "interest", "direction": "interest_accrual", "note": "share 가치 변동만, 실제 자산 이동 없음"},
+        {"from": "Market(id)", "to": "feeRecipient", "via": "supplyShares", "amount": "feeShares", "direction": "fee_mint", "criticalNote": "Supply 이벤트 없이 share 발행됨!"}
+      ],
+      "stateUpdate": "market[id].totalSupplyAssets += interest; market[id].totalBorrowAssets += interest; if (feeShares > 0) position[id][feeRecipient].supplyShares += feeShares; market[id].totalSupplyShares += feeShares",
+      "criticalWarning": "feeRecipient.supplyShares가 Supply 이벤트 없이 늘어남 — AccrueInterest의 feeShares 파라미터에서 직접 읽어 갱신 필수"
+    },
+    {
+      "id": 19, "name": "AccrueInterest", "category": "indirect",
+      "context": "VaultV2",
+      "role": {
+        "summary": "Vault 가치가 갱신됐어요",
+        "trigger": "VaultV2 호출 함수 직전",
+        "effect": "모든 vault share 보유자의 share당 가치 변동. performance/management fee가 share로 발행",
+        "analogy": "펀드 NAV 재계산 — 시장 가격으로 펀드 가치 재평가"
+      },
+      "signature": "event AccrueInterest(uint256 previousTotalAssets, uint256 newTotalAssets, uint256 performanceFeeShares, uint256 managementFeeShares)",
+      "indexedParams": [],
+      "trackedUsers": ["vault에 share 보유한 모든 사용자"],
+      "edges": [
+        {"from": "vaultExternal", "to": "vault", "via": "asset", "amount": "newTotalAssets - previousTotalAssets", "direction": "interest_accrual_assets"},
+        {"from": "Vault", "to": "performanceFeeRecipient", "via": "vaultShares", "amount": "performanceFeeShares", "direction": "perf_fee_mint"},
+        {"from": "Vault", "to": "managementFeeRecipient", "via": "vaultShares", "amount": "managementFeeShares", "direction": "mgmt_fee_mint"}
+      ],
+      "stateUpdate": "_totalAssets = newTotalAssets; balanceOf[performanceFeeRecipient] += performanceFeeShares; balanceOf[managementFeeRecipient] += managementFeeShares"
+    },
+    {
+      "id": 20, "name": "Allocate", "category": "indirect",
+      "role": {
+        "summary": "Vault가 자산을 외부 protocol로 보냈어요",
+        "trigger": "사용자 deposit이 캐스케이드로 트리거 (또는 allocator가 직접)",
+        "effect": "vault에서 adapter를 거쳐 Morpho Blue 마켓 등으로 자금 이동",
+        "analogy": "펀드 매니저가 들어온 자금을 실제 투자처에 배치"
+      },
+      "signature": "event Allocate(address indexed sender, address indexed adapter, uint256 assets, bytes32[] ids, int256 change)",
+      "indexedParams": ["sender", "adapter"],
+      "trackedUsers": ["사용자 deposit 캐스케이드로 발생 가능"],
+      "edges": [
+        {"from": "Vault", "to": "adapter", "via": "asset", "amount": "assets", "direction": "allocation_out"},
+        {"from": "cap[ids[i]]", "to": "allocation", "via": "change", "amount": "change", "direction": "cap_update"}
+      ],
+      "stateUpdate": "각 ids[i]에 대해 caps[ids[i]].allocation += change",
+      "cascadeContext": "Vault.Deposit → Allocate → Adapter.Allocate → Morpho.Supply"
+    },
+    {
+      "id": 21, "name": "Deallocate", "category": "indirect",
+      "role": {
+        "summary": "Vault가 외부 protocol에서 자산을 회수했어요",
+        "trigger": "사용자 withdraw 캐스케이드 (또는 allocator/sentinel이 직접)",
+        "effect": "adapter에서 vault로 자금 복귀",
+        "analogy": "펀드 매니저가 투자한 곳에서 자금을 빼서 환매 준비"
+      },
+      "signature": "event Deallocate(address indexed sender, address indexed adapter, uint256 assets, bytes32[] ids, int256 change)",
+      "indexedParams": ["sender", "adapter"],
+      "trackedUsers": ["사용자 withdraw 캐스케이드로 발생 가능"],
+      "edges": [
+        {"from": "adapter", "to": "Vault", "via": "asset", "amount": "assets", "direction": "allocation_in"},
+        {"from": "allocation", "to": "cap[ids[i]]", "via": "change", "amount": "change", "direction": "cap_update"}
+      ],
+      "stateUpdate": "각 ids[i]에 대해 caps[ids[i]].allocation += change (음수)",
+      "cascadeContext": "Vault.Withdraw → Deallocate → Adapter.Deallocate → Morpho.Withdraw"
+    },
+    {
+      "id": 22, "name": "BadDebtRealization", "category": "indirect",
+      "role": {
+        "summary": "청산했는데 다 못 갚아서 공급자가 손실 분담",
+        "trigger": "청산 후 borrower의 담보가 0인데 부채가 남은 경우 (별도 이벤트 아님 - Liquidate의 badDebt 필드)",
+        "effect": "totalSupplyAssets만 깎임 → 모든 supplier의 share당 가치 비례 하락",
+        "analogy": "부도난 채권의 손실을 모든 예금자가 비례로 분담"
+      },
+      "signature": "Liquidate 이벤트의 badDebtAssets > 0 조건",
+      "indexedParams": ["id"],
+      "trackedUsers": ["해당 id의 모든 supplier (직접 식별 안 됨)"],
+      "edges": [
+        {"from": "allSuppliers", "to": "loss", "via": "supplyShareValueDecrease", "amount": "badDebtAssets", "direction": "loss_distribution", "note": "totalSupplyAssets만 깎고 share 수는 그대로 → share당 가치 ↓"}
+      ],
+      "stateUpdate": "market[id].totalSupplyAssets -= badDebtAssets; (share 수는 동일하므로 share당 가치 하락)",
+      "impactDetection": "supplier 식별: Supply 이벤트의 onBehalf 누적 추적 필요. badDebt 발생 시 모든 supplier에게 비례 손실"
+    }
+  ]
+}

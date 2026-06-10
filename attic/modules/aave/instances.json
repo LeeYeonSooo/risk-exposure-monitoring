@@ -1,0 +1,596 @@
+{
+  "_description": "Aave V3 Ethereum Main Market의 실제 컨트랙트 인스턴스. nodes.json의 타입 카탈로그를 실제 주소로 인스턴스화.",
+  "_protocol": "aave-v3",
+  "_market": "Aave V3 Ethereum Main",
+  "_market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+  "_source": "bgd-labs/aave-address-book (2025-05 snapshot)",
+  "_note": "1차 작업 우선순위 자산만 (전체 30+ 자산 중 핵심). Phase 3에서 자동 발견으로 확장.",
+  "nodes": [
+    {
+      "address": "0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "chain_id": 1,
+      "type": "market_registry",
+      "protocol": "aave-v3",
+      "label": "Aave V3 Main · AddressesProvider",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "role": "registry"
+      }
+    },
+    {
+      "address": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "chain_id": 1,
+      "type": "protocol_pool",
+      "protocol": "aave-v3",
+      "label": "Aave V3 Main · Pool",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "role": "user entry point"
+      }
+    },
+    {
+      "address": "0x64b761d848206f447fe2dd461b0c635ec39ebb27",
+      "chain_id": 1,
+      "type": "protocol_admin",
+      "protocol": "aave-v3",
+      "label": "Aave V3 Main · PoolConfigurator",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "role": "governance-only"
+      }
+    },
+    {
+      "address": "0xc2aacf6553d20d1e9d78e365aaba8032af9c85b0",
+      "chain_id": 1,
+      "type": "access_control",
+      "protocol": "aave-v3",
+      "label": "Aave V3 Main · ACLManager",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {}
+    },
+    {
+      "address": "0x54586be62e3c3580375ae3723c145253060ca0c2",
+      "chain_id": 1,
+      "type": "oracle",
+      "protocol": "aave-v3",
+      "label": "Aave V3 Main · AaveOracle",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "base_currency": "USD",
+        "base_decimals": 8
+      }
+    },
+    {
+      "address": "0x464c71f6c2f760dda6093dcb91c24c39e5d6e18c",
+      "chain_id": 1,
+      "type": "treasury",
+      "protocol": "aave-v3",
+      "label": "Aave V3 · Collector",
+      "metadata": {
+        "common_names": [
+          "Aave Treasury",
+          "Aave DAO Treasury"
+        ],
+        "receives": [
+          "reserve_factor",
+          "flashloan_premium",
+          "gho_interest"
+        ]
+      }
+    },
+    {
+      "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "WETH",
+      "metadata": {
+        "symbol": "WETH",
+        "decimals": 18,
+        "category": "blue_chip"
+      }
+    },
+    {
+      "address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "USDC",
+      "metadata": {
+        "symbol": "USDC",
+        "decimals": 6,
+        "category": "stable"
+      }
+    },
+    {
+      "address": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "USDT",
+      "metadata": {
+        "symbol": "USDT",
+        "decimals": 6,
+        "category": "stable"
+      }
+    },
+    {
+      "address": "0x6b175474e89094c44da98b954eedeac495271d0f",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "DAI",
+      "metadata": {
+        "symbol": "DAI",
+        "decimals": 18,
+        "category": "stable"
+      }
+    },
+    {
+      "address": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "WBTC",
+      "metadata": {
+        "symbol": "WBTC",
+        "decimals": 8,
+        "category": "btc"
+      }
+    },
+    {
+      "address": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "chain_id": 1,
+      "type": "lst_token",
+      "protocol": "lido",
+      "label": "wstETH",
+      "metadata": {
+        "symbol": "wstETH",
+        "decimals": 18,
+        "underlying": "stETH",
+        "issuer": "Lido"
+      }
+    },
+    {
+      "address": "0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee",
+      "chain_id": 1,
+      "type": "lrt_token",
+      "protocol": "ether.fi",
+      "label": "weETH",
+      "metadata": {
+        "symbol": "weETH",
+        "decimals": 18,
+        "underlying": "eETH",
+        "issuer": "ether.fi"
+      }
+    },
+    {
+      "address": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f",
+      "chain_id": 1,
+      "type": "stable_token",
+      "protocol": "aave-v3",
+      "label": "GHO",
+      "metadata": {
+        "symbol": "GHO",
+        "decimals": 18,
+        "issuance_mechanism": "cdp",
+        "peg_target": "USD",
+        "issuer": "aave-v3"
+      }
+    },
+    {
+      "address": "0x0c0fbf2c0aa1c9fdd1bfdc8c8ca6f30b6ef0d12c",
+      "chain_id": 1,
+      "type": "stability_module",
+      "protocol": "aave-v3",
+      "label": "GHO Stability Module (USDC)",
+      "metadata": {
+        "swap_pair": [
+          "GHO",
+          "USDC"
+        ],
+        "ratio": "1:1"
+      }
+    },
+    {
+      "address": "0x98c23e9d8f34fefb1b7bd6a91b7ff122f4e16f5c",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aEthUSDC",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "transferable": true
+      }
+    },
+    {
+      "address": "0x4d5f47fa6a74757f35c14fd3a6ef8e3c9bc514e8",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aEthWETH",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+        "transferable": true
+      }
+    },
+    {
+      "address": "0x0b925ed163218f6662a35e0f0371ac234f9e9371",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aEthwstETH",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+        "transferable": true
+      }
+    },
+    {
+      "address": "0xbdfa7b7893081b35fb54027489e2bc7a38275129",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aEthweETH",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee",
+        "transferable": true
+      }
+    },
+    {
+      "address": "0x00907f9921424583e7ffbfedf84f92b7b2be4977",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aEthGHO",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f",
+        "transferable": true
+      }
+    },
+    {
+      "address": "0x72e95b8931767c79ba4eee721354d6e99a61d004",
+      "chain_id": 1,
+      "type": "variable_debt_token",
+      "protocol": "aave-v3",
+      "label": "variableDebtEthUSDC",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "transferable": false
+      }
+    },
+    {
+      "address": "0xea51d7853eefb32b6ee06b1c12e6dcca88be0ffe",
+      "chain_id": 1,
+      "type": "variable_debt_token",
+      "protocol": "aave-v3",
+      "label": "variableDebtEthWETH",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+        "transferable": false
+      }
+    },
+    {
+      "address": "0x786dbff3f1292ae8f92ea68cf93c30b34b1ed04b",
+      "chain_id": 1,
+      "type": "variable_debt_token",
+      "protocol": "aave-v3",
+      "label": "variableDebtEthGHO",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f",
+        "transferable": false
+      }
+    },
+    {
+      "address": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "chain_id": 1,
+      "type": "price_feed",
+      "protocol": "chainlink",
+      "label": "Chainlink ETH/USD",
+      "metadata": {
+        "provider": "chainlink",
+        "decimals": 8,
+        "heartbeat_seconds": 3600
+      }
+    },
+    {
+      "address": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "chain_id": 1,
+      "type": "price_feed",
+      "protocol": "chainlink",
+      "label": "Chainlink USDC/USD",
+      "metadata": {
+        "provider": "chainlink",
+        "decimals": 8
+      }
+    },
+    {
+      "address": "0x3e7d1eab13ad0104d2750b8863b489d65364e32d",
+      "chain_id": 1,
+      "type": "price_feed",
+      "protocol": "chainlink",
+      "label": "Chainlink USDT/USD",
+      "metadata": {
+        "provider": "chainlink",
+        "decimals": 8
+      }
+    },
+    {
+      "address": "0x86392dc19c0b719886221c78ab11eb8cf5c52812",
+      "chain_id": 1,
+      "type": "price_feed",
+      "protocol": "chainlink",
+      "label": "Chainlink stETH/ETH",
+      "metadata": {
+        "provider": "chainlink",
+        "decimals": 18
+      }
+    },
+    {
+      "address": "0xf17e803569ee3d80843cd2b2d7ce39c4cb1afa96",
+      "chain_id": 1,
+      "type": "price_adapter",
+      "protocol": "aave-v3",
+      "label": "wstETH CAPO Adapter",
+      "metadata": {
+        "system": "CAPO",
+        "for_asset": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+        "protection": "asymmetric (caps upside only)"
+      }
+    },
+    {
+      "address": "0xa4d52e002535d24cbcd66cb1c0ab0d9da00f9f9d",
+      "chain_id": 1,
+      "type": "price_adapter",
+      "protocol": "aave-v3",
+      "label": "weETH CAPO Adapter",
+      "metadata": {
+        "system": "CAPO",
+        "for_asset": "0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee",
+        "protection": "asymmetric (caps upside only)"
+      }
+    }
+  ],
+  "static_edges": [
+    {
+      "edge_id": "aave-v3:wsteth->capo_adapter",
+      "edge_type": "price_dependency",
+      "from": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "to": "0xf17e803569ee3d80843cd2b2d7ce39c4cb1afa96",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "metadata": {
+        "layer": "asset_to_adapter"
+      }
+    },
+    {
+      "edge_id": "aave-v3:capo_wsteth->chainlink_steth_eth",
+      "edge_type": "price_dependency",
+      "from": "0xf17e803569ee3d80843cd2b2d7ce39c4cb1afa96",
+      "to": "0x86392dc19c0b719886221c78ab11eb8cf5c52812",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "metadata": {
+        "layer": "adapter_to_feed",
+        "data": "stETH/ETH ratio"
+      }
+    },
+    {
+      "edge_id": "aave-v3:capo_wsteth->chainlink_eth_usd",
+      "edge_type": "price_dependency",
+      "from": "0xf17e803569ee3d80843cd2b2d7ce39c4cb1afa96",
+      "to": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "metadata": {
+        "layer": "adapter_to_feed",
+        "data": "ETH/USD"
+      }
+    },
+    {
+      "edge_id": "aave-v3:weeth->capo_adapter",
+      "edge_type": "price_dependency",
+      "from": "0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee",
+      "to": "0xa4d52e002535d24cbcd66cb1c0ab0d9da00f9f9d",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "metadata": {
+        "layer": "asset_to_adapter"
+      }
+    },
+    {
+      "edge_id": "aave-v3:capo_weeth->chainlink_eth_usd",
+      "edge_type": "price_dependency",
+      "from": "0xa4d52e002535d24cbcd66cb1c0ab0d9da00f9f9d",
+      "to": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "metadata": {
+        "layer": "adapter_to_feed",
+        "data": "ETH/USD"
+      }
+    },
+    {
+      "edge_id": "aave-v3:weth->chainlink_eth_usd",
+      "edge_type": "price_dependency",
+      "from": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "to": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "metadata": {}
+    },
+    {
+      "edge_id": "aave-v3:usdc->chainlink_usdc_usd",
+      "edge_type": "price_dependency",
+      "from": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      "to": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "metadata": {}
+    },
+    {
+      "edge_id": "aave-v3:usdt->chainlink_usdt_usd",
+      "edge_type": "price_dependency",
+      "from": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+      "to": "0x3e7d1eab13ad0104d2750b8863b489d65364e32d",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "metadata": {}
+    },
+    {
+      "edge_id": "aave-v3:ausdc->usdc",
+      "edge_type": "mint_wrapper",
+      "from": "0x98c23e9d8f34fefb1b7bd6a91b7ff122f4e16f5c",
+      "to": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "relation": "aToken backed by underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3:aweth->weth",
+      "edge_type": "mint_wrapper",
+      "from": "0x4d5f47fa6a74757f35c14fd3a6ef8e3c9bc514e8",
+      "to": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "relation": "aToken backed by underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3:awsteth->wsteth",
+      "edge_type": "mint_wrapper",
+      "from": "0x0b925ed163218f6662a35e0f0371ac234f9e9371",
+      "to": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "relation": "aToken backed by underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3:aweeth->weeth",
+      "edge_type": "mint_wrapper",
+      "from": "0xbdfa7b7893081b35fb54027489e2bc7a38275129",
+      "to": "0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "relation": "aToken backed by underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3:agho->gho",
+      "edge_type": "mint_wrapper",
+      "from": "0x00907f9921424583e7ffbfedf84f92b7b2be4977",
+      "to": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "relation": "aToken backed by underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3:gho->pool",
+      "edge_type": "cdp_mint",
+      "from": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "metadata": {
+        "relation": "GHO facilitator: Pool can mint GHO"
+      }
+    },
+    {
+      "edge_id": "aave-v3:gho->gsm_usdc",
+      "edge_type": "cdp_mint",
+      "from": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f",
+      "to": "0x0c0fbf2c0aa1c9fdd1bfdc8c8ca6f30b6ef0d12c",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "metadata": {
+        "relation": "GHO facilitator: GSM USDC"
+      }
+    },
+    {
+      "edge_id": "aave-v3:addresses_provider->pool",
+      "edge_type": "delegation",
+      "from": "0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "metadata": {
+        "layer": "infra_to_pool",
+        "data": "AddressesProvider 가 Pool 주소 registry 역할"
+      }
+    },
+    {
+      "edge_id": "aave-v3:pool_configurator->pool",
+      "edge_type": "delegation",
+      "from": "0x64b761d848206f447fe2dd461b0c635ec39ebb27",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "metadata": {
+        "layer": "infra_to_pool",
+        "data": "PoolConfigurator 가 Pool 파라미터 admin"
+      }
+    },
+    {
+      "edge_id": "aave-v3:acl_manager->pool",
+      "edge_type": "delegation",
+      "from": "0xc2aacf6553d20d1e9d78e365aaba8032af9c85b0",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "metadata": {
+        "layer": "infra_to_pool",
+        "data": "ACLManager 가 Pool 권한 제어"
+      }
+    },
+    {
+      "edge_id": "aave-v3:aave_oracle->pool",
+      "edge_type": "delegation",
+      "from": "0x54586be62e3c3580375ae3723c145253060ca0c2",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "metadata": {
+        "layer": "infra_to_pool",
+        "data": "AaveOracle 가 Pool 에 가격 제공"
+      }
+    },
+    {
+      "edge_id": "aave-v3:collector->pool",
+      "edge_type": "delegation",
+      "from": "0x464c71f6c2f760dda6093dcb91c24c39e5d6e18c",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "metadata": {
+        "layer": "infra_to_pool",
+        "data": "Collector 가 Pool 수수료 수령"
+      }
+    }
+  ],
+  "_chain_id": 1,
+  "_auto_merge_stats": {
+    "auto_nodes_added": 0,
+    "preserved_human_nodes": 30,
+    "total_nodes": 30
+  }
+}

@@ -1,0 +1,127 @@
+{
+  "inputs": [
+    {
+      "input": "collateral:CRV-fraxlend@calm",
+      "detector": "d06",
+      "measured": true,
+      "source": "onchain:CRV.balanceOf(0x3835a58C..2510)@eth:19825201",
+      "value_token": 63211603.916526
+    },
+    {
+      "input": "collateral:CRV-fraxlend@predrain",
+      "detector": "d06",
+      "measured": true,
+      "source": "onchain:CRV.balanceOf(0x3835a58C..2510)@eth:20079184",
+      "value_token": 57927278.347339
+    },
+    {
+      "input": "collateral:CRV-fraxlend@cascade",
+      "detector": "d06",
+      "measured": true,
+      "source": "onchain:CRV.balanceOf(0x3835a58C..2510)@eth:20082760",
+      "value_token": 931126.194475
+    },
+    {
+      "input": "total_supply:CRV@calm",
+      "detector": "d06",
+      "measured": true,
+      "source": "onchain:CRV.totalSupply()@eth:19825201",
+      "value_token": 2114234447.412666
+    },
+    {
+      "input": "total_supply:CRV@predrain",
+      "detector": "d06",
+      "measured": true,
+      "source": "onchain:CRV.totalSupply()@eth:20079184",
+      "value_token": 2129568512.919813
+    },
+    {
+      "input": "total_supply:CRV@cascade",
+      "detector": "d06",
+      "measured": true,
+      "source": "onchain:CRV.totalSupply()@eth:20082760",
+      "value_token": 2129925489.576388
+    },
+    {
+      "input": "utilization:CRV-fraxlend@calm",
+      "detector": "d07",
+      "measured": true,
+      "source": "onchain:Fraxlend.totalBorrow.amount/totalAsset.amount@eth:19825201",
+      "value": 0.772415,
+      "note": "measured 0.772 vs modeled 0.85"
+    },
+    {
+      "input": "utilization:CRV-fraxlend@predrain",
+      "detector": "d07",
+      "measured": true,
+      "source": "onchain:Fraxlend.totalBorrow.amount/totalAsset.amount@eth:20079184",
+      "value": 0.832189,
+      "note": "measured 0.832 vs modeled 0.99"
+    },
+    {
+      "input": "utilization:CRV-fraxlend@cascade",
+      "detector": "d07",
+      "measured": true,
+      "source": "onchain:Fraxlend.totalBorrow.amount/totalAsset.amount@eth:20082760",
+      "value": 0.011581,
+      "note": "CONTRADICTION: measured 0.012 vs modeled 0.99 -- liquidators REPAID FRAX debt, util collapsed; liquidity drop is via market-size, not util spike"
+    },
+    {
+      "input": "pool_size_frax:CRV-fraxlend@predrain",
+      "detector": "d07",
+      "measured": true,
+      "source": "onchain:Fraxlend.totalAsset.amount@eth:20079184",
+      "value_frax": 17836550.18
+    },
+    {
+      "input": "pool_size_frax:CRV-fraxlend@cascade",
+      "detector": "d07",
+      "measured": true,
+      "source": "onchain:Fraxlend.totalAsset.amount@eth:20082760",
+      "value_frax": 9035253.39,
+      "note": "FRAX supplied liquidity 17.84M->9.04M = -49.3%"
+    },
+    {
+      "input": "price:CRV-USD@calm",
+      "detector": "d06",
+      "measured": true,
+      "source": "onchain:chainlink CRV/USD 0xCd627aA1..@eth:19825201",
+      "price": 0.425066
+    },
+    {
+      "input": "price:CRV-USD@predrain",
+      "detector": "d06",
+      "measured": true,
+      "source": "onchain:chainlink CRV/USD 0xCd627aA1..@eth:20079184",
+      "price": 0.362104
+    },
+    {
+      "input": "price:CRV-USD@cascade",
+      "detector": "d06",
+      "measured": true,
+      "source": "onchain:chainlink CRV/USD 0xCd627aA1..@eth:20082760",
+      "price": 0.283404
+    },
+    {
+      "input": "price:FRAX-USD@cascade",
+      "detector": "d07",
+      "measured": true,
+      "source": "onchain:chainlink FRAX/USD 0xB9E1E3A9..@eth:20082760",
+      "price": 0.998373
+    },
+    {
+      "input": "window_obs:collateral_change-24h",
+      "detector": "d06",
+      "measured": true,
+      "source": "derived from measured CRV.balanceOf @20079184 vs @20082760 (931126/57927278-1)",
+      "change": -0.98393
+    },
+    {
+      "input": "price:CRV-intraday-low-cex",
+      "detector": "d06",
+      "measured": false,
+      "source": "asserted:CoinDesk/DailyCoin ~28-34%% intraday (~$0.22 low); off-chain CEX, not the labelled-block oracle reading",
+      "note": "documented intraday low; on-chain oracle at the labelled block read $0.283 (settled)"
+    }
+  ]
+}

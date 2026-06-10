@@ -1,0 +1,227 @@
+{
+  "_invariant": "All edges must connect exactly one token node and one protocol node. No token-token or protocol-protocol edges.",
+
+  "_policy": {
+    "1_attribution": "Count a token at the ONE place it physically rests. Never double-count.",
+    "2_cutoff": "Include a node/edge only if it holds >= 0.3% of token supply OR >= $10M. Dust excluded.",
+    "3_simple_edges": "Keep edges simple. Push all detail (markets, vaults, pools) to the drill-down fields (top_markets / top_pools / funding_vaults).",
+    "4_vaults": {
+      "deploys_traceable": "Vault forwards token to a known same-chain protocol (e.g. Spark). -> Count at that LEAF protocol. Vault is NOT its own node; list it in top_markets.funding_vaults (shown in drill-down).",
+      "holds_directly": "Vault keeps the token in its own contract (balanceOf>0). -> Vault becomes its own node (only if >= 0.3%).",
+      "transformed": "Token changed (WETH->stETH). -> Follow the NEW token's node.",
+      "cross_chain": "Token left the chain (->Arbitrum/Katana). -> Model as a bridge.",
+      "nested_vault": "Vault into another vault. -> Resolve one more hop.",
+      "opaque_custody": "Only MPC/CeDeFi (Ethena-style) is truly untraceable. -> label 'custody (unknown)', confidence LOW."
+    },
+    "5_wrapper": "Basket wrapper (eBTC / BoringVault) HOLDS the token: edge_type=mint_backing + fill the edge.mint_backing block. The issued token (eBTC) is its OWN token node; token-token links recovered via 2-hop through the issuer protocol. (Node type is 'wrapper'; edge block is 'mint_backing' - do not confuse them.)",
+    "6_bridges": "Recorded as token-node metadata (not separate protocol nodes), with mechanism + dest chains.",
+    "7_cex": "Group an exchange's many addresses into ONE node via labels (only for direct holders, not vault destinations).",
+    "8_provenance": "confidence HIGH only for on-chain-measured values; off-chain/claimed capped at MEDIUM/LOW. Always stamp snapshot_block.",
+    "9_cdp_is_wrapper": "A CDP (Maker->DAI, Liquity->BOLD, Aave->GHO, Curve->crvUSD) is a multi-collateral wrapper: stablecoin --issued_by--> issuer; each collateral --cdp_collateral--> issuer. 'X backed by Y' recovered via 2-hop through the issuer. Stablecoin price usually PEG_ASSUMED ($1).",
+    "10_pass_through": "Vault forwarding is recorded in edge.pass_through (metadata, not counted). A transformed token hands off to its OWN graph; the destination protocol (e.g. Lido) is a node THERE, not in this token's graph."
+  },
+
+  "nodes": {
+    "token": {
+      "node_id": "string (e.g. token:WBTC, token:eBTC, token:PT-LBTC-26JUN)",
+      "type": "Token",
+      "label": "string",
+      "address": "0x... (40 hex)",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "string",
+        "decimals": "number",
+        "total_supply": "number",
+        "holders": "number | null",
+        "market_cap_usd": "number | null",
+        "paused": "boolean",
+        "mint_controller": "0x... | null",
+        "_note_wrappers": "If this token is a wrapper/derivative (eBTC, PT-LBTC, sUSDe...), it gets its own token node and connects to its issuer protocol via mint_backing edge. Cross-token relationships are inferred via 2-hop traversal through shared protocol.",
+        "bridges": {
+          "<chain_key>": [
+            {
+              "bridge": "string",
+              "locked_amount": "number",
+              "dest_chains": ["string"],
+              "mechanism": "lock_unlock | burn_mint | messaging | null"
+            }
+          ]
+        }
+      }
+    },
+
+    "lending_dapp": {
+      "node_id": "string (e.g. protocol:aave_v3, protocol:morpho_blue)",
+      "type": "DefiProtocol",
+      "label": "string",
+      "address": "0x... (core contract)",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "mono_pool | isolated_markets | cdp | multi_asset_liquidity",
+        "core_contract": "0x...",
+        "tokens_held": "number",
+        "tokens_held_usd": "number",
+        "governance": "string"
+      }
+    },
+
+    "dex": {
+      "node_id": "string (e.g. protocol:uniswap_v3)",
+      "type": "DefiProtocol",
+      "label": "string",
+      "address": "0x... (factory or router)",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "dex_type": "amm_v2 | amm_v3 | clamm | stable_swap | perp",
+        "factory_or_router": "0x...",
+        "pool_count": "number",
+        "tokens_held": "number",
+        "tokens_held_usd": "number"
+      }
+    },
+
+    "wrapper": {
+      "node_id": "string (e.g. protocol:etherfi_boringvault)",
+      "type": "DefiProtocol",
+      "label": "string",
+      "address": "0x...",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "single_asset_wrapper | multi_asset_basket | erc4626_vault",
+        "issued_token": "string (e.g. eBTC)",
+        "tokens_held": "number",
+        "tokens_held_usd": "number",
+        "manager": "string"
+      }
+    }
+  },
+
+  "edge": {
+    "_invariant_endpoints": "source MUST be token:* and target MUST be protocol:* (or vice versa for clarity, but always bipartite).",
+    "edge_id": "string",
+    "source": "node_id (token:* or protocol:*)",
+    "target": "node_id (token:* or protocol:*)",
+
+    "classification": {
+      "_note_roles": "A token can play multiple roles in the same protocol simultaneously (e.g. WBTC in Morpho = collateral_isolated AND loan_asset). One edge per (token, protocol) pair; roles[] holds the per-role breakdown with its own amount.",
+      "roles": [
+        {
+          "edge_type": "collateral | collateral_isolated | cdp_collateral | loan_asset | deposit_supply | lp_pair | mint_backing | issued_by",
+          "amount_token": "number",
+          "amount_usd": "number"
+        }
+      ],
+      "primary_role": "edge_type (dominant role; for viz color/label)",
+      "venue_type": "market | isolated_market | vault | pool | cdp | psm",
+      "protocol_class": "lending | dex | wrapper | cdp"
+    },
+
+    "core_weight": {
+      "amount_token": "number",
+      "amount_usd": "number",
+      "pct_of_supply": "0~1 | null",
+      "pct_of_protocol_tvl": "0~1 | null"
+    },
+
+    "oracle": {
+      "oracle_type": "MARKET | EXCHANGE_RATE | NAV | PEG_ASSUMED | ORACLE_FREE | NONE",
+      "oracle_provider": "string | null",
+      "oracle_address": "0x... | null",
+      "depeg_sensitive": "boolean"
+    },
+
+    "lending_risk": {
+      "ltv": "0~1 | null",
+      "lt": "0~1 | null",
+      "liquidation_bonus": "0~1 | null",
+      "supply_cap": "number | null",
+      "borrow_cap": "number | null",
+      "reserve_factor": "0~1 | null",
+      "utilization": "0~1 | null",
+      "is_frozen": "boolean | null",
+      "emode_category": "string | null"
+    },
+
+    "cdp_risk": {
+      "_note": "Only for CDP venues (Maker/Sky, Liquity, GHO, crvUSD, f(x)). A CDP = multi-collateral wrapper that mints a stablecoin.",
+      "debt_ceiling": "number | null",
+      "debt_current": "number | null",
+      "stability_fee": "0~1 | null",
+      "liquidation_ratio": "0~1 | null"
+    },
+
+    "dex_metrics": {
+      "pool_count": "number | null",
+      "liquidity_usd": "number | null",
+      "depth_at_1pct_usd": "number | null",
+      "depth_at_5pct_usd": "number | null",
+      "top_pairs": "string[] | null"
+    },
+
+    "mint_backing": {
+      "issued_token": "string | null",
+      "backing_share": "0~1 | null",
+      "co_backing_tokens": "string[] | null",
+      "redemption": "string | null",
+      "manager": "string | null"
+    },
+
+    "pass_through": {
+      "_note": "Where a vault FORWARDED the token (balanceOf=0 outflows). METADATA ONLY - never re-counted; the token is counted once at THIS node. For 'transformed', 'to' points to the new token's node (handoff to that token's graph; the dest protocol like Lido appears as a node THERE).",
+      "items": [
+        {
+          "to": "node_id (protocol:* or token:*)",
+          "to_token": "string",
+          "pct": "0~1",
+          "amount": "number",
+          "status": "resolved | transformed | nested | crosschain | opaque | idle"
+        }
+      ]
+    },
+
+    "top_markets": [
+      {
+        "loan_asset": "string | null",
+        "collateral_asset": "string | null",
+        "lltv": "0~1",
+        "market_size_usd": "number",
+        "oracle_address": "0x... | null",
+        "utilization": "0~1 | null",
+        "ouroboros_risk": "boolean",
+        "vault_funded": "boolean",
+        "vault_funded_share_of_supply": "0~1 | null",
+        "funding_vaults": [
+          {
+            "vault_name": "string",
+            "vault_address": "0x...",
+            "curator": "string",
+            "deposit_asset": "string",
+            "allocation_usd": "number"
+          }
+        ]
+      }
+    ],
+
+    "top_pools": [
+      {
+        "pair": "string",
+        "amount": "number",
+        "fee": "0~1 | null",
+        "paired_token": "string | null",
+        "depth_at_1pct_usd": "number | null"
+      }
+    ],
+
+    "meta": {
+      "snapshot_block": "number | null",
+      "snapshot_ts": "ISO string",
+      "verifiable_onchain": "boolean",
+      "confidence": "HIGH | MEDIUM | LOW",
+      "data_source": "string"
+    }
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "inputs": [
+    {
+      "input": "total_supply:PAID@11979831(prev/pre-burn)",
+      "detector": "d05",
+      "measured": true,
+      "source": "onchain:totalSupply@eth:11979831",
+      "value": 594717455710000000000000000
+    },
+    {
+      "input": "total_supply:PAID@11979832(burn-trough)",
+      "detector": "d05",
+      "measured": true,
+      "source": "onchain:totalSupply@eth:11979832",
+      "value": 535245710139000000000000000
+    },
+    {
+      "input": "total_supply:PAID@11979840(curr/post-mint)",
+      "detector": "d05",
+      "measured": true,
+      "source": "onchain:totalSupply@eth:11979840",
+      "value": 594717455710000000000000000
+    },
+    {
+      "input": "mint_event:PAID@11979840",
+      "detector": "d10",
+      "measured": true,
+      "source": "onchain:Transfer(0x0->exploiter)@eth:11979840:0x4bb10927ea7afc2336033574b74ebd6f73ef35ac0db1bb96229627c9d77555a0",
+      "amount": 59471745571000000000000000,
+      "to": "0x18738290af1aaf96f0acfa945c9c31ab21cd65be",
+      "ts": 1614967389
+    },
+    {
+      "input": "burn_event:PAID@11979832",
+      "detector": "d11",
+      "measured": true,
+      "source": "onchain:Transfer(0xd500aa2c->0x0)@eth:11979832:0x3a483dd881d98541ebbd51e9a64daa700546bae9c2b33a30c2192f9981334b9b",
+      "amount": 59471745571000000000000000,
+      "frm": "0xd500aa2cffb70f460f4da6afa038ce35bed029bc",
+      "ts": 1614967279
+    },
+    {
+      "input": "authorized_minter:owner()@11979831",
+      "detector": "d10",
+      "measured": true,
+      "source": "onchain:owner()@eth:11979831",
+      "value": "0x53bc21d38281d6acdfe0b92e0b534a19c90344cc"
+    },
+    {
+      "input": "decimals:PAID",
+      "detector": "d10",
+      "measured": true,
+      "source": "onchain:decimals()@eth:11979831",
+      "value": 18
+    },
+    {
+      "input": "total_supply:PAID@11948959(calm-prev)",
+      "detector": "d05",
+      "measured": true,
+      "source": "onchain:totalSupply@eth:11948959",
+      "value": 594717455710000000000000000
+    },
+    {
+      "input": "total_supply:PAID@11961985(calm-curr)",
+      "detector": "d05",
+      "measured": true,
+      "source": "onchain:totalSupply@eth:11961985",
+      "value": 594717455710000000000000000
+    },
+    {
+      "input": "mint_burn_events:PAID@calm-window",
+      "detector": "d10/d11",
+      "measured": true,
+      "source": "onchain:eth_getLogs Transfer +/-1000blk @ 11948959 & 11961985 -> 0 mints, 0 burns",
+      "mints": 0,
+      "burns": 0
+    },
+    {
+      "input": "price:PAID(off-chain context, no peg)",
+      "detector": "none",
+      "measured": false,
+      "source": "asserted:CoinGecko/Uniswap ~-85% (2.86->0.32) \u2014 utility token, no peg, drives no signal"
+    }
+  ]
+}

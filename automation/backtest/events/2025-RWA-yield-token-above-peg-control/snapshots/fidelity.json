@@ -1,0 +1,11 @@
+{
+  "inputs": [
+    {
+      "input": "peg_probe:USYC-morpho-collateral@22606143",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:chainlink 0x4c48bcb2160F8e0aDbf9D4F3B034f1e36d1f8b3e @ethereum:22606143",
+      "price": 1.08863422
+    }
+  ]
+}

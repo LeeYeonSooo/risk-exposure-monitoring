@@ -1,0 +1,5 @@
+{
+  "verdict": "PASS",
+  "summary": "All 3 cases faithful to EVENT.md: sighted MARKET-oracle USDC venue 0.8833 (11.7% impairment, lt=0.86) -> DEPEG CRITICAL; same impairment on blind HARDCODED-$1 venue -> DEPEG HIGH (one notch down, muted liquidations but real latent loss); recovered 0.9983 (0.17% residual, 2023-03-13) correctly must_not_fire. Measured Chainlink peg prices (0.8833@16803515, 0.9983@16820114) consistent with documented ~$0.87-0.88 low and ~0.999 recovery; both probe edge_ids exist in snapshots/USDC.json.",
+  "draft_sha256": "6ad1ccad86e90e9eb6ffd6c7e9fec7b6325b76d5ddfeb16bbb81778362edfe63"
+}

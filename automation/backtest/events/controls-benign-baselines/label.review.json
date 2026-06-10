@@ -1,0 +1,5 @@
+{
+  "verdict": "APPROVE",
+  "summary": "Data-only measured-backfill of 4 negative controls: should_fire/must_not_fire/max_emitted all UNCHANGED vs prior label.json; every measured peg (PT 0.99387, USDC 0.99965, wstETH 0.99971, USDT 0.99883) sits well inside its class band and far above the LT/liquidation line, so each control stays faithfully BENIGN; fidelity marks all 4 inputs measured=true with on-chain Chainlink/Pendle sources; all 4 edge_ids + probe keys exist in controls.json.",
+  "draft_sha256": "6ca52737e8fb12b528d2a9855b6df02095e8a016628c2b73ab27237f3ce85ee8"
+}

@@ -1,0 +1,84 @@
+{
+  "_invariant": "UwU Lend sUSDe oracle-manipulation, 2024-06-10. UwU's sUSDe oracle took a median of 11 sources, 5 of which were Curve get_p() INSTANTANEOUS spot; a flash-loan swap pushed the spot (and thus the oracle median) to a value sUSDe never truly printed. The manipulated oracle answer is a FRESH-but-WRONG price (staleness checks are blind to it) \u2014 only a cross-reference to an honest price catches it. answer/reference injected per-case via oracle_probes.",
+  "meta": {
+    "token": "sUSDe",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2024-06-10T12:00:00Z",
+    "snapshot_block": 20037000
+  },
+  "nodes": [
+    {
+      "node_id": "token:sUSDe",
+      "type": "Token",
+      "label": "Ethena Staked USDe",
+      "address": "0x9D39A5DE30e57443BfF2A8307A4256c8797A3497",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "sUSDe",
+        "decimals": 18,
+        "market_cap_usd": 1000000000
+      }
+    },
+    {
+      "node_id": "protocol:uwulend",
+      "type": "DefiProtocol",
+      "label": "UwU Lend",
+      "address": "0x2409aF0251DCB89EE3dee572629291f9B087c668",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "mono_pool",
+        "core_contract": "0x2409aF0251DCB89EE3dee572629291f9B087c668"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "sUSDe-uwulend-collateral",
+      "source": "token:sUSDe",
+      "target": "protocol:uwulend",
+      "classification": {
+        "edge_type": "collateral_shared",
+        "venue_type": "shared_pool",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 20000000,
+        "amount_usd": 20000000,
+        "pct_of_supply": 0.02,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "UwU custom median (incl. Curve get_p spot)",
+        "oracle_address": "0xcustomuwuoracle000000000000000000000001",
+        "depeg_sensitive": true
+      },
+      "lending_risk": {
+        "ltv": 0.9,
+        "lt": 0.92,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": null,
+        "utilization": 0.85,
+        "is_frozen": false,
+        "emode_category": null
+      },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        {
+          "loan_asset": "USDe",
+          "collateral_asset": "sUSDe",
+          "lltv": 0.92,
+          "market_size_usd": 20000000,
+          "oracle_address": "0xcustomuwuoracle000000000000000000000001",
+          "utilization": 0.85
+        }
+      ]
+    }
+  ]
+}

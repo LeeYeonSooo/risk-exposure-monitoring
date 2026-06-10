@@ -1,0 +1,71 @@
+{
+  "_invariant": "Real Morpho-style exposure graph for stETH (Lido LST) at the 2022-06-13 Celsius/3AC deleveraging depeg. stETH supply REAL on-chain (4,219,980.057 @ block 14955879, 2022-06-13T11:59:57Z, 18dp, Alchemy archive). One isolated lending collateral edge with a MARKET-PRICE stETH/ETH oracle (depeg_sensitive=true), the regime where looped stETH/ETH positions face liquidation as the ratio falls. stETH is pegged to ETH not USD: the per-case peg_probe price is the stETH/ETH ratio (peg=1.0 = 1 ETH-equiv), MEASURED on-chain (Curve stETH/ETH get_dy) at each case's own anchor block. by_design_discount is FALSE: this was a market liquidity dislocation under forced deleveraging, NOT a contractual discount and NOT a backing failure (every stETH still 1:1 staked-ETH backed). RE-ANCHORED 2026-06: the snapshot block moved from 14955378 (10:00Z, where the Curve venue had partially recovered to 0.9434, ~5.7% — short of the documented trough) to 14955879 (12:00Z), the on-chain depth-trough block where the marginal stETH/ETH = 0.93501 (~6.5% below peg) matches the documented forensic trough.",
+  "meta": {
+    "token": "stETH",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2022-06-13",
+    "snapshot_block": 14955879,
+    "node_count": 2,
+    "edge_count": 1,
+    "data_source": "on-chain Alchemy archive (stETH 0xae7ab9...fe84 @ block 14955879, totalSupply 4,219,980.057 stETH, 18dp) + an isolated stETH/ETH lending market modeled on the Aave v2 stETH collateral regime (market-price oracle, looped positions). Depeg ratio per-case MEASURED on-chain (Curve stETH/ETH pool get_dy) at the case's own anchor block.",
+    "coverage_pct": 0.7
+  },
+  "nodes": [
+    {
+      "node_id": "token:stETH",
+      "type": "Token",
+      "label": "Lido Staked Ether (stETH, LST)",
+      "address": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "stETH",
+        "decimals": 18,
+        "total_supply": 4219980,
+        "holders": null,
+        "market_cap_usd": 5100000000,
+        "paused": false,
+        "_note": "Liquid staking token pegged to ETH (1 stETH = 1 staked-ETH-equiv). In June 2022 NO native withdrawals (enabled only at Shanghai, Apr 2023) -> only exit was the secondary market (Curve stETH/ETH + CEX). Terra->Celsius->3AC forced deleveraging dumped stETH into thin liquidity; the ETH-relative ratio fell to ~0.93-0.935 (on-chain trough Mon Jun 13 ~12:00-15:00Z). No backing failure: every stETH still 1:1 staked-ETH backed. totalSupply 4,219,980.057 @ block 14955879 (2022-06-13T11:59:57Z, Alchemy archive).",
+        "bridges": {}
+      }
+    },
+    {
+      "node_id": "protocol:isolated_lending",
+      "type": "DefiProtocol",
+      "label": "Isolated stETH/ETH lending market",
+      "address": "0x0000000000000000000000000000000000000000",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "isolated_markets",
+        "core_contract": "0x0000000000000000000000000000000000000000",
+        "governance": "immutable",
+        "_note": "Models the Aave-v2-style stETH/ETH leveraged-loop collateral regime: a market-price stETH/ETH oracle, so the secondary-market discount flows into LTV and pressures looped positions during the cascade."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "stETH-isolated_lending-collateral_isolated",
+      "source": "token:stETH",
+      "target": "protocol:isolated_lending",
+      "classification": { "edge_type": "collateral_isolated", "venue_type": "isolated_market", "protocol_class": "lending" },
+      "core_weight": { "amount_token": 150000, "amount_usd": 180000000, "pct_of_supply": 0.0356, "pct_of_protocol_tvl": null },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "Market-price stETH/ETH (secondary-market ratio) — tracks the real Curve/CEX discount, NOT a hardcoded 1.0 exchange rate",
+        "oracle_address": null,
+        "depeg_sensitive": true
+      },
+      "lending_risk": { "ltv": null, "lt": 0.90, "liquidation_bonus": null, "supply_cap": null, "borrow_cap": null, "reserve_factor": null, "utilization": 0.78, "is_frozen": false, "emode_category": null },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        { "loan_asset": "WETH", "collateral_asset": "stETH", "lltv": 0.90, "market_size_usd": 180000000, "oracle_address": null, "utilization": 0.78, "ouroboros_risk": true, "vault_funded": false, "vault_funded_share_of_supply": null, "funding_vaults": [] }
+      ],
+      "top_pools": null,
+      "meta": { "snapshot_block": 14955879, "snapshot_ts": "2022-06-13", "verifiable_onchain": true, "confidence": "HIGH", "data_source": "stETH supply on-chain @ 14955879 (4,219,980.057); isolated stETH/ETH lending market (market-price oracle, LT 0.90) modeling the loop-collateral regime exposed to the secondary-market discount." }
+    }
+  ]
+}

@@ -1,0 +1,99 @@
+{
+  "_invariant": "prev for calm control: USR 102,828,776.77 MEASURED on-chain (erc20 totalSupply @ block 24691400).",
+  "meta": {
+    "token": "USR",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2026-03-19T12:00:00Z",
+    "snapshot_block": 24691400,
+    "data_source": "on-chain Alchemy archive MEASURED: USR 0x66a1E3…e110 totalSupply @24691400 = 102,828,776.7681"
+  },
+  "nodes": [
+    {
+      "node_id": "token:USR",
+      "type": "Token",
+      "label": "Resolv USR",
+      "address": "0x66a1E37C9b0eAddca17d3662D6c05F4DECf3e110",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "USR",
+        "decimals": 18,
+        "total_supply": 102828776768115305907479502,
+        "supply_samples": [
+          102900000000000000000000000,
+          102880000000000000000000000,
+          102865000000000000000000000,
+          102855000000000000000000000,
+          102845000000000000000000000,
+          102828776768115305907479502
+        ],
+        "mint_events": [],
+        "burn_events": [],
+        "authorized_minters": [
+          "0x0000000000000000000000000000000000000dead"
+        ],
+        "market_cap_usd": 102828776,
+        "paused": false
+      }
+    },
+    {
+      "node_id": "protocol:curve",
+      "type": "DefiProtocol",
+      "label": "Curve",
+      "address": "0x0000000000000000000000000000000000000ccc",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "isolated_markets"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "USR-curve-collateral",
+      "source": "token:USR",
+      "target": "protocol:curve",
+      "classification": {
+        "edge_type": "collateral_isolated",
+        "venue_type": "isolated_market",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 20000000,
+        "amount_usd": 20000000,
+        "pct_of_supply": 0.11,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "Curve USR market price",
+        "oracle_address": "0x3ee841f47947fefbe510366e4bbb49e145484195",
+        "depeg_sensitive": true
+      },
+      "lending_risk": {
+        "ltv": null,
+        "lt": 0.9,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": null,
+        "utilization": 0.8,
+        "is_frozen": false,
+        "emode_category": null
+      },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        {
+          "loan_asset": "USDC",
+          "collateral_asset": "USR",
+          "lltv": 0.9,
+          "market_size_usd": 20000000,
+          "oracle_address": "0x3ee841f47947fefbe510366e4bbb49e145484195",
+          "utilization": 0.8
+        }
+      ]
+    }
+  ]
+}

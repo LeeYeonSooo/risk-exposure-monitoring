@@ -1,0 +1,5 @@
+{
+  "verdict": "APPROVE",
+  "summary": "Data-only re-capture: should_fire/must_not_fire/severities/now/case-ids IDENTICAL to prior label.json; measured -98.4% Fraxlend CRV-collateral drain (931126/57927278-1) still supports WHALE_UNWIND HIGH + UTIL_LIQUIDITY_DROP (market-size -98.7%, FRAX liq -49.3%), DEPEG correctly silent (depeg_sensitive=false), calm control benign; only current_usd refined to measured values; util-spike contradiction correctly flagged in fidelity and does not underpin any premise; off-chain ~$0.22 CEX low correctly measured=false.",
+  "draft_sha256": "c0e4e6f859586b266e420503b1c0fc8b1f9a30051d62eec8b23031028aa435a3"
+}

@@ -1,0 +1,67 @@
+{
+  "event": "USDC SVB depeg (2023-03-10/11, Ethereum) — DIRECTIONAL DEDUP / anti-spam test. Real secondary-market price path over the SVB weekend: ~$1.00 -> ~$0.97 (first on-chain wobble) -> ~$0.88 low (Mar-11 early AM) -> recovery to ~$0.999 after the US Treasury/Fed/FDIC backstop (Mar-12). Tests that a DEPEG which WORSENS across polls RE-PAGES (the operator must know it got worse), while a DEPEG that HOLDS STEADY at a LOWER (WARN) severity across polls is DEDUP-SUPPRESSED (re-paging an unchanged, already-alerted WARN-tier condition within its long cooldown is spam). The dedup cooldown is SEVERITY-TIERED: CRITICAL re-pages frequently; WARN/HIGH is suppressed for a much longer window. The harness runs each `polls` sequence through ONE shared dedup engine and grades the LAST poll's EMITTED signals. See EVENT.md.",
+  "source": "CNN Business (drop from ~$1.00 Fri 11pm to $0.88 by 7:30am Sat; $3.3B reserves at SVB) https://www.cnn.com/2023/03/11/business/stablecoin-circle-silicon-valley-bank ; CNBC https://www.cnbc.com/2023/03/11/stablecoin-usdc-breaks-dollar-peg-after-firm-reveals-it-has-3point3-billion-in-svb-exposure.html ; BeInCrypto (low ~$0.87 on Coinbase/Curve) https://beincrypto.com/usdc-market-cap-6b-circle-exposure-silicon-valley-bank/ ; Federal Reserve FEDS Notes (hourly issuance/redemption, weekend depeg deepest) https://www.federalreserve.gov/econres/notes/feds-notes/in-the-shadow-of-bank-run-lessons-from-the-silicon-valley-bank-failure-and-its-impact-on-stablecoins-20251217.html . Prices are MEASURED on-chain from the Curve 3pool (DAI/USDC/USDT, 0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7) via get_dy(USDC->USDT) at each poll's block; USDT is the dollar-holding sibling reference because DAI (~50% USDC-collateralized) itself depegged that weekend. RE-ANCHORED: the on-chain Curve 3pool dislocation LAGGED the US-ET-evening CEX print by ~4h. At the originally-labelled poll-1 timestamp 2023-03-10T22:00:00Z the 3pool was still essentially pegged (~0.998); the genuine ~$0.97 WARN-tier soft depeg first appears on-chain in the 2023-03-11 02:00-03:15Z plateau (~0.971-0.981), and the ~$0.88 deep low at 2023-03-11 07:00-08:00Z (~0.875-0.878). Anchor blocks were moved into those on-chain windows so the labelled premise (WARN soft depeg / steady WARN / deep low) holds at the MEASURED value; should_fire/must_not_fire/severity/max_emitted/beta are UNCHANGED. See EVENT.md.",
+  "closed": true,
+  "cases": [
+    {
+      "id": "depeg-worsens-repages",
+      "snapshot": "snapshots/usdc.json",
+      "now": "2023-03-11T07:00:00Z",
+      "polls": [
+        {
+          "snapshot": "snapshots/usdc.json",
+          "now": "2023-03-11T02:00:00Z",
+          "peg_probes": {
+            "USDC-morpho-collateral": { "price": 0.974823, "peg": 1.0, "asset_class": "stable", "source": "onchain:curve 0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7 get_dy(1,2) @ethereum:16801739 (MEASURED on-chain @block 16801739 / 2023-03-11T02:00:00Z; USDC/USDT=0.974823 = ~2.52% off peg = WARN-tier soft depeg, above the 0.91 LT line. RE-ANCHORED from 2023-03-10T22:00:00Z where the 3pool was still ~0.998 pegged — the documented ~$0.97 CEX wobble reaches the on-chain 3pool ~4h later.)" }
+          }
+        },
+        {
+          "snapshot": "snapshots/usdc.json",
+          "now": "2023-03-11T07:00:00Z",
+          "peg_probes": {
+            "USDC-morpho-collateral": { "price": 0.878356, "peg": 1.0, "asset_class": "stable", "source": "onchain:curve 0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7 get_dy(1,2) @ethereum:16803216 (MEASURED on-chain @block 16803216 / 2023-03-11T07:00:00Z; USDC/USDT=0.878356 = ~12.16% off peg = deep depeg below the 0.91 LT line. Matches the documented ~$0.88 weekend low; block unchanged — already faithful.)" }
+          }
+        }
+      ],
+      "should_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "USDC-morpho-collateral",
+          "min_severity": "HIGH",
+          "why": "WORSENING depeg -> MUST RE-PAGE. Poll 1 (now 2023-03-11T02:00:00Z, MEASURED price 0.974823 = ~2.5% off peg) is the first on-chain wobble, a WARN-tier soft depeg above the market's 0.91 LT line, and pages. Poll 2 (2023-03-11T07:00:00Z, MEASURED price 0.878356 = ~12.2% off peg) is the deep weekend low on a depeg-sensitive isolated Morpho market (oracle_type MARKET, depeg_sensitive=true, LLTV/LT 0.91 in snapshots/usdc.json). The impairment roughly quintupled (~2.5c -> ~12c off peg) and USDC collateral is now well below the market's liquidation line, so leveraged positions liquidate and impairment becomes realized loss. A materially WORSENED condition (higher severity/score) is a fresh page through the shared dedup engine -> the LAST poll MUST re-emit DEPEG so the operator learns it got worse. The harness grades the last poll's emitted set; DEPEG must be present there. Floor HIGH: a ~12% stablecoin depeg is ~12x past any benign stable band and crosses the liquidation line, so the re-page must be HIGH-or-above (and a fresh page, NOT dedup-suppressed, precisely because it worsened)."
+        }
+      ],
+      "must_not_fire": [],
+      "max_emitted": null,
+      "beta": 2.0,
+      "note": "WORSENING case — MULTI-POLL through ONE dedup engine. Same snapshot (snapshots/usdc.json, edge USDC-morpho-collateral, MARKET oracle depeg_sensitive=true) held constant across both polls; only the injected price changes and `now` advances ~5h. Prices are MEASURED on-chain from the Curve 3pool get_dy(USDC->USDT, dx=1e6) at each poll's block (write=True; snapshots/fidelity.json measured=True for both). RE-ANCHOR: the original poll-1 anchor (2023-03-10T22:00:00Z, block 16800549) read ~0.998 on-chain — essentially PEGGED, not the asserted ~$0.97 — because the 3pool dislocation lagged the US-ET-evening CEX print by ~4h (hourly scan: 0.998@22:00Z, 0.995@23:00Z, 0.992@00:00Z, 0.990@01:00Z, then 0.975@02:00Z, 0.940@04:00Z, 0.930@06:00Z, 0.878@07:00Z). Poll 1 was MOVED to block 16801739 (2023-03-11T02:00:00Z), the first on-chain block at the WARN-tier ~0.975 soft-depeg plateau, where the labelled premise (a soft WARN depeg above the 0.91 LT line) IS true on-chain. Poll 2 (block 16803216 / 07:00Z = 0.878356) was already faithful and is unchanged. The graded LAST poll's MEASURED ~0.878 is a strictly deeper, higher-severity reading than poll1's MEASURED ~0.975, so the WORSENING -> RE-PAGE verdict on the graded last poll holds at the measured values. case-id, snapshot-ref, should_fire, min_severity (HIGH) and beta are UNCHANGED from label.json; only the poll-1 anchor block + poll-1 `now` were moved and hand-typed prices were swapped for measured Curve reads. measured_pct=100."
+    },
+    {
+      "id": "depeg-steady-deduped",
+      "snapshot": "snapshots/usdc.json",
+      "now": "2023-03-11T03:00:00Z",
+      "polls": [
+        {
+          "snapshot": "snapshots/usdc.json",
+          "now": "2023-03-11T02:30:00Z",
+          "peg_probes": {
+            "USDC-morpho-collateral": { "price": 0.980799, "peg": 1.0, "asset_class": "stable", "source": "onchain:curve 0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7 get_dy(1,2) @ethereum:16801885 (MEASURED on-chain @block 16801885 / 2023-03-11T02:30:00Z; USDC/USDT=0.980799 = ~1.92% off peg = WARN-tier soft depeg, above the 0.91 LT line. RE-ANCHORED into the on-chain ~0.97-0.98 plateau where the soft-depeg premise IS true.)" }
+          }
+        },
+        {
+          "snapshot": "snapshots/usdc.json",
+          "now": "2023-03-11T03:00:00Z",
+          "peg_probes": {
+            "USDC-morpho-collateral": { "price": 0.978479, "peg": 1.0, "asset_class": "stable", "source": "onchain:curve 0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7 get_dy(1,2) @ethereum:16802034 (MEASURED on-chain @block 16802034 / 2023-03-11T03:00:00Z; USDC/USDT=0.978479 = ~2.15% off peg = SAME WARN tier as poll-1, ~0.24% deeper = steady/non-improving, still above the 0.91 LT line. The unchanged WARN repeat that must be dedup-suppressed.)" }
+          }
+        }
+      ],
+      "should_fire": [],
+      "must_not_fire": [],
+      "max_emitted": { "severity": "WARN", "count": 0 },
+      "beta": 2.0,
+      "note": "STEADY WARN-TIER case — DEDUP-SUPPRESSED (anti-spam). MULTI-POLL through the SAME dedup engine. The dedup contract is SEVERITY-TIERED: a CRITICAL alert re-pages FREQUENTLY (a critical, ongoing situation MUST keep alerting — not spam), but a WARN/HIGH alert is suppressed for a much LONGER re-page cooldown. So this SUPPRESSION test uses a STEADY WARN-tier depeg, NOT a CRITICAL one. Poll 1 (now 2023-03-11T02:30:00Z, MEASURED price 0.980799 = ~1.9% off peg) is a soft depeg well ABOVE the market's 0.91 LT line (not liquidating) -> fires a WARN-tier DEPEG (observed/tracked). Poll 2 (2023-03-11T03:00:00Z, MEASURED price 0.978479 = ~2.2% off, ~0.24% deeper) is the SAME-tier, non-improving condition ~30min later: same WARN severity, nothing escalated. Because the alert is WARN-tier (long cooldown) and steady, the second poll sits WITHIN the WARN re-page cooldown and MUST be dedup-SUPPRESSED: the DEPEG belongs in the SUPPRESSED bucket, NOT the emitted bucket. Hence should_fire [] (no FRESH page on the last poll) and max_emitted {WARN, 0} (no WARN-or-above EMITTED on the last poll). CONTRAST: a steady CRITICAL (~12%-off, below the LT line) would correctly RE-PAGE frequently by design. RE-ANCHOR: the original anchors (22:00Z=0.998, 23:00Z=0.995) were essentially PEGGED on-chain — not the asserted ~$0.97 the soft-depeg premise needs, and shallow enough that they might not even trigger a WARN on poll 1, which would make max_emitted {WARN,0} satisfied trivially-benignly rather than via genuine dedup suppression. Both polls were MOVED into the on-chain ~0.97-0.98 WARN plateau (02:30Z block 16801885 = 0.9808; 03:00Z block 16802034 = 0.9785) — a genuinely STEADY, same-tier, non-worsening pair (~0.23% apart, both ~2% off peg, both above the 0.91 LT line). This is the deepest level at which the 3pool held a STEADY plateau before plunging to ~$0.88, so it is the faithful on-chain home of the steady-WARN premise. dedup-suppressed != false negative — the alert already fired on poll 1; suppressing the unchanged WARN repeat is correct anti-spam. case-id, snapshot-ref, should_fire, must_not_fire, max_emitted {WARN,0} and beta are UNCHANGED from label.json; only the two poll anchor blocks + their `now` values were moved and hand-typed prices were swapped for measured Curve reads. measured_pct=100. NOTE for the reviewer: whether poll-1's measured ~0.98 (2% off) crosses the engine's WARN DEPEG trigger for a stable asset is NOT verified here (firewall: detectors not read). The re-anchor maximizes the depth of the steady on-chain plateau (~2% off vs the prior ~0.5%), strengthening — but not proving — that poll 1 genuinely fires a WARN that poll 2 then dedups. If the engine's stable-depeg WARN floor sits deeper than ~2% off peg, this case would still pass max_emitted {WARN,0} but for a benign reason; the 3pool simply never held a STEADY plateau deeper than ~2-3% (it went straight from the ~0.97-0.98 plateau to the ~0.88 low). FLAGGED."
+    }
+  ],
+  "ratified": "auto(reviewer)"
+}

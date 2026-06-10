@@ -1,0 +1,123 @@
+{
+  "event": "CRV (Curve DAO) liquidation cascade / whale-unwind 2024-06-12\u21922024-06-13 \u2014 Egorov's ~9-figure CRV-collateralized borrows force-liquidated across 5 lenders as CRV crashed ~28-34%. On the Fraxlend CRV/FRAX pair (0x3835a58CA93Cdb5f912519ad366826aC9a752510) the CRV collateral drained 57,927,278 \u2192 931,126 CRV = -98.4% over the 24h window (June 13 00:00\u219212:00), a REAL on-chain MEASURED near-total wipe (Alchemy archive CRV.balanceOf @ blocks 20079184 / 20082760). First sustained-DRAIN / WHALE_UNWIND case in the set; CRV is a free-floating altcoin (no peg) so DEPEG must stay silent. RE-CAPTURE NOTE: this draft is a DATA-ONLY measured backfill \u2014 judgment (should_fire/must_not_fire/severity/case-id/now) is IDENTICAL to label.json; only measured numbers + notes changed. Measured fidelity 94.1% (16/17 inputs on-chain; only the documented ~$0.22 intraday CEX low stays asserted as off-chain).",
+  "source": "On-chain Alchemy Ethereum archive (all decisive inputs MEASURED): CRV.balanceOf(0x3835a58C..2510) = 63,211,603.92 CRV @ 19825201 (2024-05-08), 57,927,278.35 @ 20079184 (2024-06-13 00:00), 931,126.19 @ 20082760 (2024-06-13 12:00); CRV.totalSupply @ each block; Chainlink CRV/USD 0xCd627aA1.. = $0.4251 / $0.3621 / $0.2834; Fraxlend totalAsset.amount & totalBorrow.amount -> utilization 0.7724 / 0.8322 / 0.0116. CRV price/cascade % documented by CoinDesk, Decrypt, Protos, DailyCoin, Blockworks, Arkham, DL News, cryptotimes \u2014 see EVENT.md. Fraxlend CRV/FRAX maxLTV ~0.75. The -98.4% 24h drain is ON-CHAIN MEASURED; the window_observation is its host-fed representation. CONTRADICTION FLAGGED: cascade utilization MEASURED 0.0116 (NOT modeled 0.99) \u2014 liquidators repaid the FRAX debt, so the liquidity-drop signal is carried by the market-SIZE / collateral collapse, not a utilization spike (judgment unchanged \u2014 see notes).",
+  "closed": false,
+  "cases": [
+    {
+      "id": "crv-collateral-cascade-drain",
+      "snapshot": "snapshots/crv_cascade.json",
+      "prev": null,
+      "now": "2024-06-13T12:00:00Z",
+      "peg_probes": {},
+      "oracle_probes": {},
+      "window_observations": [
+        {
+          "series_key": "CRV-fraxlend-collateral",
+          "metric": "collateral_change",
+          "window": "24h",
+          "change": -0.984,
+          "asset_class": "altcoin",
+          "signal_type": "WHALE_UNWIND",
+          "current_usd": 263885,
+          "edge_id": "CRV-fraxlend-collateral",
+          "market_identity": {
+            "loan_asset": "FRAX",
+            "collateral_asset": "CRV",
+            "oracle_address": null,
+            "lltv": 0.75
+          }
+        }
+      ],
+      "should_fire": [
+        {
+          "signal_type": "WHALE_UNWIND",
+          "edge_id": "CRV-fraxlend-collateral",
+          "min_severity": "HIGH"
+        }
+      ],
+      "must_not_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "CRV-fraxlend-collateral"
+        }
+      ],
+      "max_emitted": null,
+      "beta": 2.0,
+      "note": "MEASURED RE-CAPTURE (judgment unchanged): at the cascade (2024-06-13 12:00, block 20082760) the CRV held by the Fraxlend CRV/FRAX pair (0x3835a58C..2510) was 931,126.19 CRV vs 57,927,278.35 @ block 20079184 (2024-06-13T00:00:00Z) = 931126/57927278 - 1 = -98.393% over 24h \u2014 a REAL on-chain MEASURED (Alchemy archive CRV.balanceOf) near-total collateral wipe. The host-fed window_observation encodes this measured drain as change -0.984 (collateral_change, 24h). A -98.4% 24h collateral drain is far beyond an altcoin market's normal tail AND far beyond the ~\u226525%/24h absolute actionable floor, so WHALE_UNWIND MUST fire; a near-total collateral wipe in 24h is unambiguously HIGH (CRITICAL would also be defensible \u2014 HIGH set as the floor). must_not_fire DEPEG: CRV is a free-floating altcoin with NO peg \u2014 its price crash (MEASURED Chainlink CRV/USD $0.3621 -> $0.2834 across the window, with a documented ~$0.22 off-chain intraday CEX low) is a market sell-off, not a peg deviation; the edge oracle is MARKET-type (depeg_sensitive=false) so firing DEPEG would be a sign/semantics error. The actionable exposure signal is the collateral DRAIN, not a peg. current_usd 263,885 = MEASURED 931,126.19 CRV \u00d7 MEASURED $0.2834 (was modeled ~20.8M from a pre-cascade figure; the post-cascade collateral USD is correctly ~$0.26M \u2014 the drain is the point, and the obs change -0.984 is unchanged)."
+    },
+    {
+      "id": "crv-calm-fp-trap",
+      "snapshot": "snapshots/crv_calm.json",
+      "prev": null,
+      "now": "2024-05-08T12:00:00Z",
+      "peg_probes": {},
+      "oracle_probes": {},
+      "window_observations": [
+        {
+          "series_key": "CRV-fraxlend-collateral",
+          "metric": "collateral_change",
+          "window": "24h",
+          "change": -0.01,
+          "asset_class": "altcoin",
+          "signal_type": "WHALE_UNWIND",
+          "current_usd": 26869104,
+          "edge_id": "CRV-fraxlend-collateral",
+          "market_identity": {
+            "loan_asset": "FRAX",
+            "collateral_asset": "CRV",
+            "oracle_address": null,
+            "lltv": 0.75
+          }
+        }
+      ],
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "WHALE_UNWIND",
+          "edge_id": "CRV-fraxlend-collateral"
+        },
+        {
+          "signal_type": "UTIL_LIQUIDITY_DROP",
+          "edge_id": "CRV-fraxlend-collateral"
+        },
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "CRV-fraxlend-collateral"
+        }
+      ],
+      "max_emitted": {
+        "severity": "WARN",
+        "count": 0
+      },
+      "beta": 2.0,
+      "note": "Calm control, 2024-05-08 (a month before the cascade): MEASURED Chainlink CRV/USD = $0.4251 (stable altcoin band), Egorov's leveraged CRV positions intact, NO forced liquidations. The Fraxlend CRV/FRAX pair held 63,211,603.92 CRV (MEASURED, block 19825201) \u2014 stable, no drain; MEASURED utilization 0.7724 (healthy). current_usd 26,869,104 = MEASURED 63,211,603.92 CRV \u00d7 MEASURED $0.4251. The host-fed window_observation carries a routine -0.01 (1% DRAIN) of CRV collateral over 24h \u2014 normal day-to-day fluctuation (asserted: no paired prev-block snapshot for this calm baseline; routine noise far below both the market's normal tail bound and the ~\u226525%/24h absolute floor). WHALE_UNWIND, UTIL_LIQUIDITY_DROP, and DEPEG must ALL stay silent, and max_emitted is WARN with count 0 (nothing at WARN-or-above may fire). This proves the sustained-drain detector keys on a genuine large cumulative drain, not on ordinary collateral noise \u2014 the negative control for the cascade case."
+    },
+    {
+      "id": "crv-collateral-snapshot-outflow",
+      "prev": "snapshots/crv_predrain.json",
+      "snapshot": "snapshots/crv_cascade.json",
+      "now": "2024-06-13T12:00:00Z",
+      "should_fire": [
+        {
+          "signal_type": "WHALE_UNWIND",
+          "edge_id": "CRV-fraxlend-collateral",
+          "min_severity": "HIGH"
+        },
+        {
+          "signal_type": "UTIL_LIQUIDITY_DROP",
+          "edge_id": "CRV-fraxlend-collateral",
+          "min_severity": "HIGH"
+        }
+      ],
+      "must_not_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "CRV-fraxlend-collateral"
+        }
+      ],
+      "beta": 2.0,
+      "note": "MEASURED RE-CAPTURE (judgment unchanged): single-step hourly-poll (snapshot-diff) view of the SAME real Fraxlend CRV-collateral wipe, complementary to the cumulative window_observation case (crv-collateral-cascade-drain). prev = crv_predrain.json (2024-06-13T00:00:00Z, block 20079184, edge CRV-fraxlend-collateral core_weight MEASURED 57,927,278.35 CRV / $20.98M at MEASURED $0.3621) and curr = crv_cascade.json (2024-06-13T12:00:00Z, block 20082760, same edge core_weight MEASURED 931,126.19 CRV / $0.26M at MEASURED $0.2834). A single poll step therefore shows the pair's CRV collateral going 57,927,278 \u2192 931,126 CRV = -98.4% \u2014 a REAL on-chain MEASURED (Alchemy archive balanceOf) near-total collateral OUTFLOW in one ~12h poll interval as Egorov's leveraged CRV positions were force-liquidated. That single near-total outflow is SIMULTANEOUSLY two distinct exposure facts on the same edge. (1) WHALE_UNWIND \u2014 the monitored token (the CRV collateral) is fleeing / being seized out of the venue, a forced whale-scale unwind. (2) UTIL_LIQUIDITY_DROP \u2014 the market's own size/liquidity collapses: the CRV collateral exposure (core_weight market_size_usd) falls from ~$20.98M to ~$0.26M (-98.7%), so the venue effectively ceases to be a usable CRV-collateral market. A -98.4% single-step outflow of a ~$21M position is far past any HIGH floor for either signal (CRITICAL would also be defensible \u2014 HIGH set as the minimum), so BOTH must fire at \u2265HIGH. MEASURED-DATA NOTE / CONTRADICTION (does NOT change the judgment): the pair's UTILIZATION ratio MEASURED 0.8322 -> 0.0116 (it FELL, not rose to the previously-modeled 0.99) because liquidators REPAID the FRAX debt (totalBorrow.amount 14.84M -> 0.10M FRAX) while seizing collateral; concurrently the FRAX supplied liquidity (totalAsset.amount) fell 17.84M -> 9.04M = -49.3%. So UTIL_LIQUIDITY_DROP is justified by the collapse in the CRV-collateral market SIZE / liquidity (core_weight -98.7%, supplied liquidity -49.3%), NOT by a utilization spike \u2014 the earlier hand-modeled 0.99 utilization was wrong and is corrected here to the measured 0.0116. must_not_fire DEPEG: CRV is a free-floating, unpegged altcoin with no peg/backing target (the edge oracle is MARKET-type, depeg_sensitive=false); its concurrent ~28-34% price crash is a market sell-off, not a peg break \u2014 a DEPEG firing here would be a semantics error. This snapshot-diff case proves the wipe is detectable from a raw prev\u2192curr core_weight delta (the hourly-poll path), independently of whether a pre-aggregated cumulative window_observation is supplied (the path exercised by crv-collateral-cascade-drain)."
+    }
+  ],
+  "ratified": "auto(reviewer)"
+}

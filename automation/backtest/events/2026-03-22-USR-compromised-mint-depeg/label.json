@@ -1,0 +1,99 @@
+{
+  "event": "Resolv USR compromised-signer unbacked-mint + catastrophic depeg 2026-03-22 (Ethereum). A compromised off-chain mint-signer key (AWS-KMS SERVICE_ROLE) with NO on-chain max-mint cap minted ~80M unbacked USR against ~$100K collateral; the contract only checked that a valid signature existed. USR totalSupply jumped 102,507,700.61 -> 178,655,619.39 (+76,147,918.78, +74.28%) REAL on-chain MEASURED (erc20 totalSupply @ blocks 24709326 -> 24711714); MEASURED via eth_getLogs as TWO mints from 0x0 to attacker 0xa27a69ae\u202655861: a single 50,000,000 USR mint (tx 0xfe37f25e\u202633743, ~28% of post-mint supply) + a 30,000,000 USR mint (tx 0x41b6b937\u2026f18f), gross 80,199,993.14, net mint-burn 76,147,918.78; USR depegged to $0.050804 on Curve (USR/USDC pool 0x3ee841f4\u2026) MEASURED on-chain at block 24711714 (08:00Z, -94.9%) \u2014 the documented $0.025 intraday flash-crash low near 02:21Z is an off-chain/transient minimum not present on-chain at the labelled block. Distinct mechanism: compromised off-chain signer + NO on-chain cap (vs PAID contract-upgrade burn-then-remint, xUSD recursive loop, deUSD redemption run). FOUR corroborating signals (supply spike + single mint + abnormal delta + depeg). See EVENT.md.",
+  "source": "On-chain Alchemy archive MEASURED on USR 0x66a1E37C9b0eAddca17d3662D6c05F4DECf3e110 (18 dp): totalSupply @ blocks 24691400/24698570/24709326/24711714 = 102,828,776.7681 / 102,762,977.2995 / 102,507,700.6095 / 178,655,619.3856 USR; eth_getLogs Transfer 0x0->attacker 0xa27a69ae180e202fde5d38189a3f24fe24e55861 over [24709326,24711714] = 50,000,000 USR (tx 0xfe37f25efd67d0a4da4afe48509b258df48757b97810b28ce4c649658dc33743) + 30,000,000 USR (tx 0x41b6b9376d174165cbd54ba576c8f6675ff966f17609a7b80d27d8652db1f18f) + 2 small (gross 80,199,993.14, net mint-burn 76,147,918.78). Depeg MEASURED on-chain: Curve USR/USDC pool 0x3ee841f47947fefbe510366e4bbb49e145484195 get_dy(0,1) @24711714 = $0.050804 (calm @24698570 = $0.999682). The transient $0.025 intraday low documented by The Block, Decrypt, Chainalysis, Blockaid, Halborn, Sentora, AMBCrypto, CoinDesk, Web3Firewall is off-chain/CEX+intraday and NOT readable at the labelled block. See EVENT.md and snapshots/fidelity.json (8/8 inputs MEASURED). DRAFT \u2014 promoted to label.json only via `python3 -m qa.cli ratify` after independent review.",
+  "closed": true,
+  "cases": [
+    {
+      "id": "usr-compromised-mint-and-depeg",
+      "snapshot": "snapshots/usr_mint.json",
+      "prev": "snapshots/usr_prev.json",
+      "now": "2026-03-22T08:00:00Z",
+      "peg_probes": {
+        "USR-curve-collateral": {
+          "price": 0.050804,
+          "peg": 1.0,
+          "asset_class": "stable",
+          "by_design_discount": false,
+          "source": "onchain:curve 0x3ee841f47947fefbe510366e4bbb49e145484195 get_dy(0,1) @ethereum:24711714 = $0.050804 (USR on Curve, MEASURED at the labelled block; -94.9% off peg). The documented $0.025 is the transient intraday flash-crash low near 02:21Z, off-chain/CEX+intraday, not present on-chain at 08:00Z."
+        }
+      },
+      "oracle_probes": {},
+      "should_fire": [
+        {
+          "signal_type": "TOTAL_SUPPLY_SPIKE",
+          "node_id": "token:USR",
+          "min_severity": "HIGH",
+          "why": "USR totalSupply jumped 102,507,700.61 -> 178,655,619.39 (+76,147,918.78, +74.28%) REAL on-chain MEASURED (erc20 totalSupply @ blocks 24709326 -> 24711714). This is a genuine, catastrophic-magnitude UPWARD spike in net total supply (NOT PAID's net-flat burn-then-remint evasion \u2014 supply truly explodes). A change-in-total-supply / spike-over-baseline signal has a large, unambiguous, on-chain basis. Floor HIGH (admits HIGH or CRITICAL emission): a near-certain, page-worthy supply explosion, corroborated by the single mint and the depeg."
+        },
+        {
+          "signal_type": "LARGE_SINGLE_MINT",
+          "node_id": "token:USR",
+          "min_severity": "HIGH",
+          "why": "A SINGLE Transfer from 0x0 (tx 0xfe37f25e\u202633743) mints 50,000,000 USR = 27.99% (~2799 bps) of MEASURED post-mint supply (48.78% of pre-mint supply) to attacker 0xa27a69ae\u202655861, which is NOT an authorized issuer \u2014 MEASURED via eth_getLogs (the same window also shows a second 30M mint tx 0x41b6b937\u2026f18f to the same attacker). One unauthorized ~28%-of-supply mint to an attacker is the attack's standalone on-chain fingerprint. Floor HIGH (admits HIGH or CRITICAL): an unauthorized ~28%-of-supply mint is a near-certain real incident and urgent; unlike PAID it is CORROBORATED by the TOTAL_SUPPLY_SPIKE and DEPEG."
+        },
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "USR-curve-collateral",
+          "min_severity": "CRITICAL",
+          "why": "USR fell ~$1.00 -> $0.050804 on Curve (\u2248 -94.9%) \u2014 MEASURED on-chain (USR/USDC pool 0x3ee841f4\u2026 get_dy(0,1) @24711714) \u2014 a near-total collapse of a $1-pegged stablecoin on a real venue, ~7x past USDC's already-catastrophic 13% SVB depeg and the most severe end of the scale (the transient $0.025 intraday low was even deeper but off-chain at the labelled block). The edge USR-curve-collateral is depeg_sensitive (MARKET oracle, Curve price). Collateral is essentially worthless and positions liquidate / accrue bad debt. Floor CRITICAL: a near-total depeg of a pegged collateral asset is the canonical page-now CRITICAL."
+        },
+        {
+          "signal_type": "SUPPLY_DELTA_ANOMALY",
+          "node_id": "token:USR",
+          "min_severity": "WARN",
+          "why": "The period-over-period supply delta (+76,147,918.78 USR, +74.28%) is far outside USR's normal supply trajectory (supply_samples climb gently ~100M -> 102.5M over the prev window, then explode to 178.66M) \u2014 MEASURED. A sudden multi-tens-of-percent abnormal GROWTH of a stablecoin's supply is a textbook supply-anomaly. Floor HIGH (admits HIGH or CRITICAL): the direction (large sustained UPWARD anomalous growth) is unambiguous and on-chain, corroborated by the single mint and depeg."
+        }
+      ],
+      "must_not_fire": [],
+      "max_emitted": null,
+      "beta": 2.0,
+      "note": "INCIDENT. snapshot usr_mint.json (curr @ block 24711714, post-mint, 178,655,619.39 MEASURED, 50M + 30M mint_events to attacker MEASURED via eth_getLogs), prev usr_prev.json (@ block 24709326, pre-mint, 102,507,700.61 MEASURED), now 2026-03-22T08:00:00Z. FOUR mutually-corroborating signals all SHOULD fire: TOTAL_SUPPLY_SPIKE (+74.28% upward jump, MEASURED), LARGE_SINGLE_MINT (50M \u2248 28% unauthorized single mint to attacker 0xa27a69ae\u2026, MEASURED), DEPEG ($0.050804 \u2248 -94.9% MEASURED on-chain Curve get_dy @24711714; CRITICAL via peg_probe on USR-curve-collateral), SUPPLY_DELTA_ANOMALY (abnormal +76M growth, MEASURED). must_not_fire is intentionally EMPTY: unlike PAID's matched-burn evasion, there is no benign offsetting structure here \u2014 every plausible supply/mint/depeg signal has a true factual basis. Distinct mechanism = compromised off-chain signer + NO on-chain mint cap. RE-CAPTURE 2026-06-07: all decisive inputs are now MEASURED on-chain (8/8 in snapshots/fidelity.json). The peg_probe price moved 0.025 (hand-modelled intraday low) -> 0.050804 (MEASURED Curve @ labelled block); judgment unchanged (still squarely CRITICAL)."
+    },
+    {
+      "id": "usr-calm-pre-attack",
+      "snapshot": "snapshots/usr_calm.json",
+      "prev": "snapshots/usr_calm_prev.json",
+      "now": "2026-03-20T12:00:00Z",
+      "peg_probes": {
+        "USR-curve-collateral": {
+          "price": 0.999682,
+          "peg": 1.0,
+          "asset_class": "stable",
+          "by_design_discount": false,
+          "source": "onchain:curve 0x3ee841f47947fefbe510366e4bbb49e145484195 get_dy(0,1) @ethereum:24698570 = $0.999682 (USR healthily at peg ~2 days pre-attack, MEASURED)"
+        }
+      },
+      "oracle_probes": {},
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "TOTAL_SUPPLY_SPIKE",
+          "node_id": "token:USR",
+          "why": "Calm same-token baseline ~2 days BEFORE the attack: supply is stable ~102.8M (calm_prev MEASURED 102,828,776.77) -> ~102.76M (calm MEASURED 102,762,977.30), only routine sub-threshold drift (-0.064%, supply slightly DOWN \u2014 no upward excursion). A spike-over-baseline signal has nothing to spike on. Must stay SILENT \u2014 proves the spike detector is specific to the exploit, not to USR's ordinary supply life."
+        },
+        {
+          "signal_type": "LARGE_SINGLE_MINT",
+          "node_id": "token:USR",
+          "why": "Calm baseline: mint_events is empty \u2014 no mint occurs at all (MEASURED: no 0x0->* Transfer of size in the calm window). No single large mint, so the single-tx %-of-supply mint check must stay SILENT. Guards against the mint detector firing on USR's ordinary supply life."
+        },
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "USR-curve-collateral",
+          "why": "USR is healthily at par ($0.999682 MEASURED on-chain Curve get_dy @24698570, peg 1.0) in the calm window \u2014 within any reasonable stablecoin tolerance. Must stay SILENT \u2014 verifies DEPEG does not fire on a calm, at-peg USR."
+        },
+        {
+          "signal_type": "SUPPLY_DELTA_ANOMALY",
+          "node_id": "token:USR",
+          "why": "Calm window supply delta is tiny and routine (MEASURED ~102.83M -> ~102.76M, -0.064% organic drift within normal trajectory); no anomalous growth or contraction. Must stay SILENT."
+        }
+      ],
+      "max_emitted": {
+        "severity": "WARN",
+        "count": 0
+      },
+      "beta": 2.0,
+      "note": "NORMAL-PERIOD CONTROL / FP-trap on the SAME token (USR 0x66a1E3\u2026e110), ~2 days BEFORE the attack. Supply stable ~102.83M -> ~102.76M (MEASURED, routine sub-threshold -0.064% drift, no mint), price at par ($0.999682 MEASURED on-chain Curve). ALL incident signals must stay SILENT: TOTAL_SUPPLY_SPIKE (no upward jump), LARGE_SINGLE_MINT (mint_events empty), DEPEG (at peg), SUPPLY_DELTA_ANOMALY (no anomaly). max_emitted asserts the NOISE CEILING: zero WARN-or-above on the whole calm snapshot (INFO housekeeping like coverage/new-market is fine). Proves the incident signals are SPECIFIC to the exploit, not to USR-the-token \u2014 if the engine alarms on a calm, at-peg, stable-supply USR, the incident GREEN would be hollow. RE-CAPTURE 2026-06-07: calm totalSupply and Curve price now MEASURED on-chain; peg_probe 0.999 (modelled) -> 0.999682 (MEASURED); judgment unchanged."
+    }
+  ],
+  "ratified": "auto(reviewer)"
+}

@@ -1,0 +1,96 @@
+{
+  "event": "Aave V3 (Ethereum) changed the on-chain INTEREST-RATE-MODEL (interest-rate-strategy contract / IRM) of its WETH reserve on 2024-07-27 (block 20398674, 2024-07-27T15:06:35Z): Pool.getReserveData(WETH).interestRateStrategyAddress flipped from OLD 0x42ec99a020b78c449d17d93bc4c89e0189b5811d to NEW 0x847a3364cc5fe389283bd821cfc8a477288d9e82 (the Aave v3.1 DefaultReserveInterestRateStrategyV2, an Etherscan-verified contract from aave-v3-origin, deployed 2024-07-08). This was the BGD Labs Aave v3.1 unified/stateful rate-strategy migration, adopted across many reserves. The IRM is the rate-risk root of a governance-controlled mono_pool reserve: a swap changes borrow-rate dynamics, utilization response, and thus liquidation economics; benign refactor vs malicious rate-curve swap are indistinguishable on-chain, so it must be surfaced for human review. No price/peg/rate value moved — pure config event. See EVENT.md.",
+  "source": "On-chain archive reads of AaveV3 Pool.getReserveData(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2).interestRateStrategyAddress at blocks 20398673/20398674 (IRM addresses + swap block MEASURED). Contract identity + governance: Etherscan 0x847a3364cc5fe389283bd821cfc8a477288d9e82 (verified DefaultReserveInterestRateStrategyV2, aave-v3-origin, deployed 2024-07-08 / block 20261940); governance.aave.com 'BGD. Aave v3.1 and Aave Origin' (t/17305); bgd-labs/protocol-v3.1-upgrade UpgradePayload.sol; vote.onaave.com proposalId 132; Aave docs (Interest Rate Strategy). See EVENT.md.",
+  "closed": false,
+  "cases": [
+    {
+      "id": "weth-aave-irm-swap",
+      "snapshot": "snapshots/weth_irm_new.json",
+      "prev": "snapshots/weth_irm_old.json",
+      "now": "2024-07-27T16:00:00Z",
+      "should_fire": [
+        {
+          "signal_type": "IRM_CHANGE",
+          "edge_id": "WETH-aave_v3-reserve",
+          "min_severity": "HIGH"
+        }
+      ],
+      "must_not_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "WETH-aave_v3-reserve"
+        }
+      ],
+      "beta": 2.0,
+      "note": "INCIDENT. Between prev (IRM 0x42ec...811d) and snapshot (IRM 0x847a...9e82) the interest-rate-strategy contract of the WETH reserve on Aave V3 was REPLACED (real on-chain swap at block 20398674, 2024-07-27T15:06:35Z). The IRM is the rate-risk root of this mono_pool reserve: it defines base rate, optimal-utilization kink, and slope1/slope2, which set borrow/supply APR vs utilization and therefore the liquidation economics and carry/rate risk of every WETH position. A reserve's strategy pointer is governance-settable (Pool.setReserveInterestRateStrategyAddress), so at the moment of the swap a monitor CANNOT distinguish a benign refactor (what this actually was: the BGD Aave v3.1 unified DefaultReserveInterestRateStrategyV2 migration) from a malicious/compromised swap to an adversarial rate curve (e.g. one pinning rates to extremes to force/block liquidations or drain the reserve) -- both look identical (the interestRateStrategyAddress changed). So IRM_CHANGE MUST fire on WETH-aave_v3-reserve at >= HIGH: a rate-model-root change on a major reserve is page-worthy for human review (HIGH floor; CRITICAL also defensible given WETH is a flagship multi-billion-dollar reserve). must_not_fire DEPEG: WETH did NOT depeg -- no price/peg moved; this is a config/rate-model change, not a price event, and raising DEPEG would be a wrong-signal false positive.",
+      "measured": "IRM_CHANGE premise MEASURED: getReserveData(WETH).interestRateStrategyAddress = 0x42ec...811d @20398673 (prev) vs 0x847a...9e82 @20398674 (curr). Real prev!=curr delta -> a genuine strategy swap. is_frozen=false, lt=0.83, ltv=0.805 measured both blocks (unchanged) -> the ONLY config delta is the IRM pointer, confirming a pure rate-model-root change."
+    },
+    {
+      "id": "weth-aave-irm-no-change-calm",
+      "snapshot": "snapshots/weth_irm_new.json",
+      "prev": "snapshots/weth_irm_new.json",
+      "now": "2024-09-01T12:00:00Z",
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "IRM_CHANGE",
+          "edge_id": "WETH-aave_v3-reserve"
+        }
+      ],
+      "max_emitted": {
+        "severity": "WARN",
+        "count": 0
+      },
+      "note": "CONTROL (calm, no change). prev and snapshot are the SAME file (IRM 0x847a...9e82 on BOTH sides) weeks after the v3.1 migration -- the strategy pointer did NOT change. No IRM alarm may fire: IRM_CHANGE must_not_fire, with NO WARN-or-above signal on the snapshot (max_emitted WARN/0). This proves the signal keys on an ACTUAL strategy swap (a prev->curr delta), not merely on the reserve's existence or on re-observing an unchanged IRM. A monitor that pages every time it re-reads the same healthy interest-rate strategy is uselessly noisy.",
+      "beta": 2.0,
+      "measured": "MEASURED unchanged: WETH IRM @20655578 (2024-09-01T11:59:59Z) = 0x847a...9e82, identical to the post-swap value -> prev==curr is a faithful no-delta read weeks later (no strategy swap in the control window)."
+    },
+    {
+      "id": "newly-added-reserve-not-an-irm-swap",
+      "snapshot": "snapshots/weth_irm_new.json",
+      "prev": "snapshots/weth_irm_none.json",
+      "now": "2024-07-27T16:00:00Z",
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "IRM_CHANGE",
+          "edge_id": "WETH-aave_v3-reserve"
+        }
+      ],
+      "max_emitted": {
+        "severity": "WARN",
+        "count": 0
+      },
+      "note": "FP-TRAP (benign field population). prev has the IRM ABSENT/null (weth_irm_none.json -- models a newly-added reserve whose interest-rate-strategy field is not yet populated, or a transient collector miss); snapshot has the IRM PRESENT (0x847a...9e82). An ABSENT->present transition is NOT a strategy SWAP: there was no prior strategy to swap away from, so nothing was re-pointed -- the field merely became populated on first observation. Firing IRM_CHANGE here would be a false positive on benign first-observation / new-reserve data, exactly the noise that erodes trust in a rate-root signal. IRM_CHANGE must_not_fire and no WARN-or-above on the snapshot (max_emitted WARN/0). This forces the signal to require a real OLD-address -> NEW-address delta (two concrete distinct strategies), not null -> address.",
+      "beta": 2.0,
+      "measured": "prev snapshot's irm_address is intentionally null (ASSERTED/modeled FP-trap: new-reserve first-observation / collector miss), NOT a chain read; curr IRM 0x847a...9e82 is measured. null->address is not a swap. Other reserve config fields populated from the measured @20398673 read for realism; irm null by design."
+    }
+  ],
+  "measured_capture": {
+    "method": "qa.backtest.collect.reserve_config.aave_irm + aave_config @ event blocks (read-on-chain; risk_rules untouched)",
+    "measured_pct": 83.3,
+    "reads": {
+      "WETH": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "aave_v3_pool": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+      "chain": "ethereum",
+      "irm@20398673(prev)": "0x42ec99a020b78c449d17d93bc4c89e0189b5811d",
+      "irm@20398674(curr)": "0x847a3364cc5fe389283bd821cfc8a477288d9e82",
+      "irm@20655578(calm-control,2024-09-01)": "0x847a3364cc5fe389283bd821cfc8a477288d9e82",
+      "config@curr": {
+        "lt": 0.83,
+        "ltv": 0.805,
+        "liquidation_bonus": 1.05,
+        "reserve_factor": 0.15,
+        "supply_cap": 1800000,
+        "borrow_cap": 1400000,
+        "is_frozen": false
+      },
+      "block_ts": {
+        "20398673": "2024-07-27T15:06:23Z",
+        "20398674": "2024-07-27T15:06:35Z"
+      }
+    },
+    "premise_check": "CONFIRMED — interestRateStrategyAddress genuinely flips OLD->NEW across consecutive blocks 20398673->20398674; calm-control block (2024-09-01) still reads NEW IRM (unchanged), so the no-change control's prev==curr is faithful. NO ANOMALY.",
+    "note": "Previously the OLD/NEW IRM addresses + swap block were already real archive reads; this re-capture RE-VERIFIED them on-chain and additionally MEASURED the reserve config (lt/ltv/liq_bonus/reserve_factor/caps/is_frozen) that was null in the modelled snapshots. The lone asserted (measured=false) input is the intentional FP-trap weth_irm_none.json (irm_address absent), which by design models a collector-miss/new-reserve first-observation and is NOT a chain fact."
+  }
+}

@@ -1,0 +1,150 @@
+{
+  "_description": "Lido on Ethereum — stETH 시스템의 구조적 노드/엣지. events.json 의 known_contracts 와 central_assets 를 본인 표준 어휘로 변환.",
+  "_protocol": "lido",
+  "_chain_id": 1,
+  "_source": "modules/lido/events.json (사용자 제공 schema)",
+  "_note": "이벤트 기반 동적 엣지는 events.json 참조. 본 파일은 startup 시점의 정적 그래프용.",
+  "nodes": [
+    {
+      "address": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+      "chain_id": 1,
+      "type": "lst_token",
+      "protocol": "lido",
+      "label": "Lido stETH",
+      "metadata": {
+        "symbol": "stETH",
+        "decimals": 18,
+        "category": "lst_token",
+        "role": "rebasing LST — beacon chain 검증인 보상이 stETH 잔량에 자동 반영"
+      }
+    },
+    {
+      "address": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "chain_id": 1,
+      "type": "lst_token",
+      "protocol": "lido",
+      "label": "Wrapped stETH (wstETH)",
+      "metadata": {
+        "symbol": "wstETH",
+        "decimals": 18,
+        "category": "lst_token",
+        "wrapper_kind": "non_rebasing",
+        "role": "stETH 의 non-rebasing wrapper — DeFi 통합 표준"
+      }
+    },
+    {
+      "address": "0x889edc2edab5f40e902b864ad4d7ade8e412f9b1",
+      "chain_id": 1,
+      "type": "withdrawal_nft",
+      "protocol": "lido",
+      "label": "Lido Withdrawal Queue",
+      "metadata": {
+        "role": "stETH → ETH 환매 큐 — request → finalize → claim 의 3단계 NFT",
+        "composability_signal": true
+      }
+    },
+    {
+      "address": "0xd15a672319cf0352560ee76d9e89eab0889046d3",
+      "chain_id": 1,
+      "type": "protocol_admin",
+      "protocol": "lido",
+      "label": "Lido Burner",
+      "metadata": {
+        "role": "stETH share 소각 관리 (cover/non-cover 분리)",
+        "kind": "burner"
+      }
+    },
+    {
+      "address": "0x3e40d73eb977dc6a537af587d48316fee66e9c8c",
+      "chain_id": 1,
+      "type": "treasury",
+      "protocol": "lido",
+      "label": "Lido DAO Treasury",
+      "metadata": {
+        "role": "프로토콜 수수료 수령 (stETH 잔액 누적)",
+        "common_names": [
+          "Lido Treasury",
+          "Aragon Agent"
+        ]
+      }
+    },
+    {
+      "address": "0x55032650b14df07b85bf18a3a3ec8e0af2e028d5",
+      "chain_id": 1,
+      "type": "protocol_admin",
+      "protocol": "lido",
+      "label": "Lido Node Operators Registry",
+      "metadata": {
+        "role": "검증인 운영자 등록 + 보상 분배 모듈",
+        "kind": "staking_module"
+      }
+    }
+  ],
+  "static_edges": [
+    {
+      "edge_id": "lido:wsteth->steth",
+      "edge_type": "mint_wrapper",
+      "from": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+      "protocol": "lido",
+      "chain_id": 1,
+      "metadata": {
+        "layer": "wrapper_to_underlying",
+        "data": "wstETH 1 단위는 stETH N 단위에 대한 청구권 (rate 변동)"
+      }
+    },
+    {
+      "edge_id": "lido:withdrawal_queue->steth",
+      "edge_type": "withdrawal_request",
+      "from": "0x889edc2edab5f40e902b864ad4d7ade8e412f9b1",
+      "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+      "protocol": "lido",
+      "chain_id": 1,
+      "metadata": {
+        "layer": "queue_to_underlying",
+        "data": "WithdrawalQueue 는 stETH 환매 요청을 NFT 로 발행"
+      }
+    },
+    {
+      "edge_id": "lido:burner->steth",
+      "edge_type": "burn_wrapper",
+      "from": "0xd15a672319cf0352560ee76d9e89eab0889046d3",
+      "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+      "protocol": "lido",
+      "chain_id": 1,
+      "metadata": {
+        "layer": "burner_to_underlying",
+        "data": "Burner 는 stETH share 소각 권한 보유"
+      }
+    },
+    {
+      "edge_id": "lido:treasury->steth",
+      "edge_type": "delegation",
+      "from": "0x3e40d73eb977dc6a537af587d48316fee66e9c8c",
+      "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+      "protocol": "lido",
+      "chain_id": 1,
+      "metadata": {
+        "layer": "treasury_fee_recipient",
+        "data": "Treasury 는 stETH 프로토콜 수수료 수령자"
+      }
+    },
+    {
+      "edge_id": "lido:operators->steth",
+      "edge_type": "delegation",
+      "from": "0x55032650b14df07b85bf18a3a3ec8e0af2e028d5",
+      "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+      "protocol": "lido",
+      "chain_id": 1,
+      "metadata": {
+        "layer": "operator_reward_module",
+        "data": "Node Operators Registry 는 검증인 보상을 stETH share 로 분배"
+      }
+    }
+  ],
+  "_auto_merge_stats": {
+    "auto_nodes_added": 0,
+    "preserved_human_nodes": 6,
+    "total_nodes": 6
+  }
+}

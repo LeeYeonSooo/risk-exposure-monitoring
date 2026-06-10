@@ -1,0 +1,30 @@
+{
+  "event": "cbBTC depeg drill (seed)",
+  "source": "synthetic seed built from tests/fixtures/cbBTC.json — replace with real labeled incidents",
+  "closed": false,
+  "cases": [
+    {
+      "id": "normal-quiet",
+      "snapshot": "snapshots/cbBTC.json",
+      "now": "2026-06-03T16:00:00Z",
+      "should_fire": [],
+      "must_not_fire": [{ "signal_type": "DEPEG" }],
+      "max_emitted": { "severity": "WARN", "count": 0 },
+      "note": "No price stress -> cbBTC must NOT raise any DEPEG or WARN+ alert (INFO new-market signals are fine)."
+    },
+    {
+      "id": "depeg-morpho-0.88",
+      "snapshot": "snapshots/cbBTC.json",
+      "now": "2026-06-03T16:00:00Z",
+      "peg_probes": {
+        "cbBTC-morpho_blue-collateral_isolated": { "price": 0.88, "peg": 1.0, "asset_class": "BTC" }
+      },
+      "should_fire": [
+        { "signal_type": "DEPEG", "edge_id": "cbBTC-morpho_blue-collateral_isolated", "min_severity": "WARN" }
+      ],
+      "must_not_fire": [],
+      "beta": 2.0,
+      "note": "cbBTC -12% on a depeg-sensitive Morpho market -> DEPEG must fire (catastrophic class, beta=2)."
+    }
+  ]
+}

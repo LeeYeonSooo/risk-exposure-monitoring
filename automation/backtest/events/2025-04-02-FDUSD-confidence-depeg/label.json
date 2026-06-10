@@ -1,0 +1,124 @@
+{
+  "event": "FDUSD (First Digital USD) confidence-run depeg 2025-04-02 \u2014 major fiat-backed stablecoin fell to ~0.87 on a public insolvency allegation against the issuer, recovered to ~0.99 next day; backing contested but NEVER impaired on-chain (supply flat +0.57% over 2 days). Price DEPEG is the only true signal; supply/backing detectors must stay silent.",
+  "source": "DailyHodl, Decrypt, Cointelegraph, BeInCrypto, NFTevening, MoneyTransmitterLaw, TronWeekly \u2014 see EVENT.md; on-chain Alchemy archive blocks 22181387 (depeg) / 22166759 (pre-event)",
+  "closed": true,
+  "cases": [
+    {
+      "id": "depeg-trough-0.87-collateral-liquidation",
+      "snapshot": "snapshots/FDUSD.json",
+      "now": "2025-04-02T13:00:00Z",
+      "peg_probes": {
+        "FDUSD-lend-collateral_isolated": {
+          "price": 0.87,
+          "peg": 1.0,
+          "asset_class": "stable"
+        },
+        "FDUSD-dex-liquidity": {
+          "price": 0.87,
+          "peg": 1.0,
+          "asset_class": "stable"
+        }
+      },
+      "should_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "FDUSD-lend-collateral_isolated",
+          "min_severity": "CRITICAL"
+        },
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "FDUSD-dex-liquidity",
+          "min_severity": "WARN"
+        }
+      ],
+      "must_not_fire": [
+        {
+          "signal_type": "UNBACKED"
+        },
+        {
+          "signal_type": "SUPPLY_DELTA"
+        },
+        {
+          "signal_type": "MINT_BURN_RECON"
+        }
+      ],
+      "beta": 2.0,
+      "note": "At the ~0.87 trough (a ~13% depeg, far past the 10-bps stable band), an FDUSD/USDC isolated collateral loan with LT 0.91 priced by a market-price FDUSD/USD oracle is BELOW the LT line \u2192 looped/leveraged positions liquidate now \u2192 DEPEG must fire CRITICAL on the lending edge (parity with the ezETH/USD0++ market-price-oracle CRITICAL cases). Simultaneously, supply/unbacked/mint-burn detectors MUST stay silent: this was a confidence run on a CONTESTED-but-intact reserve, supply moved only +0.57% over 2 days, and there was no anomalous mint \u2014 the monitor must not fabricate a backing failure from a price dislocation plus a tweet."
+    },
+    {
+      "id": "depeg-recovery-0.93-de-escalate",
+      "snapshot": "snapshots/FDUSD.json",
+      "now": "2025-04-02T20:00:00Z",
+      "peg_probes": {
+        "FDUSD-lend-collateral_isolated": {
+          "price": 0.93,
+          "peg": 1.0,
+          "asset_class": "stable"
+        },
+        "FDUSD-dex-liquidity": {
+          "price": 0.93,
+          "peg": 1.0,
+          "asset_class": "stable"
+        }
+      },
+      "should_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "FDUSD-dex-liquidity",
+          "min_severity": "WARN"
+        },
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "FDUSD-lend-collateral_isolated",
+          "min_severity": "WARN"
+        }
+      ],
+      "must_not_fire": [
+        {
+          "signal_type": "UNBACKED"
+        },
+        {
+          "signal_type": "SUPPLY_DELTA"
+        }
+      ],
+      "beta": 1.0,
+      "note": "Recovery leg: at ~0.93 the price is back ABOVE the 0.91 LT but still ~7% off peg \u2014 well outside the tight stable band, so a DEPEG must persist but DE-ESCALATE (no longer below LT \u2192 not CRITICAL; on a no-liq-path DEX edge it is WARN). This anchors that the engine de-escalates as a stablecoin recovers rather than latching the trough severity. Both edges are asserted at a WARN floor here: at 0.93 the lending edge is above its 0.91 LT so it de-escalates from the trough's CRITICAL to WARN, and the DEX edge (no liq path) is WARN. Declaring both keeps the closed case complete (no edge's correct DEPEG lands in unclassified\u2192FP)."
+    },
+    {
+      "id": "benign-recovered-0.9996-must-be-silent",
+      "snapshot": "snapshots/FDUSD.json",
+      "now": "2025-04-03T08:00:00Z",
+      "peg_probes": {
+        "FDUSD-lend-collateral_isolated": {
+          "price": 0.9996,
+          "peg": 1.0,
+          "asset_class": "stable"
+        },
+        "FDUSD-dex-liquidity": {
+          "price": 0.9996,
+          "peg": 1.0,
+          "asset_class": "stable"
+        }
+      },
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "DEPEG"
+        },
+        {
+          "signal_type": "UNBACKED"
+        },
+        {
+          "signal_type": "SUPPLY_DELTA"
+        }
+      ],
+      "max_emitted": {
+        "severity": "WARN",
+        "count": 0
+      },
+      "beta": 2.0,
+      "note": "FP-trap: by the morning of Apr 3 FDUSD is effectively back at peg (~0.9996, within ~4 bps). A healthy fiat-backed stablecoin sits a hair off $1 continuously; the engine must NOT keep alarming once the run is over, and must not hair-trigger a DEPEG on a sub-10-bps wobble. No DEPEG \u2265 WARN; no supply/backing alert. The only emitted signal at this snapshot is a sub-budget NEW_MARKET INFO (the modeled market has no prior baseline), which is below the WARN severity_budget and therefore not an alert \u2014 max_emitted WARN/0 enforces zero WARN+ noise."
+    }
+  ],
+  "ratified": "auto(reviewer)"
+}

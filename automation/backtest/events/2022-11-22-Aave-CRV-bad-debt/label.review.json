@@ -1,0 +1,5 @@
+{
+  "verdict": "APPROVE",
+  "summary": "Re-captured draft is data-only: should_fire/must_not_fire/severities/max_emitted byte-for-byte unchanged vs prior label.json (only event/source/note prose gained MEASURED-BACKFILL annotations). Measured on-chain inputs still support every premise — incident edge CRV-aave_v2-collateral carries lending_risk.bad_debt_usd=1600000 (HIGH, depositors not made whole, < systemic ~$50M so not CRITICAL); control carries 0 (benign). Re-measured util 0.5053/0.4571 and venue ~$87.6M/$144.5M differ from old hand-models but do NOT contradict the deficit (BAD_DEBT keys on deficit, not util/size; larger venue only confirms HIGH<CRITICAL). Fidelity 16/18 measured=true (config/util/amount all match snapshots exactly); the 2 measured=false are exactly bad_debt_usd, correctly degraded as off-chain-derived per-position deficit (not a single on-chain read). No fabrication, no contradiction.",
+  "draft_sha256": "8d3ef8fe8961a319dc6ad6aa8822860a2d18f1518c3df17d38df21e284dc5cb3"
+}

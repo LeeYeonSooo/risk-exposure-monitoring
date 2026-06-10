@@ -1,0 +1,107 @@
+{
+  "_invariant": "sUSD (Synthetix) exposure graph at the 2025-04-18 SIP-420 incentive-failure depeg trough. Token node is the canonical Ethereum-mainnet sUSD (address/decimals/totalSupply read on-chain via Alchemy archive at block 22295741). One depeg-sensitive crypto-collateral edge to a Curve-style market-priced liquidation venue (oracle.oracle_type=MARKET, depeg_sensitive=true, lt~0.80). The depeg price (~$0.66 trough / ~$0.998 recovery) is injected per-case via peg_probes, never stored on the edge. This is a CRYPTO-COLLATERAL incentive-mechanism failure (governance-induced removal of the reflexive peg defense), NOT a fiat-reserve depeg and NOT a flash exploit.",
+  "meta": {
+    "token": "sUSD",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2025-04-18",
+    "snapshot_block": 22295741,
+    "node_count": 2,
+    "edge_count": 1,
+    "data_source": "on-chain Alchemy archive (sUSD 0x57Ab…d5f51 @ block 22295741, ts 2025-04-18T11:59:59Z, totalSupply 32,798,321.96, decimals 18) + SIP-420 mechanism & ~$0.66 trough from Synthetix governance + secondary-market/Curve coverage (Cointelegraph, CoinCentral, The Defiant, Blockworks, ainvest — see EVENT.md)",
+    "coverage_pct": 0.6
+  },
+  "nodes": [
+    {
+      "node_id": "token:sUSD",
+      "type": "Token",
+      "label": "Synthetix sUSD (crypto-collateralized stablecoin)",
+      "address": "0x57Ab1ec28D129707052df4dF418D58a2D46d5f51",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "sUSD",
+        "decimals": 18,
+        "total_supply": 32798321,
+        "holders": null,
+        "market_cap_usd": 32798321,
+        "paused": false,
+        "_note": "SNX-backed crypto-collateralized stablecoin. SIP-420 (Apr 2025) cut the staker C-ratio ~750%->200% and socialized staker debt into a shared pool, forgiving ~$60m staker debt over 12 months. This REMOVED each staker's individual incentive to buy discounted sUSD back to repay their own debt — the reflexive peg-defense mechanism — so oversupply was never absorbed and sUSD ground from ~$1.00 to a ~$0.66-0.68 low around 2025-04-18 over multiple weeks. NOT a backing failure (SNX collateral intact) and NOT a flash exploit: a governance-induced incentive failure. Ethereum-mainnet token shown; the bulk of sUSD float/Curve liquidity is on Optimism, but the depeg is a property of the asset across venues.",
+        "bridges": {}
+      }
+    },
+    {
+      "node_id": "protocol:curve",
+      "type": "DefiProtocol",
+      "label": "Curve (sUSD pools) + crypto-collateral liquidation venue",
+      "address": "0xA5407eAE9Ba41422680e2e00537571bcC53efBfD",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "mono_pool",
+        "core_contract": "0xA5407eAE9Ba41422680e2e00537571bcC53efBfD",
+        "governance": "dao",
+        "_note": "sUSD comprised >75% of the major Curve sUSD pools at the trough — the pool was heavily imbalanced toward sUSD as holders exited into the other legs. Modeled as the deep market-priced venue whose oracle reads the real sUSD/USD secondary price, the same price a collateral liquidation engine would use."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "sUSD-curve-collateral",
+      "source": "token:sUSD",
+      "target": "protocol:curve",
+      "classification": {
+        "edge_type": "collateral_isolated",
+        "venue_type": "mono_pool",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 15000000,
+        "amount_usd": 15000000,
+        "pct_of_supply": 0.457,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "sUSD/USD secondary-market price (Curve/DEX-derived, market oracle)",
+        "oracle_address": null,
+        "depeg_sensitive": true
+      },
+      "lending_risk": {
+        "ltv": null,
+        "lt": 0.80,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": null,
+        "utilization": 0.85,
+        "is_frozen": false,
+        "emode_category": null
+      },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        {
+          "loan_asset": "USDC",
+          "collateral_asset": "sUSD",
+          "lltv": 0.80,
+          "market_size_usd": 15000000,
+          "oracle_address": null,
+          "utilization": 0.85,
+          "ouroboros_risk": false,
+          "vault_funded": false,
+          "vault_funded_share_of_supply": null,
+          "funding_vaults": []
+        }
+      ],
+      "top_pools": null,
+      "meta": {
+        "snapshot_block": 22295741,
+        "snapshot_ts": "2025-04-18",
+        "verifiable_onchain": true,
+        "confidence": "MEDIUM",
+        "data_source": "Market-priced, depeg-sensitive crypto-collateral venue for sUSD (Curve-style mono-pool / isolated lending). lt=0.80 is the representative liquidation line; at the ~$0.66 trough the asset price sits far BELOW lt, so a market oracle puts any looped/leveraged sUSD-collateral position past liquidation."
+      }
+    }
+  ]
+}

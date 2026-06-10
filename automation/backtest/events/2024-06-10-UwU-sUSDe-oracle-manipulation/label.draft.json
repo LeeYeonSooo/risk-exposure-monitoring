@@ -1,0 +1,77 @@
+{
+  "event": "UwU Lend sUSDe oracle-manipulation drain (2024-06-10, Ethereum). UwU's sUSDe price oracle took a median of 11 sources, 5 of which were Curve get_p() INSTANTANEOUS spot. A ~$3.8B flash-loan swap through Curve dragged the oracle median to a value sUSDe never honestly printed (~$0.988 borrow-low ⇄ ~$1.032 liquidate-high), draining ~$19.5M (+$3.7M three days later). The manipulated answer is a FRESH-but-WRONG price (staleness checks are blind to it) — only a cross-reference vs an honest price catches it. sUSDe is yield-bearing → LST (~2%) deviation band, not hard-stable. answer/reference_answer injected per-case via oracle_probes (host-fed). reference_answer is now MEASURED on-chain (USDe/USD Chainlink feed @block 20037000); the manipulated answer stays asserted (a transient intra-tx composite median, NOT a Chainlink proxy, not archive-readable). See EVENT.md.",
+  "source": "SlowMist (slowmist.medium.com/analysis-of-the-uwu-lend-hack-9502b2c06dbe), QuillAudits (quillaudits.com/blog/hack-analysis/uwu-lend-hack), Cyvers, CryptoSlate ($19.5M), The Block + Unchained (second $3.7M, 2024-06-13). Manipulated answer (~1.032) is the post-mortem composite-median figure injected via oracle_probes; the honest reference_answer is MEASURED on-chain (USDe/USD Chainlink feed 0xa569d910839Ae8865Da8F8e70FfFb0cBA869F961 latestRoundData = 1.0012 @ block 20037000). QuillAudits confirms the manipulation was USD-denominated: $0.99 borrow-low / $1.03 liquidate-high vs honest ~$1.00. On-chain anchor block 20037000. See EVENT.md.",
+  "closed": false,
+  "cases": [
+    {
+      "id": "uwu-susde-oracle-manipulated",
+      "snapshot": "snapshots/sUSDe.json",
+      "prev": null,
+      "now": "2024-06-10T12:00:00Z",
+      "oracle_probes": {
+        "sUSDe-uwulend-collateral": {
+          "updated_at": 1718020500,
+          "answer": 1.032,
+          "reference_answer": 1.0012,
+          "asset_class": "lst",
+          "oracle_address": "0xcustomuwuoracle000000000000000000000001",
+          "source": "answer 1.032 asserted (manipulated UwU composite-median; transient intra-tx, not a Chainlink proxy / not archive-readable). reference_answer 1.0012 MEASURED on-chain @block 20037000 (onchain:chainlink.latestRoundData USDe/USD feed=0xa569d910839Ae8865Da8F8e70FfFb0cBA869F961).",
+          "market_identity": {
+            "loan_asset": "USDe",
+            "collateral_asset": "sUSDe",
+            "oracle_address": "0xcustomuwuoracle000000000000000000000001",
+            "lltv": 0.92
+          }
+        }
+      },
+      "should_fire": [
+        {
+          "signal_type": "ORACLE_FREEZE",
+          "edge_id": "sUSDe-uwulend-collateral",
+          "min_severity": "HIGH",
+          "why": "The UwU sUSDe oracle answer (1.032) diverges +3.08% from the MEASURED honest cross-reference (1.0012, on-chain USDe/USD Chainlink @block 20037000): |1.032/1.0012 - 1| ≈ 0.0308. sUSDe is yield-bearing (staked USDe), so its honest cross-source variance is LST-like (~2% band) — and +3.08% is FAR beyond that honest band. The feed is FRESH (updated_at 1718020500, ~5 min before now 2024-06-10T12:00:00Z), so a staleness/heartbeat check is structurally blind: this is a fresh-but-WRONG price, the exact oracle-manipulation fingerprint. Only the answer-vs-reference deviation check catches it. This is the manipulated median (5 of 11 inputs were Curve get_p spot) that priced the sUSDe/USDe collateral market (LLTV 0.92) and enabled the borrow-low/liquidate-high drain of ~$19.5M on a ~$1B-collateral lending oracle. Floor HIGH (admits HIGH or CRITICAL): a fresh, grossly-wrong price on a major lending oracle that directly enabled a multi-million-dollar drain is page-worthy for immediate human review."
+        }
+      ],
+      "must_not_fire": [],
+      "beta": 2.0,
+      "note": "INCIDENT (reference_answer MEASURED on-chain @block 20037000). answer 1.032 (asserted: manipulated composite-median) vs reference_answer 1.0012 (MEASURED USDe/USD Chainlink) = +3.08% divergence, well beyond the LST (~2%) deviation band for yield-bearing sUSDe. FRESH feed (updated_at ~5 min stale) proves staleness can't see it — the cross-reference is the catching mechanism. ORACLE_FREEZE MUST fire on sUSDe-uwulend-collateral at >= HIGH; CRITICAL also defensible given this fed a ~$19.5M drain. The manipulated answer is NOT archive-readable (UwU custom median, transient inside the flash-loan tx), so it remains the post-mortem figure injected via oracle_probes; only the honest reference is measured. (MEASURED on-chain @block 20037000.)"
+    },
+    {
+      "id": "uwu-susde-honest-oracle",
+      "snapshot": "snapshots/sUSDe.json",
+      "prev": null,
+      "now": "2024-06-10T00:00:00Z",
+      "oracle_probes": {
+        "sUSDe-uwulend-collateral": {
+          "updated_at": 1717977300,
+          "answer": 1.001,
+          "reference_answer": 1.0012,
+          "asset_class": "lst",
+          "oracle_address": "0xcustomuwuoracle000000000000000000000001",
+          "source": "answer 1.001 asserted (calm honest UwU oracle read pre-attack). reference_answer 1.0012 MEASURED on-chain @block 20037000 (onchain:chainlink.latestRoundData USDe/USD feed=0xa569d910839Ae8865Da8F8e70FfFb0cBA869F961).",
+          "market_identity": {
+            "loan_asset": "USDe",
+            "collateral_asset": "sUSDe",
+            "oracle_address": "0xcustomuwuoracle000000000000000000000001",
+            "lltv": 0.92
+          }
+        }
+      },
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "ORACLE_FREEZE",
+          "edge_id": "sUSDe-uwulend-collateral",
+          "why": "FP-TRAP (benign honest cross-source difference). Hours BEFORE the attack the UwU sUSDe oracle returns 1.001 against the MEASURED honest reference of 1.0012 (on-chain USDe/USD Chainlink @block 20037000): |1.001/1.0012 - 1| ≈ 0.0002 = ~0.02%. For a YIELD-BEARING token like sUSDe a ~0.02% spread across honest price sources is entirely normal and WELL within the LST (~2%) deviation band — this is honest variance, not manipulation. The feed is also FRESH (updated_at 1717977300, ~5 min before now 2024-06-10T00:00:00Z). A monitor that paged on a benign sub-0.1% honest cross-source difference would be a hair-trigger that fires on sUSDe's ordinary price life, so ORACLE_FREEZE MUST stay silent. This proves the manipulation check keys on a divergence beyond the asset-class band, not on the mere existence of any cross-source difference."
+        }
+      ],
+      "max_emitted": {
+        "severity": "WARN",
+        "count": 0
+      },
+      "beta": 2.0,
+      "note": "CONTROL (calm, honest oracle; reference_answer MEASURED on-chain @block 20037000). answer 1.001 (asserted calm read) vs reference_answer 1.0012 (MEASURED USDe/USD Chainlink) = ~0.02% divergence, well INSIDE the LST (~2%) band for yield-bearing sUSDe; fresh feed. ORACLE_FREEZE must_not_fire and NO WARN-or-above on the snapshot (max_emitted WARN/0). A NEW_MARKET INFO signal (first-observation of the sUSDe/UwU market) is acceptable since it is below WARN. Proves the manipulation check tolerates benign honest cross-source variance on a yield-bearing token and only trips on the ~3% manipulated dislocation. (MEASURED on-chain @block 20037000.)"
+    }
+  ],
+  "ratified": "auto(reviewer)"
+}

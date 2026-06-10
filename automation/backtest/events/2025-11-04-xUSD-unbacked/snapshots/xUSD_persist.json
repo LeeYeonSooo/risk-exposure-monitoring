@@ -1,0 +1,37 @@
+{
+  "meta": {
+    "token": "xUSD",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2025-11-04T12:00:00Z",
+    "_invariant": "Same real Stream xUSD unbacked breach as xUSD.json (Ethereum supply REAL @ block 23725820; cross-chain supply + backing/NAV researcher-asserted) WITH the recursive-mint growth series that produced it. supply_samples are the home (Ethereum) xUSD supply ramping then spiking +~24M in the final window as the position was looped/re-minted (decimals=6) — the recursive minting that created the unbacked state. This makes the snapshot fire BOTH d09 UNBACKED_SUPPLY and d10 SUPPLY_DELTA_ANOMALY (the ongoing-mint corroborator), as actually happened. Used for the multi-poll persistence case: the breach did not clear (it persisted ~a week before the depeg), so across polls past the settlement window the corroborated breach escalates to a CRITICAL page."
+  },
+  "nodes": [
+    {
+      "node_id": "token:xUSD",
+      "type": "Token",
+      "address": "0xe2fc85bfb48c4cf147921fbe110cf92ef9f26f94",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "backing": 170000000000000,
+        "remote_supply": {
+          "ethereum": 85818938309987,
+          "arb+avax+plasma+sonic(researched)": 114181061690013
+        },
+        "circulating": "remote",
+        "supply_samples": [
+          50000000000000,
+          55000000000000,
+          58000000000000,
+          60000000000000,
+          62000000000000,
+          85818938309987
+        ],
+        "market_cap_usd": 200000000,
+        "_fidelity": "ethereum supply REAL (block 23725820); other-chain supply + backing(NAV) researcher-asserted; supply_samples model the real recursive-mint ramp to the measured 85.818938309987M Ethereum supply (decimals=6), final-window loop spike. Confidence MEDIUM. See EVENT.md."
+      }
+    }
+  ],
+  "edges": []
+}

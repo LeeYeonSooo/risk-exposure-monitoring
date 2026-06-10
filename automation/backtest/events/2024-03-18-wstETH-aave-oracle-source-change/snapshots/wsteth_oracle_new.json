@@ -1,0 +1,62 @@
+{
+  "_invariant": "All edges connect exactly one token node and one protocol node. wstETH-aave_v3-collateral models Lido wstETH as collateral on Aave V3 Ethereum (mono_pool, governance-controlled single AaveOracle source per asset). This snapshot records the oracle source = NEW 0xb4ab...a010 (BGD CAPO WstETHPriceCapAdapter) MEASURED on-chain @19461331. Identical to wsteth_oracle_old.json except oracle.oracle_address (the reserve config word is byte-identical across the swap block — pure oracle-source event).",
+  "meta": {
+    "token": "wstETH",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2024-03-18T11:17:47Z",
+    "snapshot_block": 19461331,
+    "node_count": 2,
+    "edge_count": 1,
+    "data_source": "on-chain archive reads @ block 19461331: AaveOracle.getSourceOfAsset(wstETH) -> 0xb4ab...a010; aave_v3.getConfiguration(wstETH) -> measured lt/ltv/caps/emode/frozen",
+    "coverage_pct": 1.0
+  },
+
+  "nodes": [
+    {
+      "node_id": "token:wstETH",
+      "type": "Token",
+      "label": "Lido Wrapped Staked ETH",
+      "address": "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "wstETH",
+        "decimals": 18,
+        "paused": false,
+        "_note_wrappers": "Lido wrapped staked ETH; rebasing stETH wrapped into a non-rebasing share token (wstETH/stETH ratio grows with staking yield)."
+      }
+    },
+    {
+      "node_id": "protocol:aave_v3",
+      "type": "DefiProtocol",
+      "label": "Aave V3",
+      "address": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "mono_pool",
+        "core_contract": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+        "oracle_contract": "AaveOracle 0x54586bE62E3c3580375aE3723C145253060Ca0C2",
+        "governance": "Aave DAO"
+      }
+    }
+  ],
+
+  "edges": [
+    {
+      "edge_id": "wstETH-aave_v3-collateral",
+      "source": "token:wstETH",
+      "target": "protocol:aave_v3",
+      "classification": { "edge_type": "collateral", "venue_type": "market", "protocol_class": "lending" },
+      "core_weight": { "amount_token": null, "amount_usd": null, "pct_of_supply": null, "pct_of_protocol_tvl": null },
+      "oracle": { "oracle_type": "MARKET", "oracle_provider": "BGD CAPO WstETHPriceCapAdapter (capped LST ratio)", "oracle_address": "0xb4ab0c94159bc2d8c133946e7241368fc2f2a010", "depeg_sensitive": false },
+      "lending_risk": { "ltv": 0.785, "lt": 0.81, "liquidation_bonus": 1.06, "supply_cap": 1250000, "borrow_cap": 24000, "reserve_factor": 0.15, "utilization": null, "is_frozen": false, "emode_category": 1 },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": null,
+      "top_pools": null,
+      "meta": { "snapshot_block": 19461331, "snapshot_ts": "2024-03-18T11:17:47Z", "block_ts_onchain": "2024-03-18T11:17:47Z", "verifiable_onchain": true, "confidence": "HIGH", "data_source": "MEASURED @ block 19461331: AaveOracle.getSourceOfAsset(0x7f39...2Ca0) -> 0xb4ab...a010 (NEW source = BGD CAPO WstETHPriceCapAdapter, post-migration); aave_v3.getConfiguration(wstETH) -> ltv 0.785 / lt 0.81 / liqBonus 1.06 / reserveFactor 0.15 / supplyCap 1250000 / borrowCap 24000 / emode 1 / is_frozen false (config word byte-identical to block 19461330 -> only the oracle source changed)" }
+    }
+  ]
+}

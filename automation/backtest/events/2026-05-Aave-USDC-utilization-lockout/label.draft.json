@@ -1,0 +1,65 @@
+{
+  "event": "Aave V3 USDC utilization lockout (Ethereum, ongoing since ~Feb 2026). Pure utilization-driven liquidity LOCKOUT: borrow demand pinned USDC utilization near 100% so available liquidity dried up and SUPPLIERS COULD NOT WITHDRAW (lenders stranded). No exploit of USDC, no depeg, no supply/backing event \u2014 USDC held its $1.00 peg. Real on-chain util (= variableDebt.totalSupply/(USDC.balanceOf(aUSDC)+variableDebt)): 79.03% (2025-10-01) \u2192 90.3% (2026-02) \u2192 97.66% (2026-05-15, available liq ~$45M vs ~$1.90B debt) \u2192 100.00% peak (2026-04-20, available liq ~$6,729). Acute spike triggered by the KelpDAO rsETH bridge exploit (~$292M, 2026-04-18) which sparked a ~$6.6B bank-run draining all Aave core markets to ~100% util; ~$5B USDT+USDC (incl ~$2B USDC) effectively locked for ~4 days. Circle's Gordon Liao proposed a rate ceiling (Slope2 ~10%\u219250%, U* 92%\u219285%) to make high utilization self-correcting. Tests the d07 utilization-LEVEL path (UTIL_LIQUIDITY_DROP): util beyond the market's pre-lockout normal tail AND above the ~95% actionable floor. See EVENT.md.",
+  "source": "On-chain Alchemy Ethereum archive (MEASURED): Aave V3 USDC reserve utilization = variableDebt.totalSupply()/(USDC.balanceOf(aUSDC)+variableDebt.totalSupply()), reading aToken (0x98c2...6f5c) and variableDebtToken (0x72e9...d004) from getReserveData(USDC) words 8/10, at blocks 25096819 (2026-05-15, util 0.976629, avail $45.5M / total $1.947B), 25025077 (2026-05-05, 0.928526, size-matched ~$1.92B), 23479243 (2025-10-01, 0.790286, $5.60B), 23429173 (2025-09-24, 0.846916, $6.03B). util_level baseline is host-fed pre-lockout historical normal (median 0.83, p_high 0.90, p_low 0.65, n 700, 2024-2025) \u2014 ASSERTED (a distribution, not a single block read). Crisis + rate-ceiling governance: Coindesk 2026-04-21 & 2026-04-20; Cryptopolitan; CryptoTimes 2026-04-23; Bitcoin.com (Liao USDC rate proposal; KelpDAO rsETH exploit). See EVENT.md.",
+  "closed": false,
+  "cases": [
+    {
+      "id": "usdc-util-lockout",
+      "snapshot": "snapshots/usdc_lockout.json",
+      "prev": "snapshots/usdc_prev.json",
+      "now": "2026-05-15T12:00:00Z",
+      "peg_probes": {},
+      "oracle_probes": {},
+      "baselines": {
+        "USDC-aave_v3-supply:util_level": {
+          "median": 0.83,
+          "p_high": 0.9,
+          "p_low": 0.65,
+          "n": 700,
+          "source": "pre-lockout history (2024-2025)"
+        }
+      },
+      "should_fire": [
+        {
+          "signal_type": "UTIL_LIQUIDITY_DROP",
+          "edge_id": "USDC-aave_v3-supply",
+          "min_severity": "WARN"
+        }
+      ],
+      "must_not_fire": [],
+      "max_emitted": null,
+      "beta": 2.0,
+      "note": "INCIDENT. Aave V3 USDC utilization is 97.6629% (MEASURED on-chain @ block 25096819, 2026-05-15: variableDebt.totalSupply()=$1,901,740,032.72, available liquidity = USDC.balanceOf(aUSDC)=$45,508,175.68, total supplied $1,947,248,208) \u2014 i.e. suppliers can no longer meaningfully withdraw (a pure liquidity LOCKOUT). prev (usdc_prev.json, util 92.8526% @ block 25025077, 2026-05-05: debt $1,781,425,925.81, avail $137,126,842.33, total $1,918,552,768) is deliberately size-matched (~$1.92B vs ~$1.95B) so that ONLY utilization \u2014 not pool size \u2014 moves between prev\u2192curr; this isolates the util-LEVEL signal from any size/flow effect. Against the host-fed pre-lockout normal (util_level baseline: median 83%, p_high/p99.9 \u2248 90%), 97.66% is anomalous AND above the ~95% actionable floor at which withdrawable liquidity has effectively vanished \u2192 UTIL_LIQUIDITY_DROP must fire on edge USDC-aave_v3-supply. min_severity WARN: 97.66% is a genuine lockout (lenders stranded) but sits below the 99% HIGH line (peak was ~100% on 2026-04-20, but THIS snapshot is 97.66%), so the WARN floor is correct \u2014 a WARN-or-higher emission satisfies it. This event carries the `baselines` map ON PURPOSE: the util-level alarm is defined relative to the market's pre-lockout historical distribution (host-fed, like Morpho historicalState), not a magic absolute. No DEPEG/oracle/supply alarm is expected (USDC stayed pegged, oracle MARKET, depeg_sensitive false, no peg/supply probe), but those are left to triage rather than asserted as must_not_fire. MEASURED-RECAPTURE NOTE: utilization re-read on-chain confirms the modelled premise exactly (0.9766 modelled vs 0.976629 measured); available liquidity $45.5M corroborates EVENT.md's '~$45M'. The util_level baseline stays host-asserted (a pre-lockout historical distribution, not a single block read)."
+    },
+    {
+      "id": "usdc-util-calm",
+      "snapshot": "snapshots/usdc_calm.json",
+      "prev": "snapshots/usdc_calm_prev.json",
+      "now": "2025-10-01T12:00:00Z",
+      "peg_probes": {},
+      "oracle_probes": {},
+      "baselines": {
+        "USDC-aave_v3-supply:util_level": {
+          "median": 0.83,
+          "p_high": 0.9,
+          "p_low": 0.65,
+          "n": 700,
+          "source": "pre-lockout history (2024-2025)"
+        }
+      },
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "UTIL_LIQUIDITY_DROP",
+          "edge_id": "USDC-aave_v3-supply"
+        }
+      ],
+      "max_emitted": {
+        "severity": "WARN",
+        "count": 0
+      },
+      "beta": 2.0,
+      "note": "CALM CONTROL on the SAME edge (USDC-aave_v3-supply). Utilization is 79.0286% (MEASURED on-chain @ block 23479243, 2025-10-01: debt $4,423,525,615.35, available liquidity $1,173,846,833.03, total supplied $5,597,372,448), with prev 84.6916% (@ block 23429173, 2025-09-24: debt $5,107,860,006.85, avail $923,272,087.10, total $6,031,132,094) \u2014 a large ~$5.6B pool with ample withdrawable liquidity; suppliers can withdraw freely. 79.03% sits INSIDE the pre-lockout normal band (util_level baseline median 83%, p_low 65%, p_high 90%) AND well below the ~95% actionable floor, so there is NO liquidity lockout. UTIL_LIQUIDITY_DROP must NOT fire \u2014 proving the signal keys on a true lockout (util past the historical tail AND above the ~95% floor), not merely on a high-but-normal utilization that is ordinary for a busy lending market. Noise ceiling: ZERO WARN-or-above signals on this snapshot (max_emitted WARN/0); INFO housekeeping tolerable. Same host-fed `baselines` map as the incident case so the only difference driving the verdict is the measured utilization itself (79% normal vs 97.66% lockout). MEASURED-RECAPTURE NOTE: util re-read on-chain confirms the modelled value exactly (0.7903 modelled vs 0.790286 measured)."
+    }
+  ]
+}

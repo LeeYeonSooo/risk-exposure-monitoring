@@ -1,0 +1,23 @@
+{
+  "inputs": [
+    {
+      "input": "peg_probe:crvUSD-llamalend-collateral@20075607",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:crvUSD-aggregator.price() (0xa035b1fe) @ethereum:20075607 = 998427599842524685/1e18 = $0.99842760",
+      "price": 0.9984276,
+      "raw": 998427599842524685,
+      "deviation_pct": -0.1572,
+      "block": 20075607,
+      "block_ts": "2024-06-12T11:59:59Z"
+    },
+    {
+      "input": "token_total_supply:crvUSD@20075607",
+      "detector": "d05",
+      "measured": true,
+      "source": "onchain:crvUSD.totalSupply() (0x18160ddd) @ethereum:20075607",
+      "value": 725352070.0035696,
+      "raw": 725352070003569699292264318
+    }
+  ]
+}

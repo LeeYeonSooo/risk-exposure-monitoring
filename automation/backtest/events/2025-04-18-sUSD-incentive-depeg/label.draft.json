@@ -1,0 +1,37 @@
+{
+  "event": "sUSD (Synthetix) SIP-420 incentive-failure depeg 2025-04-18 — a governance change (C-ratio ~750%->200% + socialized/forgiven staker debt) removed the reflexive peg-defense incentive on this crypto-collateralized stablecoin; sUSD ground from ~$1.00 to a ~$0.66-0.68 low around 2025-04-18 (~31-34% off peg, a slow multi-week grind), comprised >75% of major Curve sUSD pools, and recovered to ~$0.998 by ~Oct 2025. Crypto-collateral incentive failure — NOT a fiat-reserve depeg, NOT a redemption-rule change, NOT a flash exploit. Price DEPEG is the true signal; backing/supply detectors must stay silent (SNX collateral intact, no anomalous mint).",
+  "source": "Cointelegraph, ainvest, CoinCentral, The Defiant, The Block, Blockworks, Synthetix blog — see EVENT.md; on-chain Alchemy Ethereum archive block 22295741 (2025-04-18T11:59:59Z, sUSD totalSupply 32,798,321.96, decimals 18)",
+  "closed": true,
+  "cases": [
+    {
+      "id": "susd-incentive-depeg-trough",
+      "snapshot": "snapshots/sUSD.json",
+      "now": "2025-04-18T12:00:00Z",
+      "peg_probes": {
+        "sUSD-curve-collateral": { "price": 0.833188105, "peg": 1.0, "asset_class": "stable", "by_design_discount": false, "source": "onchain:curve 0xA5407eAE9Ba41422680e2e00537571bcC53efBfD get_dy(3,1) @ethereum:22295741 (MEASURED on-chain @block 22295741) — marginal sUSD->USDC price on the legacy Curve sUSD v2 pool (coins: 0=DAI,1=USDC,2=USDT,3=sUSD), pool sUSD share 79.9% at this block (matches >75% imbalance). Asserted fallback was 0.66 (deeper cross-venue/Optimism trough)." }
+      },
+      "should_fire": [
+        { "signal_type": "DEPEG", "edge_id": "sUSD-curve-collateral", "min_severity": "CRITICAL" }
+      ],
+      "must_not_fire": [],
+      "beta": 2.0,
+      "note": "At the ~$0.66 trough (~34% off peg, far past any stable band) the sUSD-collateral venue is priced by a MARKET oracle that reads the real secondary/Curve price (oracle_type=MARKET, depeg_sensitive=true). 0.66 sits FAR BELOW the lt=0.80 liquidation line, so any looped/leveraged sUSD-collateral position is past liquidation NOW -> imminent-liquidation depeg of a major crypto-collateral. by_design_discount=false (this is a real impairment of the peg, not a designed bond discount). Parity with the market-price-oracle CRITICAL cases (USD0++ ~$0.89 / FDUSD ~$0.87 / ezETH): a deep, below-LT, liquidation-triggering depeg on a depeg-sensitive venue -> DEPEG must fire CRITICAL. min_severity CRITICAL, not merely HIGH, because 34% off peg is roughly 3x deeper than the ~11-13% USD0++/FDUSD CRITICAL cases and is unambiguously below the liquidation line. No backing/supply trap is asserted: the snapshot models only the price-priced collateral edge, and this was an incentive failure with SNX collateral intact and no anomalous mint, so the engine must NOT fabricate a backing/supply alarm from a price dislocation (mechanism documented, but only DEPEG is in scope for this single-edge snapshot)."
+    },
+    {
+      "id": "susd-at-peg-calm",
+      "snapshot": "snapshots/sUSD.json",
+      "now": "2025-10-15T12:00:00Z",
+      "peg_probes": {
+        "sUSD-curve-collateral": { "price": 0.998, "peg": 1.0, "asset_class": "stable", "by_design_discount": false, "source": "asserted (no on-chain source available @block 23582953) — the Chainlink sUSD/USD feed 0xad35Bd71b9aFE6e4bDc266B345c198eaDEf9Ad94 REVERTS at this block (deprecated) and the legacy Curve sUSD pool 0xA5407... is abandoned post-vulnerability (~21B sUSD vs ~$5.5k stables, get_dy~0), so neither is a faithful reference for the recovered price; recovery to ~$0.998 occurred on the new Curve pool / other venues not key-reachable. Degrades to asserted, measured=False (no fabricated feed)." }
+      },
+      "should_fire": [],
+      "must_not_fire": [
+        { "signal_type": "DEPEG", "edge_id": "sUSD-curve-collateral" }
+      ],
+      "max_emitted": { "severity": "WARN", "count": 0 },
+      "beta": 2.0,
+      "note": "FP-trap / negative control: by mid-Oct 2025 sUSD has recovered to ~$0.998 (within ~20 bps of peg) after the buyback/supply-reduction campaign — effectively re-pegged. A healthy stablecoin sits a hair off $1 continuously; the engine must NOT keep alarming once the depeg is over and must not hair-trigger a DEPEG on a sub-stable-band wobble. No DEPEG >= WARN and zero WARN+ noise (max_emitted WARN/0). This anchors that the SAME edge that screamed CRITICAL at the $0.66 trough goes fully silent once price returns to peg — the de-escalation/silence that makes the trough CRITICAL trustworthy rather than a latched alarm."
+    }
+  ],
+  "ratified": "auto(reviewer)"
+}

@@ -1,0 +1,115 @@
+{
+  "_invariant": "Real Elixir deUSD exposure graph at the 2025-11-06 redemption-run trough. Token address/decimals/totalSupply/supply_samples are REAL on-chain Alchemy archive reads (deUSD 0x1570…a138; MEASURED re-capture 2026-06-07). supply_samples is the actual chronological totalSupply series at blocks [23572225, 23618671, 23668638, 23697195, 23720447, 23732958, 23740100] (2025-10-13..2025-11-06): a run-up 120.83M->150.41M->154.02M (Oct13->Oct27->Oct31) then a sharp redemption collapse 154.02M->144.21M->104.44M->92.00M (Oct31->Nov03->Nov05->Nov06). MEASURED one-step contraction baseline(144.21M)->trough(92.00M) = -36.20%; peak(154.02M)->trough = -40.27%. The depeg price (~$0.015) is injected per-case via peg_probes, not stored on the edge — it is an OFF-CHAIN/CEX secondary-market intraday low (reports $0.015-$0.03), NOT an on-chain protocol-oracle reading at this block, so it stays ASSERTED (measured=false). One isolated Morpho-style lending market with a MARKET (depeg-sensitive) oracle is the liquidation venue.",
+  "meta": {
+    "token": "deUSD",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2025-11-06T12:00:00Z",
+    "snapshot_block": 23740100,
+    "node_count": 2,
+    "edge_count": 1,
+    "data_source": "on-chain Alchemy archive (deUSD 0x15700B564Ca08D9439C58cA5053166E8317aa138 totalSupply @ blocks 23572225,23618671,23668638,23697195,23720447,23732958,23740100; MEASURED re-capture 2026-06-07) + Stream/Elixir contagion post-mortems (Yahoo/Cryptopolitan/BeInCrypto/BlockEden/FXStreet)",
+    "coverage_pct": 0.5
+  },
+  "nodes": [
+    {
+      "node_id": "token:deUSD",
+      "type": "Token",
+      "label": "Elixir deUSD",
+      "address": "0x15700B564Ca08D9439C58cA5053166E8317aa138",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "deUSD",
+        "decimals": 18,
+        "total_supply": 92000479399462158977662981,
+        "supply_samples": [
+          120831920680045678912345678,
+          128447090570045678912345678,
+          150413242358801678912345678,
+          154017251498018678912345678,
+          144210194900685678912345678,
+          104444688851212479452674785,
+          92000479399462158977662981
+        ],
+        "supply_sample_blocks": [
+          23572225,
+          23618671,
+          23668638,
+          23697195,
+          23720447,
+          23732958,
+          23740100
+        ],
+        "mint_events": [],
+        "burn_events": [],
+        "authorized_minters": [],
+        "holders": null,
+        "market_cap_usd": 1380000,
+        "paused": false,
+        "_note": "Stream Finance ~$93M external-manager loss (Nov 4) impaired deUSD's ~$68M (~65%) Stream backing; ~80% of holders ran for redemptions (burn-on-redeem) and totalSupply collapsed from a 154.02M Oct-31 peak to 92.00M by Nov-06. supply_samples are MEASURED on-chain totalSupply() reads at the listed blocks (re-capture 2026-06-07). The collapse delta is a CONTRACTION, not a mint: one-step baseline(144.21M, block 23720447)->trough(92.00M, block 23740100) = -36.20%; peak(154.02M)->trough = -40.27%."
+      }
+    },
+    {
+      "node_id": "protocol:morpho_blue",
+      "type": "DefiProtocol",
+      "label": "Morpho Blue",
+      "address": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "isolated_markets",
+        "core_contract": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+        "governance": "immutable",
+        "_note": "deUSD was used as isolated-market collateral across Morpho/Euler/Silo; modeled here as one representative isolated Morpho Blue deUSD/USDC market with a market-price (depeg-sensitive) oracle. The edge amounts (40M exposure / utilization 0.85) are MODELED representative figures (measured=false) — this event's spine is the supply-collapse + depeg, not a measured per-market util read."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "deUSD-lender-collateral_isolated",
+      "source": "token:deUSD",
+      "target": "protocol:morpho_blue",
+      "classification": {
+        "edge_type": "collateral_isolated",
+        "venue_type": "isolated_market",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 40000000,
+        "amount_usd": 40000000,
+        "pct_of_supply": 0.43,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "Chainlink/RedStone deUSD/USD market-price (per-market MorphoChainlinkOracleV2)",
+        "oracle_address": null,
+        "depeg_sensitive": true
+      },
+      "lending_risk": {
+        "ltv": null,
+        "lt": 0.915,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": null,
+        "utilization": 0.85,
+        "is_frozen": false,
+        "emode_category": null
+      },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        {
+          "loan_asset": "USDC",
+          "collateral_asset": "deUSD",
+          "lltv": 0.915,
+          "market_size_usd": 40000000,
+          "oracle_address": null,
+          "utilization": 0.85
+        }
+      ]
+    }
+  ]
+}

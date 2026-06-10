@@ -1,0 +1,43 @@
+{
+  "inputs": [
+    {
+      "input": "peg_probe:stETH-isolated_lending-collateral_isolated@trough-eth-relative-0.935",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:curve 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022 get_dy(1,0,1e18) @ethereum:14955879",
+      "price": 0.9350064,
+      "block": 14955879,
+      "now": "2022-06-13T12:00:00Z",
+      "pct_below_peg": 6.499
+    },
+    {
+      "input": "peg_probe:stETH-isolated_lending-collateral_isolated@deeper-trough-0.93",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:curve 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022 get_dy(1,0,1e18) @ethereum:14956535",
+      "price": 0.93407871,
+      "block": 14956535,
+      "now": "2022-06-13T14:45:00Z",
+      "pct_below_peg": 6.592
+    },
+    {
+      "input": "peg_probe:stETH-isolated_lending-collateral_isolated@benign-steady-state-0.998",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:curve 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022 get_dy(1,0,1e18) @ethereum:14589816",
+      "price": 0.99996445,
+      "block": 14589816,
+      "now": "2022-04-15T12:00:00Z",
+      "pct_below_peg": 0.004
+    },
+    {
+      "input": "total_supply:stETH",
+      "detector": "snapshot",
+      "measured": true,
+      "source": "onchain:erc20 totalSupply stETH 0xae7ab9...fe84 @ethereum:14955879",
+      "supply_wei": 4219980057326744911600826,
+      "supply": 4219980.057,
+      "block": 14955879
+    }
+  ]
+}

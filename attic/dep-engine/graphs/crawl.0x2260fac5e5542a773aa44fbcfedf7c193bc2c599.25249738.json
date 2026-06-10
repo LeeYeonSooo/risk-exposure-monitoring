@@ -1,0 +1,759 @@
+{
+  "root": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+  "block": 25249738,
+  "edges": [
+    {
+      "from_token": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+      "holder": "0x5ee5bf7ae06d1be5997a1a72006fe6c607ec6de8",
+      "amount": 30278.1641589,
+      "frac": 0.2607,
+      "kind": "ledger:aave_v3",
+      "label": "",
+      "depth": 0,
+      "note": "singleton ledger; expand via adapter:aave_v3",
+      "resolved": true,
+      "children_sum": 5779.68,
+      "coverage": 0.1909
+    },
+    {
+      "from_token": "0x5ee5bf7ae06d1be5997a1a72006fe6c607ec6de8",
+      "holder": "0xabdbbd00fad79b257e7313b398a1ea10d9eef8d6",
+      "amount": 1474.85981271,
+      "frac": 0.0487,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x5ee5bf7ae06d1be5997a1a72006fe6c607ec6de8",
+        "detail": {
+          "supplied": 1474.8598,
+          "underlying_symbol": "WBTC",
+          "ltv": 0.73,
+          "liq_threshold": 0.78
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x5ee5bf7ae06d1be5997a1a72006fe6c607ec6de8",
+      "holder": "0x0a0fa2b02ae73bd9eb4c1e086458099eca42476e",
+      "amount": 1054.40116822,
+      "frac": 0.0348,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x5ee5bf7ae06d1be5997a1a72006fe6c607ec6de8",
+        "detail": {
+          "supplied": 1054.4012,
+          "underlying_symbol": "WBTC",
+          "ltv": 0.73,
+          "liq_threshold": 0.78
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x5ee5bf7ae06d1be5997a1a72006fe6c607ec6de8",
+      "holder": "0x26a58af72eff53ddaa064a9df86e8ec3184bee95",
+      "amount": 700.16282704,
+      "frac": 0.0231,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x5ee5bf7ae06d1be5997a1a72006fe6c607ec6de8",
+        "detail": {
+          "supplied": 700.1628,
+          "underlying_symbol": "WBTC",
+          "ltv": 0.73,
+          "liq_threshold": 0.78
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x5ee5bf7ae06d1be5997a1a72006fe6c607ec6de8",
+      "holder": "0xfa5484533acf47bc9f5d9dc931fcdbbdcefb4011",
+      "amount": 566.15834518,
+      "frac": 0.0187,
+      "kind": "opaque",
+      "label": "",
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x5ee5bf7ae06d1be5997a1a72006fe6c607ec6de8",
+        "detail": {
+          "supplied": 566.1583,
+          "underlying_symbol": "WBTC",
+          "ltv": 0.73,
+          "liq_threshold": 0.78
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x5ee5bf7ae06d1be5997a1a72006fe6c607ec6de8",
+      "holder": "0x36aab712e7e6820608d5c974d6f9a615ecfd46db",
+      "amount": 534.86303294,
+      "frac": 0.0177,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x5ee5bf7ae06d1be5997a1a72006fe6c607ec6de8",
+        "detail": {
+          "supplied": 534.863,
+          "underlying_symbol": "WBTC",
+          "ltv": 0.73,
+          "liq_threshold": 0.78
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x5ee5bf7ae06d1be5997a1a72006fe6c607ec6de8",
+      "holder": "0xb7fb2b774eb5e2dad9c060fb367acbdc7fa7099b",
+      "amount": 506.47243581,
+      "frac": 0.0167,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x5ee5bf7ae06d1be5997a1a72006fe6c607ec6de8",
+        "detail": {
+          "supplied": 506.4724,
+          "underlying_symbol": "WBTC",
+          "ltv": 0.73,
+          "liq_threshold": 0.78
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x5ee5bf7ae06d1be5997a1a72006fe6c607ec6de8",
+      "holder": "0x7546966122e636a601a3ea4497d3509f160771d8",
+      "amount": 487.36419898,
+      "frac": 0.0161,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x5ee5bf7ae06d1be5997a1a72006fe6c607ec6de8",
+        "detail": {
+          "supplied": 487.3642,
+          "underlying_symbol": "WBTC",
+          "ltv": 0.73,
+          "liq_threshold": 0.78
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x5ee5bf7ae06d1be5997a1a72006fe6c607ec6de8",
+      "holder": "0x6b2563826bc176fda2099c47567f447fc32cc5b7",
+      "amount": 455.40296498,
+      "frac": 0.015,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x5ee5bf7ae06d1be5997a1a72006fe6c607ec6de8",
+        "detail": {
+          "supplied": 455.403,
+          "underlying_symbol": "WBTC",
+          "ltv": 0.73,
+          "liq_threshold": 0.78
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+      "holder": "0xa3a7b6f88361f48403514059f1f16c8e78d60eec",
+      "amount": 7100.00902626,
+      "frac": 0.0611,
+      "kind": "opaque",
+      "label": "",
+      "depth": 0
+    },
+    {
+      "from_token": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+      "holder": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "amount": 6486.38252255,
+      "frac": 0.0558,
+      "kind": "ledger:morpho",
+      "label": "",
+      "depth": 0,
+      "note": "singleton ledger; expand via adapter:morpho",
+      "resolved": true,
+      "children_sum": 2381.27,
+      "coverage": 0.3671
+    },
+    {
+      "from_token": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "holder": "0x812b2c6ab3f4471c0e43d4bb61098a9211017427",
+      "amount": 756.3888664300666,
+      "frac": 0.1166,
+      "kind": "erc4626_vault",
+      "label": "",
+      "depth": 1,
+      "via": "morpho",
+      "position": {
+        "role": "supply",
+        "venue": "0xa36e440fbc54d7ed744ae4895b2729642a8be5d488cdd477c59b54afbb90b5bf",
+        "detail": {
+          "supply": 756.3789,
+          "idle_share": 756.3789,
+          "utilization": 0.0
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x812b2c6ab3f4471c0e43d4bb61098a9211017427",
+      "holder": "0x2c24b57e2ccd1f273045af6a5f632504c432374f",
+      "amount": 756.077909348694,
+      "frac": 1.0,
+      "kind": "erc4626_vault",
+      "label": "",
+      "depth": 2
+    },
+    {
+      "from_token": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "holder": "0x5130985ce6a0e54f369712cd6f2fdec084026e54",
+      "amount": 414.06364572,
+      "frac": 0.0638,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "morpho",
+      "position": {
+        "role": "collateral",
+        "venue": "0x3a85e619751152991742810df6ec69ce473daef99e28a64ab2340d7b7ccfee49",
+        "detail": {
+          "collateral": 414.0636,
+          "loan_token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+          "loan_symbol": "USDC",
+          "borrow": 11737821.9738,
+          "lltv": 0.86,
+          "utilization": 0.9037
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "holder": "0x6ba9c7d86ebd6a20817d482c42c9de2806eefb7e",
+      "amount": 320.10850935,
+      "frac": 0.0494,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "morpho",
+      "position": {
+        "role": "collateral",
+        "venue": "0xa921ef34e2fc7a27ccc50ae7e4b154e16c9799d3387076c421423ef52ac4df99",
+        "detail": {
+          "collateral": 247.8781,
+          "loan_token": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+          "loan_symbol": "USDT",
+          "borrow": 11384579.2987,
+          "lltv": 0.86,
+          "utilization": 0.9293
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "holder": "0x86d888c3fa8a7f67452ef2eccc1c5ee9751ec8d6",
+      "amount": 264.98795961999997,
+      "frac": 0.0409,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "morpho",
+      "position": {
+        "role": "collateral",
+        "venue": "0x3a85e619751152991742810df6ec69ce473daef99e28a64ab2340d7b7ccfee49",
+        "detail": {
+          "collateral": 176.0703,
+          "loan_token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+          "loan_symbol": "USDC",
+          "borrow": 5611377.5741,
+          "lltv": 0.86,
+          "utilization": 0.9037
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "holder": "0xac79c0203836d0683b5545d44fd0e37489b66683",
+      "amount": 193.21036418,
+      "frac": 0.0298,
+      "kind": "opaque",
+      "label": "",
+      "depth": 1,
+      "via": "morpho",
+      "position": {
+        "role": "collateral",
+        "venue": "0x3a85e619751152991742810df6ec69ce473daef99e28a64ab2340d7b7ccfee49",
+        "detail": {
+          "collateral": 193.2104,
+          "loan_token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+          "loan_symbol": "USDC",
+          "borrow": 5673203.1627,
+          "lltv": 0.86,
+          "utilization": 0.9037
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "holder": "0xeb9b0a7844ed7be427fd3d7d23765b1901ee7c20",
+      "amount": 153.61105654,
+      "frac": 0.0237,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "morpho",
+      "position": {
+        "role": "collateral",
+        "venue": "0x3a85e619751152991742810df6ec69ce473daef99e28a64ab2340d7b7ccfee49",
+        "detail": {
+          "collateral": 153.6111,
+          "loan_token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+          "loan_symbol": "USDC",
+          "borrow": 5300153.9137,
+          "lltv": 0.86,
+          "utilization": 0.9037
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "holder": "0x691cb02bf62a0bb2397bfae9a55f7380d415fff2",
+      "amount": 142.0706624,
+      "frac": 0.0219,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "morpho",
+      "position": {
+        "role": "collateral",
+        "venue": "0x138eec0e4a1937eb92ebc70043ed539661dd7ed5a89fb92a720b341650288a40",
+        "detail": {
+          "collateral": 142.0707,
+          "loan_token": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+          "loan_symbol": "WETH",
+          "borrow": 2761.9388,
+          "lltv": 0.915,
+          "utilization": 0.9195
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "holder": "0xc99882e7efb11e4258dfee59954226e53fef4e68",
+      "amount": 136.82448072,
+      "frac": 0.0211,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "morpho",
+      "position": {
+        "role": "collateral",
+        "venue": "0x3a85e619751152991742810df6ec69ce473daef99e28a64ab2340d7b7ccfee49",
+        "detail": {
+          "collateral": 136.8245,
+          "loan_token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+          "loan_symbol": "USDC",
+          "borrow": 5875089.1422,
+          "lltv": 0.86,
+          "utilization": 0.9037
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+      "holder": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+      "amount": 4391.05917946,
+      "frac": 0.0378,
+      "kind": "ledger:compound_v3",
+      "label": "",
+      "depth": 0,
+      "note": "singleton ledger; expand via adapter:compound_v3",
+      "resolved": true,
+      "children_sum": 2068.0,
+      "coverage": 0.471
+    },
+    {
+      "from_token": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+      "holder": "0x7ba7f4773fa7890bad57879f0a1faa0edffb3520",
+      "amount": 650.10295706,
+      "frac": 0.1481,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "compound_v3",
+      "position": {
+        "role": "collateral",
+        "venue": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+        "detail": {
+          "collateral": 650.103,
+          "base_token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+          "base_symbol": "USDC",
+          "base_borrow": 34233768.3838,
+          "liq_factor": 0.85
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+      "holder": "0x4093f559f38c4c87c280d64c85396f649c0d9987",
+      "amount": 499.35692227,
+      "frac": 0.1137,
+      "kind": "opaque",
+      "label": "",
+      "depth": 1,
+      "via": "compound_v3",
+      "position": {
+        "role": "collateral",
+        "venue": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+        "detail": {
+          "collateral": 499.3569,
+          "base_token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+          "base_symbol": "USDC",
+          "base_borrow": 22197926.8442,
+          "liq_factor": 0.85
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+      "holder": "0xda1d41fbc625282eb09744efc8da1a66a494a298",
+      "amount": 380.55886323,
+      "frac": 0.0867,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "compound_v3",
+      "position": {
+        "role": "collateral",
+        "venue": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+        "detail": {
+          "collateral": 380.5589,
+          "base_token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+          "base_symbol": "USDC",
+          "base_borrow": 18809717.3568,
+          "liq_factor": 0.85
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+      "holder": "0xa3d843b6a057504284006bef6f34a2e9bc80fb6b",
+      "amount": 354.82843988,
+      "frac": 0.0808,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "compound_v3",
+      "position": {
+        "role": "collateral",
+        "venue": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+        "detail": {
+          "collateral": 354.8284,
+          "base_token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+          "base_symbol": "USDC",
+          "base_borrow": 24549598.9646,
+          "liq_factor": 0.85
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+      "holder": "0x2756bb9746af8355f85394c5d034897ba2635e0c",
+      "amount": 183.15422539,
+      "frac": 0.0417,
+      "kind": "opaque",
+      "label": "",
+      "depth": 1,
+      "via": "compound_v3",
+      "position": {
+        "role": "collateral",
+        "venue": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+        "detail": {
+          "collateral": 183.1542,
+          "base_token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+          "base_symbol": "USDC",
+          "base_borrow": 4462368.4391,
+          "liq_factor": 0.85
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+      "holder": "0x3ee18b2214aff97000d974cf647e7c347e8fa585",
+      "amount": 3059.88113772,
+      "frac": 0.0263,
+      "kind": "opaque",
+      "label": "",
+      "depth": 0
+    },
+    {
+      "from_token": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+      "holder": "0x4197ba364ae6698015ae5c1468f54087602715b2",
+      "amount": 2108.02005808,
+      "frac": 0.0181,
+      "kind": "ledger:aave_v3",
+      "label": "",
+      "depth": 0,
+      "note": "singleton ledger; expand via adapter:aave_v3",
+      "resolved": true,
+      "children_sum": 1232.93,
+      "coverage": 0.5849
+    },
+    {
+      "from_token": "0x4197ba364ae6698015ae5c1468f54087602715b2",
+      "holder": "0xac860a0b1c178303a7f085f3842a157e91a241b1",
+      "amount": 239.97966563,
+      "frac": 0.1138,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x4197ba364ae6698015ae5c1468f54087602715b2",
+        "detail": {
+          "supplied": 239.9797,
+          "underlying_symbol": "WBTC",
+          "ltv": 0.77,
+          "liq_threshold": 0.78
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x4197ba364ae6698015ae5c1468f54087602715b2",
+      "holder": "0x3eeb5e43bcb9ed151a13a2cfb584a171dcb1aeba",
+      "amount": 238.39993174,
+      "frac": 0.1131,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x4197ba364ae6698015ae5c1468f54087602715b2",
+        "detail": {
+          "supplied": 238.3999,
+          "underlying_symbol": "WBTC",
+          "ltv": 0.77,
+          "liq_threshold": 0.78
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x4197ba364ae6698015ae5c1468f54087602715b2",
+      "holder": "0x9297989b23c5fb2a1340c65a8c63b0c46fc721bf",
+      "amount": 196.59086791,
+      "frac": 0.0933,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x4197ba364ae6698015ae5c1468f54087602715b2",
+        "detail": {
+          "supplied": 196.5909,
+          "underlying_symbol": "WBTC",
+          "ltv": 0.77,
+          "liq_threshold": 0.78
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x4197ba364ae6698015ae5c1468f54087602715b2",
+      "holder": "0x75f747fa437a60300fda8805763f782fdd869b55",
+      "amount": 132.64244358,
+      "frac": 0.0629,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x4197ba364ae6698015ae5c1468f54087602715b2",
+        "detail": {
+          "supplied": 132.6424,
+          "underlying_symbol": "WBTC",
+          "ltv": 0.77,
+          "liq_threshold": 0.78
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x4197ba364ae6698015ae5c1468f54087602715b2",
+      "holder": "0x0deca49fe145e27c07b891a8b9d9a7d9fc744f30",
+      "amount": 130.12515482,
+      "frac": 0.0617,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x4197ba364ae6698015ae5c1468f54087602715b2",
+        "detail": {
+          "supplied": 130.1252,
+          "underlying_symbol": "WBTC",
+          "ltv": 0.77,
+          "liq_threshold": 0.78
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x4197ba364ae6698015ae5c1468f54087602715b2",
+      "holder": "0xf6123c482f3c5b1bbfc2272a8cd117939d1a6acb",
+      "amount": 106.00000118,
+      "frac": 0.0503,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x4197ba364ae6698015ae5c1468f54087602715b2",
+        "detail": {
+          "supplied": 106.0,
+          "underlying_symbol": "WBTC",
+          "ltv": 0.77,
+          "liq_threshold": 0.78
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x4197ba364ae6698015ae5c1468f54087602715b2",
+      "holder": "0x338a07cf3e117d446ffbd3bc4a60787f892be222",
+      "amount": 100.1170008,
+      "frac": 0.0475,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x4197ba364ae6698015ae5c1468f54087602715b2",
+        "detail": {
+          "supplied": 100.117,
+          "underlying_symbol": "WBTC",
+          "ltv": 0.77,
+          "liq_threshold": 0.78
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x4197ba364ae6698015ae5c1468f54087602715b2",
+      "holder": "0x9996623cb9ede69562537a08d08d606d8d098b9b",
+      "amount": 89.07086134,
+      "frac": 0.0423,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "aave_v3",
+      "position": {
+        "role": "supply",
+        "venue": "0x4197ba364ae6698015ae5c1468f54087602715b2",
+        "detail": {
+          "supplied": 89.0709,
+          "underlying_symbol": "WBTC",
+          "ltv": 0.77,
+          "liq_threshold": 0.78
+        },
+        "verifiable_onchain": true,
+        "confidence": "HIGH"
+      }
+    },
+    {
+      "from_token": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+      "holder": "0x40ec5b33f54e0e8a33a975908c5ba1c14e5bbbdf",
+      "amount": 1989.56955927,
+      "frac": 0.0171,
+      "kind": "opaque",
+      "label": "",
+      "depth": 0
+    },
+    {
+      "from_token": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+      "holder": "0x176f3dab24a159341c0509bb36b833e7fdd0a132",
+      "amount": 1720.0,
+      "frac": 0.0148,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 0
+    }
+  ]
+}

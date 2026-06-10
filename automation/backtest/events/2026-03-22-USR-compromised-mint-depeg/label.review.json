@@ -1,0 +1,5 @@
+{
+  "verdict": "APPROVE",
+  "summary": "Re-captured USR draft is data-only vs prior label.json (should_fire/must_not_fire/severities/IDs/snapshot refs/max_emitted/beta byte-identical in structure); every premise still holds on MEASURED data (supply +74.29% 102.51M->178.66M, single 50M mint=27.99% to non-authorized attacker, net delta +76.15M, depeg 0.050804=-94.9% CRITICAL, calm -0.064% drift/empty mints/0.999682 at peg); fidelity 8/8 measured=true matching base-units, off-chain $0.025 correctly degraded to on-chain $0.050804.",
+  "draft_sha256": "847f16d2060901ecec327525519cc17cf928f6900dbfbf60292d08019c60af41"
+}

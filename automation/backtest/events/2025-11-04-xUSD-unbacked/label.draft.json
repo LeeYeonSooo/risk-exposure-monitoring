@@ -1,0 +1,44 @@
+{
+  "event": "Stream Finance xUSD unbacked recursive stablecoin collapse 2025-11-04 — ~$170M real backing vs ~$530M looped/borrowed (4.1x); $93M external-manager loss broke it; deUSD contagion. See EVENT.md.",
+  "source": "Yahoo/Bloomberg, BlockEden, Tiger Research, CCN, CoinGecko, Arbitrum forum, Etherscan, CBB0FE — see EVENT.md",
+  "closed": true,
+  "cases": [
+    {
+      "id": "unbacked-at-collapse",
+      "snapshot": "snapshots/xUSD.json",
+      "now": "2025-11-04T12:00:00Z",
+      "should_fire": [
+        { "signal_type": "UNBACKED_SUPPLY", "node_id": "token:xUSD", "min_severity": "HIGH" }
+      ],
+      "must_not_fire": [],
+      "beta": 2.0,
+      "note": "At the Nov-4-2025 collapse block, circulating/looped xUSD (~$530M recognized as collateral/borrowed against, ~200M tokens minted) vastly exceeded real on-chain backing/NAV (~$170M) — a ~3–4x unbacked gap flagged on-chain (CBB0FE) ~a week BEFORE the depeg. xUSD was rehypothecated as its own collateral across Morpho/Euler/Silo on Ethereum+Arbitrum+Avalanche+Plasma+Sonic, so the same dollars were claimed many times. This is a true unbacked-mint state and is detectable from ONE snapshot (Σsupply > backing). HIGH (not CRITICAL): a single poll proves the breach exists but cannot alone rule out a transient in-flight bridging skew; CRITICAL is reserved for breaches corroborated across multiple polls. NOTE xUSD decimals=6, not 18. Avalanche/Plasma/Sonic are unreadable by us, so a live Σremote UNDER-counts circulating xUSD (FN bias) — even Ethereum-only supply already exceeds NAV, so the signal must still fire; prefer a hand-built snapshot with the researched ~$530M circulating vs ~$170M backing."
+    },
+    {
+      "id": "balanced-inflight-bridging-fp-trap",
+      "snapshot": "snapshots/xUSD_balanced.json",
+      "now": "2025-10-01T12:00:00Z",
+      "should_fire": [],
+      "must_not_fire": [
+        { "signal_type": "UNBACKED_SUPPLY", "node_id": "token:xUSD" }
+      ],
+      "beta": 2.0,
+      "note": "FP-trap / control: a synthetic healthy snapshot where Σremote xUSD is fully covered by (in fact transiently slightly OVER-covered by) real backing — e.g. backing 170M base units vs Σcirculating 168M, the normal state of an in-flight bridge where locked backing temporarily exceeds minted remote supply. Over-backed is the SAFE direction; UNBACKED_SUPPLY must stay SILENT. Guards against a hair-trigger that fires on benign bridging skew or rounding, which would make every cross-chain stable look 'unbacked' and destroy trust in the signal."
+    },
+    {
+      "id": "unbacked-persists-corroborated-critical",
+      "snapshot": "snapshots/xUSD_persist.json",
+      "polls": [
+        { "snapshot": "snapshots/xUSD_persist.json", "now": "2025-11-04T12:00:00Z" },
+        { "snapshot": "snapshots/xUSD_persist.json", "now": "2025-11-04T12:33:20Z" }
+      ],
+      "now": "2025-11-04T12:33:20Z",
+      "should_fire": [
+        { "signal_type": "UNBACKED_SUPPLY", "node_id": "token:xUSD", "min_severity": "CRITICAL" }
+      ],
+      "must_not_fire": [],
+      "beta": 2.0,
+      "note": "PERSISTENCE-ESCALATION case. Two polls ~33 min apart (12:00:00Z and 12:33:20Z) run through ONE decision engine, both reading the SAME unbacked breach (Σcirculating xUSD ~200M tokens = 85,818,938.309987 Ethereum + 114,181,061.690013 researched cross-chain > backing/NAV ~170M base units, 6dp). The breach does NOT clear between polls. Case 1 capped a SINGLE sighting at HIGH precisely because one poll cannot exclude a transient in-flight bridging skew (mid-bridge, remote can momentarily exceed locked backing for the brief settlement window). Here that escape hatch is closed two ways: (1) the SAME breach is still present on the second poll ~33 min later — well past any plausible bridge-settlement window, so it is no longer a transient skew but a persistent unbacked state; (2) it is CORROBORATED by the ongoing recursive-mint supply-growth anomaly carried in supply_samples (home xUSD supply ramping then spiking ~+24M in the final window as the position was looped/re-minted), the very mechanism that created the gap. A persistent + corroborated unbacked breach is a confirmed unbacked-mint state that must page CRITICAL, not a maybe-transient HIGH. The harness grades the LAST poll, so this verifies the escalation actually fires AFTER persistence is established, not on first sighting. Grounded in fact: the real xUSD breach was flagged on-chain (CBB0FE, 4.1x, ~$170M backing vs ~$530M borrowed) ~a week BEFORE the depeg and persisted while supply kept being looped/minted — exactly a multi-poll, supply-growth-corroborated, page-now breach."
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "event": "Lido stETH ETH-relative depeg 2022-06-13 \u2014 Celsius/3AC forced-deleveraging cascade dumped stETH into thin Curve/CEX liquidity; the stETH/ETH ratio fell to ~0.93-0.935 (\u22486.5-7% below ETH peg) at the Mon Jun 13 trough. Liquidity dislocation, NOT a backing failure (every stETH still 1:1 staked-ETH backed) and NOT a contractual discount (so not by_design_discount). A major lending collateral on a market-price stETH/ETH oracle \u2192 real collateral haircut / liquidation-contagion exposure the desk must surface, but above the liquidation line and below the 10% catastrophic depth \u2192 WARN band, not CRITICAL.",
+  "source": "CoinDesk/Nansen forensics, The Defiant, Yahoo Finance, Nansen 'Demystifying stETH's De-peg', HTX Research, TokenInsight; on-chain Alchemy archive (stETH supply 4,219,980.057 @ block 14955879 = 2022-06-13T11:59:57Z; Curve stETH/ETH pool 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022 get_dy measured per case); Lido docs (no withdrawals until Shanghai Apr 2023) \u2014 see EVENT.md",
+  "closed": true,
+  "cases": [
+    {
+      "id": "trough-eth-relative-0.935",
+      "snapshot": "snapshots/stETH.json",
+      "now": "2022-06-13T12:00:00Z",
+      "peg_probes": {
+        "stETH-isolated_lending-collateral_isolated": {
+          "price": 0.9350063988931129,
+          "peg": 1.0,
+          "asset_class": "lst",
+          "by_design_discount": false,
+          "source": "onchain:curve 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022 get_dy(1,0,1e18)=935006398893112904 @ethereum:14955879"
+        }
+      },
+      "should_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "stETH-isolated_lending-collateral_isolated",
+          "min_severity": "WARN"
+        }
+      ],
+      "must_not_fire": [],
+      "beta": 2.0,
+      "note": "stETH at ~0.935 of ETH backing = ~6.5% below peg, ~1-2 orders past a healthy LST's ~10-40 bps steady-state. Major lending collateral on a market-price (depeg_sensitive) stETH/ETH oracle: the secondary-market discount is a real collateral haircut. Above the liquidation line (LT 0.90, distance ~+3.5%) and below the 10% catastrophic-depth override \u2192 the honest engine band is WARN (out of band, above LT). NOT by_design_discount (a market liquidity crisis, not a contractual/structural discount), so the structural-discount suppression must NOT silence it. Floor = WARN (not HIGH/CRITICAL: no LT crossing, no realized bad debt on the stETH market itself; positions deleveraged rather than mass-liquidating). (RE-ANCHORED 2026-06 \u2014 measured on-chain @block 14955879 = 2022-06-13T11:59:57Z, the on-chain DEPTH-TROUGH block: Curve stETH/ETH pool 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022 get_dy(1 stETH -> ETH) = 0.93501 stETH/ETH (raw 935006398893112904); measured=True; 6.499% below peg \u2014 matches the documented forensic trough. The PRIOR anchor 14955378 (10:00Z) sat in a partially-recovered window where the marginal print was 0.9434 (~5.7%); a window scan at 1h then 15m resolution found the on-chain trough ~2h later (12:00-15:00Z). Same WARN tier; the deeper measured 0.935 now bears the labelled premise on-chain rather than via a CEX/aggregator intraday low at a different time.)"
+    },
+    {
+      "id": "deeper-trough-0.93",
+      "snapshot": "snapshots/stETH.json",
+      "now": "2022-06-13T14:45:00Z",
+      "peg_probes": {
+        "stETH-isolated_lending-collateral_isolated": {
+          "price": 0.9340787081225251,
+          "peg": 1.0,
+          "asset_class": "lst",
+          "by_design_discount": false,
+          "source": "onchain:curve 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022 get_dy(1,0,1e18)=934078708122525117 @ethereum:14956535"
+        }
+      },
+      "should_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "stETH-isolated_lending-collateral_isolated",
+          "min_severity": "WARN"
+        }
+      ],
+      "must_not_fire": [],
+      "beta": 2.0,
+      "note": "Monday-afternoon trough ~0.934 (\u22486.6% below ETH peg). Anchors that the monitor is alarming across the trough, not just one print. Still above LT 0.90 (distance ~+3.4%) and below the 10% catastrophic override \u2192 WARN floor. A sustained ~6.6% ETH-relative discount of a major collateral is unambiguously an actionable exposure event and must fire. (RE-ANCHORED 2026-06 \u2014 measured on-chain @block 14956535 = 2022-06-13T14:44:56Z, the DEEPEST on-chain block found by a 15-min window scan: Curve stETH/ETH pool 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022 get_dy(1 stETH -> ETH) = 0.93408 stETH/ETH; measured=True; 6.592% below peg, the deepest marginal print the on-chain venue reached in the Jun 10-14 window. The PRIOR anchor 14955640 (11:00Z) had partially recovered to 0.9473 (~5.3%). Same WARN tier.)"
+    },
+    {
+      "id": "benign-steady-state-0.998",
+      "snapshot": "snapshots/stETH.json",
+      "now": "2022-04-15T12:00:00Z",
+      "peg_probes": {
+        "stETH-isolated_lending-collateral_isolated": {
+          "price": 0.9999644549902402,
+          "peg": 1.0,
+          "asset_class": "lst",
+          "by_design_discount": false,
+          "source": "onchain:curve 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022 get_dy(1,0,1e18)=999964454990240270 @ethereum:14589816"
+        }
+      },
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "stETH-isolated_lending-collateral_isolated"
+        }
+      ],
+      "beta": 2.0,
+      "note": "FP-trap: stETH in calm, pre-cascade conditions trades a hair below its ETH backing. Must NOT raise a DEPEG. Guards against a hair-trigger that would alarm on the entire LST/restaking book every day. The real event was an order of magnitude deeper (~0.93-0.935). (RE-ANCHORED 2026-06 \u2014 measured on-chain @block 14589816 = 2022-04-15T11:59:48Z, a genuinely-CALM pre-Terra block (Terra collapsed May 9-13, 2022, well after this date): Curve stETH/ETH pool 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022 get_dy(1 stETH -> ETH) = 0.99996 stETH/ETH; measured=True; 0.004% (~0.4 bps) below peg = textbook calm LST steady state, confirmed in-band on-chain. This REPLACES the prior 2022-05-20 anchor, which the label-reviewer REJECTED: its on-chain measurement was 0.98395 (~1.6% below peg) because May 20 sat inside the immediate post-Terra aftermath \u2014 the Curve pool was already imbalanced, so it was NOT a calm 20-bps steady state and was an unfaithful must_not_fire trap.)"
+    }
+  ],
+  "ratified": "auto(reviewer)"
+}

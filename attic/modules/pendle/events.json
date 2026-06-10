@@ -1,0 +1,69 @@
+{
+  "_description": "Pendle 의존성 그래프가 다루는 핵심 노드 타입. Pendle은 singleton AMM이 아니라 SY, PT/YT, Market이 asset/expiry/market config 단위로 생성되는 구조다.",
+
+  "static_nodes": {
+    "_description": "시장 또는 시뮬레이션 초기화 시 미리 알 수 있는 프로토콜 구성 노드",
+
+    "yielding_token": {
+      "label": "yielding token / underlying yield source",
+      "role": "Pendle에 들어오기 전 원본 수익 자산. 예: stETH, sUSDe, GLP, aUSDC, stable yield token 등. stable 계열일 수도 있다.",
+      "count_per_market": "보통 1개",
+      "source": "SY가 감싸는 외부 토큰 또는 yield-bearing asset",
+      "metadata_examples": {"symbol": "sUSDe", "asset_type": "stable_yield_token", "issuer_protocol": "Ethena", "decimals": 18, "is_stable": true}
+    },
+    "sy_token": {
+      "label": "SY Token",
+      "role": "Standardized Yield token. 원본 yielding token을 Pendle 표준 인터페이스로 wrapping한 토큰.",
+      "count_per_market": "보통 1개",
+      "source": "IStandardizedYield / SY contract",
+      "metadata_examples": {"symbol": "SY-sUSDe", "wraps": "sUSDe", "exchange_rate_source": "SY.exchangeRate()", "is_wrapped": true}
+    },
+    "pt": {
+      "label": "PT",
+      "role": "Principal Token. 만기 시점의 원금 claim을 나타내는 토큰.",
+      "count_per_market": "SY + expiry 조합마다 1개",
+      "source": "PendleYieldContractFactory.createYieldContract(SY, expiry)",
+      "metadata_examples": {"symbol": "PT-sUSDe-2026-09-24", "expiry": 1790208000, "paired_yt": "YT-sUSDe-2026-09-24", "underlying_sy": "SY-sUSDe"}
+    },
+    "yt": {
+      "label": "YT",
+      "role": "Yield Token. 만기 전까지 발생하는 yield claim을 나타내는 토큰.",
+      "count_per_market": "SY + expiry 조합마다 1개",
+      "source": "PendleYieldContractFactory.createYieldContract(SY, expiry)",
+      "metadata_examples": {"symbol": "YT-sUSDe-2026-09-24", "expiry": 1790208000, "paired_pt": "PT-sUSDe-2026-09-24", "underlying_sy": "SY-sUSDe"}
+    },
+    "amm_pool": {
+      "label": "Pendle AMM Market",
+      "role": "PT와 SY가 거래되는 Pendle AMM pool. LP token 역할도 함께 수행한다.",
+      "count_per_market": "PT + AMM 파라미터 조합마다 1개",
+      "source": "PendleMarketFactory.createNewMarket(PT, scalarRoot, initialAnchor, lnFeeRateRoot)",
+      "metadata_examples": {"base_assets": ["PT", "SY"], "pricing_model": "Pendle V2 AMM", "scalar_root": "market-specific", "initial_anchor": "market-specific", "ln_fee_rate_root": "market-specific"}
+    }
+  },
+
+  "rate_edges": {
+    "_description": "노드는 아니지만 그래프에서 반드시 추적해야 하는 교환비, 인덱스, 가격 관계. 시뮬레이션에서는 edge weight 또는 edge metric처럼 취급한다.",
+    "yielding_token_to_sy_exchange_rate": {"from": "yielding_token", "to": "sy_token", "label": "wrap / unwrap exchange rate", "role": "원본 yielding token 1개가 SY 몇 개로 변환되는지", "importance": "SY 가치, PT/YT mint/redeem, AMM 가격의 기초"},
+    "sy_to_pt_yt_split": {"from": "sy_token", "to": ["pt", "yt"], "label": "mint PT + YT", "role": "SY를 예치하면 같은 만기의 PT와 YT가 발행", "importance": "원금/수익 분리 구조의 핵심 edge"},
+    "pt_yt_to_sy_merge": {"from": ["pt", "yt"], "to": "sy_token", "label": "redeem PT + YT", "role": "PT와 YT를 합쳐 SY로 되돌림", "importance": "PT/YT 가격 괴리/arbitrage 분석"},
+    "pt_to_sy_amm_price": {"from": "pt", "to": "sy_token", "via": "amm_pool", "label": "PT/SY AMM price", "role": "AMM pool 에서 관측되는 PT 시장가", "importance": "고정금리, implied yield, PT discount, liquidation oracle"},
+    "yt_implied_value": {"from": "yt", "to": "sy_token", "via": "amm_pool", "label": "YT implied value", "role": "YT 시장가/암시 future yield 가치", "importance": "수익률 기대, maturity 수렴 분석"}
+  },
+
+  "graph_edges": {
+    "_description": "의존성 그래프에서 기본적으로 그릴 방향성 관계",
+    "wraps": {"from": "yielding_token", "to": "sy_token", "edge_type": "wraps_into", "metric": "yielding_token_to_sy_exchange_rate"},
+    "splits_into_pt": {"from": "sy_token", "to": "pt", "edge_type": "principal_split", "metric": "sy_to_pt_yt_split"},
+    "splits_into_yt": {"from": "sy_token", "to": "yt", "edge_type": "yield_split", "metric": "sy_to_pt_yt_split"},
+    "trades_pt_against_sy": {"from": "pt", "to": "amm_pool", "edge_type": "pool_asset"},
+    "trades_sy_against_pt": {"from": "sy_token", "to": "amm_pool", "edge_type": "pool_asset"}
+  },
+
+  "_core_contracts_mainnet": {
+    "_note": "instances.json 의 정적 노드 = 아래 core. 개별 SY/PT/YT/Market 은 동적 — Pendle API (api-v2.pendle.finance) discovery 모듈로 추후 자동 발견 권장 (Morpho 패턴).",
+    "PendleRouterV4": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+    "PendleYieldContractFactory": "0x35A338522a435D46f77Be32C70E215B813D0e3aC",
+    "PendleMarketFactoryV3": "0x1A6fCc85557BC4fB7B534ed835a03EF056552D52",
+    "PendlePYLpOracle": "0x9a9Fa8338dd5E5B2188006f1Cd2Ef26d921650C2"
+  }
+}

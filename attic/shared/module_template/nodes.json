@@ -1,0 +1,32 @@
+{
+  "_description": "{프로토콜명}의 정적 노드 정의. shared/vocab/node_types.md 의 표준 어휘 사용.",
+  "_protocol": "{프로토콜 식별자, 예: lido}",
+  "_schema": "shared/schemas/node_schema.json",
+
+  "static_nodes": {
+    "_description": "프로토콜 초기화 시 Address Book / RPC에서 로드되는 정적 노드들",
+
+    "example_protocol_pool": {
+      "label": "프로토콜 메인 컨트랙트 예시",
+      "role": "사용자가 호출하는 진입점 (예: Aave Pool, Sky Vat)",
+      "count_per_market": 1,
+      "source": "Address Book 또는 공식 docs"
+    }
+  },
+
+  "dynamic_nodes": {
+    "_description": "이벤트 처리 중 등장하는 노드 (user, bot 등)",
+
+    "user": {
+      "label": "EOA",
+      "role": "프로토콜 사용자"
+    }
+  },
+
+  "_TODO": [
+    "1. shared/vocab/node_types.md 읽고 본인 프로토콜의 노드 타입 결정",
+    "2. 각 노드의 컨트랙트 주소 (Address Book 등에서) 확인",
+    "3. 노드별 메타데이터 (LTV, 발행량, 오라클 소스 등) 정리",
+    "4. 실제 예시: modules/aave/nodes.json 참고"
+  ]
+}

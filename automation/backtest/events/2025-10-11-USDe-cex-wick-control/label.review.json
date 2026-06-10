@@ -1,0 +1,9 @@
+{
+  "verdict": "APPROVE",
+  "summary": "Faithful FP-discipline control: both cases inject on-chain price (0.997 / 1.0) within stable band so DEPEG correctly stays silent; edge is depeg_sensitive=true MARKET so path is live (non-vacuous); off-chain $0.65 Binance wick correctly excluded and disclosed; on-chain state genuinely healthy (redemptions working, overcollateralized, attested); edge_id matches snapshot+probe; closed:true; no on-chain reserve overclaim.",
+  "per_case": {
+    "usde-onchain-held-cex-wick": "APPROVE — price 0.997 (-0.3%) within band, should_fire [] correct, must_not_fire DEPEG on USDe-aave_v3-collateral (edge exists, depeg_sensitive=true, live), max_emitted WARN/0; load-bearing on-chain ~$0.997 (Curve <100bps) honestly disclosed and $0.65 CEX wick deliberately excluded.",
+    "usde-onchain-atpeg-robustness": "APPROVE — price 1.0 exact par within band, should_fire [] correct, same must_not_fire DEPEG on matching edge, max_emitted WARN/0; anchors at-peg end of healthy on-chain range, non-vacuous and faithful."
+  },
+  "draft_sha256": "24644c269ce49152990dac2b569842b2ac2632087d5406633c67f2d174f2d274"
+}

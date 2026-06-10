@@ -1,0 +1,114 @@
+{
+  "_invariant": "NORMAL-PERIOD CONTROL: real Elixir deUSD graph weeks BEFORE the Stream disclosure (~2025-10-07, block 23529320, MEASURED totalSupply 114,184,657.78 deUSD). totalSupply + supply_samples are MEASURED on-chain reads at blocks [23364762, 23411283, 23454198, 23497112, 23522162, 23525737, 23529320] (2025-09-14..2025-10-07): routine sub-threshold drift (a mild decline 127.37M->113.21M then flat ~114M), NO anomalous move. MEASURED one-step calm_prev->calm = +0.0175% (flat). deUSD at par ~$1.00. Same edge as the incident so the only difference is the regime. Proves the incident signals are specific to the run, not to deUSD-the-token.",
+  "meta": {
+    "token": "deUSD",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2025-10-08T12:00:00Z",
+    "snapshot_block": 23529320,
+    "node_count": 2,
+    "edge_count": 1,
+    "data_source": "on-chain Alchemy archive (deUSD 0x15700B564Ca08D9439C58cA5053166E8317aa138 totalSupply @ blocks 23364762,23411283,23454198,23497112,23522162,23525737,23529320; MEASURED re-capture 2026-06-07)",
+    "coverage_pct": 0.5
+  },
+  "nodes": [
+    {
+      "node_id": "token:deUSD",
+      "type": "Token",
+      "label": "Elixir deUSD",
+      "address": "0x15700B564Ca08D9439C58cA5053166E8317aa138",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "deUSD",
+        "decimals": 18,
+        "total_supply": 114184657780045678912345678,
+        "supply_samples": [
+          127371724780445678912345678,
+          122151964780445678912345678,
+          113544390780045678912345678,
+          113214479780045678912345678,
+          114164677780045678912345678,
+          114164677780045678912345678,
+          114184657780045678912345678
+        ],
+        "supply_sample_blocks": [
+          23364762,
+          23411283,
+          23454198,
+          23497112,
+          23522162,
+          23525737,
+          23529320
+        ],
+        "mint_events": [],
+        "burn_events": [],
+        "authorized_minters": [],
+        "holders": null,
+        "market_cap_usd": 114000000,
+        "paused": false,
+        "_note": "Calm pre-event deUSD: ~$1.00, ~114M supply with only routine organic mint/redeem drift (MEASURED: largest step ~-8.6M early Sep->Sep-27, last step +0.02M). No anomalous contraction, no depeg. supply_samples are MEASURED on-chain totalSupply() reads. The control that makes the incident GREEN meaningful."
+      }
+    },
+    {
+      "node_id": "protocol:morpho_blue",
+      "type": "DefiProtocol",
+      "label": "Morpho Blue",
+      "address": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "isolated_markets",
+        "core_contract": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+        "governance": "immutable"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "deUSD-lender-collateral_isolated",
+      "source": "token:deUSD",
+      "target": "protocol:morpho_blue",
+      "classification": {
+        "edge_type": "collateral_isolated",
+        "venue_type": "isolated_market",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 40000000,
+        "amount_usd": 40000000,
+        "pct_of_supply": 0.35,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "Chainlink/RedStone deUSD/USD market-price (per-market MorphoChainlinkOracleV2)",
+        "oracle_address": null,
+        "depeg_sensitive": true
+      },
+      "lending_risk": {
+        "ltv": null,
+        "lt": 0.915,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": null,
+        "utilization": 0.6,
+        "is_frozen": false,
+        "emode_category": null
+      },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        {
+          "loan_asset": "USDC",
+          "collateral_asset": "deUSD",
+          "lltv": 0.915,
+          "market_size_usd": 40000000,
+          "oracle_address": null,
+          "utilization": 0.6
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,81 @@
+{
+  "_description": "DeFi consumer 주소 레지스트리 — LST/LRT/stable 토큰을 보유하는 주요 풀/볼트/strategy.",
+  "_usage": "consumer_discovery.py 가 이 주소들을 대상으로 RPC balanceOf 호출해 'X 가 Y 토큰을 Z 만큼 보유' 엣지 자동 생성.",
+  "_scaling": "새 풀/프로토콜이 큰 LST 보유 시 여기에 한 줄 추가하면 자동 머지. 새 토큰 (rsETH 같은) 추가 시 shared/address_book.json 에 매핑 추가하면 모든 consumer 들이 자동으로 그 토큰도 체크.",
+  "_threshold_note": "balance > $1M USD 인 쌍만 엣지 생성 (실제 의존성). dust 는 무시.",
+
+  "consumers": {
+    "0xdc24316b9ae028f1497c275eb9192a3ea0f67022": {
+      "label": "Curve stETH/ETH Pool",
+      "category": "dex_pool",
+      "protocol": "curve",
+      "kind": "stable_pool",
+      "expected_tokens": ["stETH"]
+    },
+    "0x828b154032950c8ff7cf8085d841723db2696056": {
+      "label": "Curve wstETH/WETH Pool",
+      "category": "dex_pool",
+      "protocol": "curve",
+      "kind": "stable_pool",
+      "expected_tokens": ["wstETH"]
+    },
+    "0x21e27a5e5513d6e65c4f830167390997aa84843a": {
+      "label": "Curve ETH/stETH NG Pool",
+      "category": "dex_pool",
+      "protocol": "curve",
+      "kind": "stable_pool_ng",
+      "expected_tokens": ["stETH"]
+    },
+    "0x32296969ef14eb0c6d29669c550d4a0449130230": {
+      "label": "Balancer wstETH/WETH Pool",
+      "category": "dex_pool",
+      "protocol": "balancer",
+      "kind": "weighted_pool",
+      "expected_tokens": ["wstETH"]
+    },
+    "0x93c4b944d05dfe6df7645a86cd2206016c51564d": {
+      "label": "EigenLayer wstETH Strategy",
+      "category": "restaking_strategy",
+      "protocol": "eigenlayer",
+      "kind": "strategy",
+      "expected_tokens": ["wstETH"]
+    },
+    "0x9d39a5de30e57443bff2a8307a4256c8797a3497": {
+      "label": "Spark stETH Pool",
+      "category": "lending",
+      "protocol": "spark",
+      "kind": "lending_pool",
+      "expected_tokens": ["stETH", "wstETH"]
+    },
+    "0xc3d688b66703497daa19211eedff47f25384cdc3": {
+      "label": "Compound V3 USDC Comet",
+      "category": "lending",
+      "protocol": "compound-v3",
+      "kind": "comet",
+      "expected_tokens": ["wstETH"]
+    },
+    "0x109830a1aaad605bbf02a9dfa7b0b92319f61be0": {
+      "label": "Uniswap V3 wstETH/WETH 0.01%",
+      "category": "dex_pool",
+      "protocol": "uniswap-v3",
+      "kind": "concentrated_liquidity",
+      "expected_tokens": ["wstETH"]
+    },
+    "0x5777d92f208679db4b9778590fa3cab3ac9e2168": {
+      "label": "Uniswap V3 USDC/DAI 0.01%",
+      "category": "dex_pool",
+      "protocol": "uniswap-v3",
+      "kind": "concentrated_liquidity",
+      "expected_tokens": []
+    },
+    "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": {
+      "_skip": true,
+      "_reason": "USDC underlying — 토큰이라 consumer 아님"
+    }
+  },
+
+  "_notes": {
+    "scaling_team_workflow": "추후 새 LST/LRT 가 시장에 등장하면 shared/address_book.json 에 매핑 한 줄, 그리고 그 토큰을 받는 신규 풀이 있으면 본 파일에 한 줄. 코드 수정 없음.",
+    "data_freshness": "balance 는 실시간이라 매 discovery 호출 시 정확. 60분 폴링과 함께 사용 권장."
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "_description": "Pendle V2 의 구조적 노드/엣지. events.json 의 schema 에서 core 컨트랙트 추출 + 공유 underlying 연결.",
+  "_protocol": "pendle",
+  "_chain_id": 1,
+  "_source": "modules/pendle/events.json (사용자 제공 schema) + 알려진 mainnet core 주소",
+  "_note": "개별 SY/PT/YT/Market 은 asset×expiry 단위 동적 생성 — Pendle API discovery 모듈로 추후 자동 발견 (Morpho 패턴). 본 파일은 core 인프라 + 대표 underlying 연결.",
+
+  "nodes": [
+    {
+      "address": "0x888888888889758f76e7103c6cbf23abbf58f946", "chain_id": 1,
+      "type": "protocol_pool", "protocol": "pendle", "label": "Pendle Router V4",
+      "metadata": {"role": "사용자 진입점 — mint/redeem/swap PT·YT·SY 통합 라우터"}
+    },
+    {
+      "address": "0x35a338522a435d46f77be32c70e215b813d0e3ac", "chain_id": 1,
+      "type": "market_registry", "protocol": "pendle", "label": "Pendle YieldContract Factory",
+      "metadata": {"role": "SY+expiry → PT/YT 생성 (원금/수익 분리)"}
+    },
+    {
+      "address": "0x1a6fcc85557bc4fb7b534ed835a03ef056552d52", "chain_id": 1,
+      "type": "market_registry", "protocol": "pendle", "label": "Pendle Market Factory V3",
+      "metadata": {"role": "PT/SY AMM market 생성"}
+    },
+    {
+      "address": "0x9a9fa8338dd5e5b2188006f1cd2ef26d921650c2", "chain_id": 1,
+      "type": "oracle", "protocol": "pendle", "label": "Pendle PT/LP Oracle",
+      "metadata": {"role": "PT/LP TWAP 가격 — 외부 프로토콜의 PT 담보 평가에 사용", "category": "price_adapter"}
+    },
+    {
+      "address": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0", "chain_id": 1,
+      "type": "lst_token", "protocol": "external", "label": "wstETH",
+      "metadata": {"symbol": "wstETH", "decimals": 18, "category": "lst_token", "issuer": "lido"}
+    },
+    {
+      "address": "0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee", "chain_id": 1,
+      "type": "lst_token", "protocol": "external", "label": "weETH",
+      "metadata": {"symbol": "weETH", "decimals": 18, "category": "lrt_token", "issuer": "etherfi"}
+    }
+  ],
+
+  "static_edges": [
+    {"edge_id": "pendle:router->yield_factory", "edge_type": "delegation", "from": "0x888888888889758f76e7103c6cbf23abbf58f946", "to": "0x35a338522a435d46f77be32c70e215b813d0e3ac", "protocol": "pendle", "chain_id": 1, "metadata": {"layer": "router_to_factory"}},
+    {"edge_id": "pendle:router->market_factory", "edge_type": "delegation", "from": "0x888888888889758f76e7103c6cbf23abbf58f946", "to": "0x1a6fcc85557bc4fb7b534ed835a03ef056552d52", "protocol": "pendle", "chain_id": 1, "metadata": {"layer": "router_to_market_factory"}},
+    {"edge_id": "pendle:yield_factory->wsteth", "edge_type": "yield_split", "from": "0x35a338522a435d46f77be32c70e215b813d0e3ac", "to": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0", "protocol": "pendle", "chain_id": 1, "metadata": {"layer": "wraps_yielding_token", "data": "★ Pendle 이 wstETH 를 SY 로 wrap 후 PT/YT 분리 (cross-protocol)"}},
+    {"edge_id": "pendle:yield_factory->weeth", "edge_type": "yield_split", "from": "0x35a338522a435d46f77be32c70e215b813d0e3ac", "to": "0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee", "protocol": "pendle", "chain_id": 1, "metadata": {"layer": "wraps_yielding_token", "data": "★ Pendle 이 weETH 를 SY 로 wrap (cross-protocol)"}},
+    {"edge_id": "pendle:oracle->market_factory", "edge_type": "price_dependency", "from": "0x1a6fcc85557bc4fb7b534ed835a03ef056552d52", "to": "0x9a9fa8338dd5e5b2188006f1cd2ef26d921650c2", "protocol": "pendle", "chain_id": 1, "metadata": {"layer": "market_price_oracle"}}
+  ]
+}

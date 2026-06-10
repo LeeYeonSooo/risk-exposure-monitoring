@@ -1,0 +1,1 @@
+{"addr": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb", "kind": "ledger:morpho", "label": null, "expandable": false, "adapter": "morpho", "note": "singleton ledger; expand via adapter:morpho"}

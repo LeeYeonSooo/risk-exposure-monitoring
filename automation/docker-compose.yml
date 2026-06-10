@@ -1,0 +1,38 @@
+# ──────────────────────────────────────────────────────────────
+# 로컬/서버 공용 DB 스택 — TimescaleDB (Postgres 16 + Timescale 확장)
+#
+# schema.sql 이 edges 를 hypertable 로 만들 수 있게 timescale 이미지 사용.
+# Timescale 미설치여도 schema.sql 의 DO 블록이 noop 처리하므로 순정
+# postgres:16 로 바꿔도 동작함.
+#
+# 사용:
+#   docker compose up -d            # 백그라운드 기동
+#   docker compose ps               # 상태
+#   docker compose logs -f db       # 로그
+#   docker compose down             # 정지 (데이터 유지)
+#   docker compose down -v          # 정지 + 데이터 삭제
+#
+# DATABASE_URL=postgres://wbtc:wbtc_local_pw@localhost:5433/wbtc_mapping
+# (포트 5433 — 호스트의 기존 5432 와 충돌 방지)
+# ──────────────────────────────────────────────────────────────
+services:
+  db:
+    image: timescale/timescaledb:latest-pg16
+    container_name: wbtc-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: wbtc
+      POSTGRES_PASSWORD: wbtc_local_pw
+      POSTGRES_DB: wbtc_mapping
+    ports:
+      - "5433:5432"
+    volumes:
+      - wbtc_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wbtc -d wbtc_mapping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  wbtc_pgdata:

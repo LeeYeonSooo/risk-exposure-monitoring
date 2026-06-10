@@ -1,0 +1,176 @@
+{
+  "_invariant": "Real Morpho exposure graph for USD0++ at the 2025-01-10 depeg. Built from on-chain reads (token address/decimals/totalSupply at block 21594532 via Alchemy archive) + the researcher's read-plan for the two coexisting Morpho oracle regimes. Two edges to USD0++/USDC Morpho Blue markets: one MARKET-price (Chainlink, depeg_sensitive=true — liquidations triggered) and one HARDCODED $1.00 (depeg_sensitive=false — oracle blind, no liquidation). LT=0.86 (86% LLTV) is the real Morpho liquidation line. The depeg price itself is injected per-case via peg_probes, not stored on the edge.",
+  "meta": {
+    "token": "USD0++",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2025-01-10",
+    "snapshot_block": 21594532,
+    "node_count": 2,
+    "edge_count": 2,
+    "data_source": "on-chain Alchemy archive (USD0++ 0x35D8…9bC0 @ block 21594532, ts 2025-01-10T14:00:11Z, totalSupply 1.494B, decimals 18) + Morpho exposure from event post-mortems (Blockworks/Leviathan/ChainCatcher/Robdog)",
+    "coverage_pct": 0.6,
+    "measured_anchor": {
+      "_note": "Re-anchor verification (2026-06-07): the depeg-trough anchor was confirmed ON-CHAIN. At block 21594531/21594532 the Chainlink USD0++/USD feed reads $0.90977632 (~9.0% off peg), the deepest in-window value (a fine scan 13:15→15:30 UTC bottomed at $0.909274 @block 21594980). Curve USD0/USD0++ pool cross-confirms get_dy(1->0)=0.9070 with balances 17.15M USD0 / 231.3M USD0++ (~7/93 imbalance, matching EVENT.md's ~92/8 drain). The press ~$0.89 low was a CEX/aggregator print; the on-chain protocol oracle NEVER fell below ~$0.909 anywhere in the Jan-9→Jan-14 window. The depeg price is injected per-case via peg_probes (now MEASURED, see label.draft.json); totalSupply/decimals/block/exposure-graph unchanged.",
+      "chainlink_feed": "0xFC9e30Cf89f8A00dba3D34edf8b65BCDAdeCC1cB",
+      "chainlink_decimals": 8,
+      "measured_price_at_anchor": 0.90977632,
+      "measured_block": 21594531,
+      "curve_pool": "0x1d08e7adc263cfc70b1babe6dc5bb339c16eec52",
+      "curve_get_dy_1to0_marginal": 0.9070,
+      "deepest_in_window_price": 0.909274,
+      "deepest_in_window_block": 21594980,
+      "fp_trap_recovery_unmeasurable": "USD0++ NEVER re-pegged to ~par on-chain in any reachable block: Chainlink reads $0.9271 (2025-01-13) -> $0.9711 (2025-04-15) -> $0.9657 (2026-06-01 latest). The 0.997 FP-trap stays a synthetic asserted probe (measured=False)."
+    }
+  },
+  "nodes": [
+    {
+      "node_id": "token:USD0++",
+      "type": "Token",
+      "label": "Usual USD0++ (4-year liquid bond)",
+      "address": "0x35D8949372D46B7a3D5A56006AE77B215fc69bC0",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "USD0++",
+        "decimals": 18,
+        "total_supply": 1494268354,
+        "holders": null,
+        "market_cap_usd": 1330000000,
+        "paused": false,
+        "_note": "Tokenized 4-year bond on USD0 (RWA/T-bill backed). $1 was a protocol-promise redemption, not a market float. 2025-01-09/10 Usual replaced implicit 1:1 redemption with a dual-exit model carrying an unconditional $0.87 floor -> market repriced toward the floor (on-chain Chainlink trough ~$0.909, ~9.0% off peg; press cited a ~$0.89 CEX low). Governance-induced revaluation, NOT a backing failure.",
+        "bridges": {}
+      }
+    },
+    {
+      "node_id": "protocol:morpho_blue",
+      "type": "DefiProtocol",
+      "label": "Morpho Blue",
+      "address": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "isolated_markets",
+        "core_contract": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+        "governance": "immutable",
+        "_note": "USD0++ was a major Morpho Blue collateral with $200m+ aggregate borrows across isolated markets at the time of the depeg."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "USD0PP-morpho_blue-collateral_isolated",
+      "source": "token:USD0++",
+      "target": "protocol:morpho_blue",
+      "classification": {
+        "edge_type": "collateral_isolated",
+        "venue_type": "isolated_market",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 56000000,
+        "amount_usd": 56000000,
+        "pct_of_supply": 0.0375,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "Chainlink USD0++/USD market-price (per-market MorphoChainlinkOracleV2)",
+        "oracle_address": null,
+        "depeg_sensitive": true
+      },
+      "lending_risk": {
+        "ltv": null,
+        "lt": 0.86,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": null,
+        "utilization": 0.9,
+        "is_frozen": false,
+        "emode_category": null
+      },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        {
+          "loan_asset": "USDC",
+          "collateral_asset": "USD0++",
+          "lltv": 0.86,
+          "market_size_usd": 56000000,
+          "oracle_address": null,
+          "utilization": 0.9,
+          "ouroboros_risk": true,
+          "vault_funded": true,
+          "vault_funded_share_of_supply": null,
+          "funding_vaults": []
+        }
+      ],
+      "top_pools": null,
+      "meta": {
+        "snapshot_block": 21594532,
+        "snapshot_ts": "2025-01-10",
+        "verifiable_onchain": true,
+        "confidence": "MEDIUM",
+        "data_source": "Market-price (Chainlink) USD0++/USDC Morpho market — the regime where the measured ~$0.909 on-chain price crossed the 86% LLTV and liquidations of looped positions actually triggered."
+      }
+    },
+    {
+      "edge_id": "USD0PP-morpho_blue-collateral_isolated_2",
+      "source": "token:USD0++",
+      "target": "protocol:morpho_blue",
+      "classification": {
+        "edge_type": "collateral_isolated",
+        "venue_type": "isolated_market",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 150000000,
+        "amount_usd": 150000000,
+        "pct_of_supply": 0.1004,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "FIXED",
+        "oracle_provider": "Hardcoded $1.00 oracle (returns fixed 1.0, blind to market price)",
+        "oracle_address": null,
+        "depeg_sensitive": false
+      },
+      "lending_risk": {
+        "ltv": null,
+        "lt": 0.86,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": null,
+        "utilization": 0.92,
+        "is_frozen": false,
+        "emode_category": null
+      },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        {
+          "loan_asset": "USDC",
+          "collateral_asset": "USD0++",
+          "lltv": 0.86,
+          "market_size_usd": 150000000,
+          "oracle_address": null,
+          "utilization": 0.92,
+          "ouroboros_risk": true,
+          "vault_funded": true,
+          "vault_funded_share_of_supply": null,
+          "funding_vaults": []
+        }
+      ],
+      "top_pools": null,
+      "meta": {
+        "snapshot_block": 21594532,
+        "snapshot_ts": "2025-01-10",
+        "verifiable_onchain": true,
+        "confidence": "MEDIUM",
+        "data_source": "Hardcoded $1.00-oracle USD0++/USDC Morpho market — oracle blind to the depeg, so on-chain LLTV (86%) never breached and liquidations did NOT trigger (largest ~$500). Exposure was real; suppliers fled, borrow rates spiked. The dangerous blind-oracle regime."
+      }
+    }
+  ]
+}

@@ -1,0 +1,307 @@
+{
+  "schema_version": "1.0",
+  "chain": "ethereum",
+  "central_assets": ["stETH", "wstETH"],
+
+  "known_contracts": {
+    "Lido_stETH": {
+      "address": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+      "category": "lido_system",
+      "type": "lst_token",
+      "label": "Lido stETH"
+    },
+    "WstETH": {
+      "address": "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
+      "category": "lido_system",
+      "type": "lst_wrapper",
+      "label": "Wrapped stETH"
+    },
+    "WithdrawalQueue": {
+      "address": "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1",
+      "category": "lido_system",
+      "type": "withdrawal_nft",
+      "label": "Lido Withdrawal Queue"
+    },
+    "Burner": {
+      "address": "0xD15a672319Cf0352560eE76d9e89eAB0889046D3",
+      "category": "lido_system",
+      "type": "burner",
+      "label": "Lido Burner"
+    },
+    "Treasury": {
+      "address": "0x3e40D73EB977Dc6a537aF587D48316feE66E9C8c",
+      "category": "lido_system",
+      "type": "treasury",
+      "label": "Lido DAO Treasury"
+    },
+    "NodeOperatorsRegistry": {
+      "address": "0x55032650b14df07b85bF18A3a3eC8E0Af2e028d5",
+      "category": "lido_system",
+      "type": "staking_module",
+      "label": "Node Operators Registry"
+    },
+    "ZeroAddress": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "category": "system",
+      "type": "burn_sink",
+      "label": "Null Address"
+    }
+  },
+
+  "node_types": [
+    "lst_token",
+    "lst_wrapper",
+    "withdrawal_nft",
+    "burner",
+    "treasury",
+    "staking_module",
+    "operator_reward",
+    "protocol_contract",
+    "eoa",
+    "bridge",
+    "oracle",
+    "burn_sink",
+    "unknown"
+  ],
+
+  "node_categories": [
+    "lido_system",
+    "lending",
+    "dex",
+    "cdp",
+    "yield",
+    "restaking",
+    "bridge",
+    "stablecoin",
+    "oracle",
+    "infrastructure",
+    "operator",
+    "eoa",
+    "system",
+    "unknown"
+  ],
+
+  "edge_categories": ["holding", "intent", "flow", "fee", "burn"],
+
+  "edge_definitions": [
+    {
+      "id": "holding_stETH_transfer",
+      "category": "holding",
+      "event": "TransferShares",
+      "event_signature": "TransferShares(address,address,uint256)",
+      "contract_address": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+      "edge_type": "stETH_moved",
+      "from_field": "from",
+      "to_field": "to",
+      "weight_field": "sharesValue",
+      "unit": "shares"
+    },
+    {
+      "id": "holding_wstETH_transfer",
+      "category": "holding",
+      "event": "Transfer",
+      "event_signature": "Transfer(address,address,uint256)",
+      "contract_address": "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
+      "edge_type": "wstETH_moved",
+      "from_field": "from",
+      "to_field": "to",
+      "weight_field": "value",
+      "unit": "wstETH"
+    },
+    {
+      "id": "holding_nft_mint",
+      "category": "holding",
+      "event": "Transfer",
+      "event_signature": "Transfer(address,address,uint256)",
+      "contract_address": "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1",
+      "edge_type": "withdrawal_nft_mint",
+      "from_field_fixed": "0x0000000000000000000000000000000000000000",
+      "to_field": "to",
+      "weight_field": "1",
+      "unit": "count",
+      "filter": {
+        "from_equals": "0x0000000000000000000000000000000000000000"
+      },
+      "metadata_fields": ["tokenId"]
+    },
+    {
+      "id": "holding_nft_burn",
+      "category": "holding",
+      "event": "Transfer",
+      "event_signature": "Transfer(address,address,uint256)",
+      "contract_address": "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1",
+      "edge_type": "withdrawal_nft_burn",
+      "from_field": "from",
+      "to_field_fixed": "0x0000000000000000000000000000000000000000",
+      "weight_field": "1",
+      "unit": "count",
+      "filter": {
+        "to_equals": "0x0000000000000000000000000000000000000000"
+      },
+      "metadata_fields": ["tokenId"]
+    },
+    {
+      "id": "holding_nft_transferred",
+      "category": "holding",
+      "event": "Transfer",
+      "event_signature": "Transfer(address,address,uint256)",
+      "contract_address": "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1",
+      "edge_type": "withdrawal_nft_secondary_transfer",
+      "from_field": "from",
+      "to_field": "to",
+      "weight_field": "1",
+      "unit": "count",
+      "filter": {
+        "from_not_equals": "0x0000000000000000000000000000000000000000",
+        "to_not_equals": "0x0000000000000000000000000000000000000000"
+      },
+      "metadata_fields": ["tokenId"],
+      "composability_signal": true
+    },
+    {
+      "id": "intent_stETH_approval",
+      "category": "intent",
+      "event": "Approval",
+      "event_signature": "Approval(address,address,uint256)",
+      "contract_address": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+      "edge_type": "stETH_approved",
+      "from_field": "owner",
+      "to_field": "spender",
+      "weight_field": "value",
+      "unit": "allowance"
+    },
+    {
+      "id": "intent_wstETH_approval",
+      "category": "intent",
+      "event": "Approval",
+      "event_signature": "Approval(address,address,uint256)",
+      "contract_address": "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
+      "edge_type": "wstETH_approved",
+      "from_field": "owner",
+      "to_field": "spender",
+      "weight_field": "value",
+      "unit": "allowance"
+    },
+    {
+      "id": "flow_submitted",
+      "category": "flow",
+      "event": "Submitted",
+      "event_signature": "Submitted(address,uint256,address)",
+      "contract_address": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+      "edge_type": "deposited_to_lido",
+      "from_field": "sender",
+      "to_field_fixed": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+      "weight_field": "amount",
+      "unit": "ETH",
+      "metadata_fields": ["referral"]
+    },
+    {
+      "id": "flow_withdrawal_requested",
+      "category": "flow",
+      "event": "WithdrawalRequested",
+      "event_signature": "WithdrawalRequested(uint256,address,address,uint256,uint256)",
+      "contract_address": "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1",
+      "edge_type": "requested_withdrawal_for",
+      "from_field": "requestor",
+      "to_field": "owner",
+      "weight_field": "amountOfStETH",
+      "unit": "stETH",
+      "metadata_fields": ["requestId", "amountOfShares"],
+      "composability_signal": true
+    },
+    {
+      "id": "flow_withdrawals_finalized",
+      "category": "flow",
+      "event": "WithdrawalsFinalized",
+      "event_signature": "WithdrawalsFinalized(uint256,uint256,uint256,uint256,uint256)",
+      "contract_address": "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1",
+      "edge_type": "batch_finalized",
+      "from_field_fixed": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+      "to_field_fixed": "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1",
+      "weight_field": "amountOfETHLocked",
+      "unit": "ETH",
+      "metadata_fields": ["from", "to", "sharesToBurn", "timestamp"]
+    },
+    {
+      "id": "flow_withdrawal_claimed",
+      "category": "flow",
+      "event": "WithdrawalClaimed",
+      "event_signature": "WithdrawalClaimed(uint256,address,address,uint256)",
+      "contract_address": "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1",
+      "edge_type": "claim_routed_to",
+      "from_field": "owner",
+      "to_field": "receiver",
+      "weight_field": "amountOfETH",
+      "unit": "ETH",
+      "metadata_fields": ["requestId"],
+      "composability_signal": true
+    },
+    {
+      "id": "fee_operator_reward",
+      "category": "fee",
+      "event": "RewardsDistributed",
+      "event_signature": "RewardsDistributed(address,uint256)",
+      "contract_address": "0x55032650b14df07b85bF18A3a3eC8E0Af2e028d5",
+      "edge_type": "operator_fee_to",
+      "from_field_fixed": "0x55032650b14df07b85bF18A3a3eC8E0Af2e028d5",
+      "to_field": "rewardAddress",
+      "weight_field": "sharesAmount",
+      "unit": "shares"
+    },
+    {
+      "id": "fee_treasury",
+      "category": "fee",
+      "event": "Transfer",
+      "event_signature": "Transfer(address,address,uint256)",
+      "contract_address": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+      "edge_type": "treasury_fee_to",
+      "from_field_fixed": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+      "to_field_fixed": "0x3e40D73EB977Dc6a537aF587D48316feE66E9C8c",
+      "weight_field": "value",
+      "unit": "stETH",
+      "filter": {
+        "from_equals": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+        "to_equals": "0x3e40D73EB977Dc6a537aF587D48316feE66E9C8c"
+      }
+    },
+    {
+      "id": "burn_requested",
+      "category": "burn",
+      "event": "StETHBurnRequested",
+      "event_signature": "StETHBurnRequested(bool,address,uint256,uint256)",
+      "contract_address": "0xD15a672319Cf0352560eE76d9e89eAB0889046D3",
+      "edge_type": "burn_requested_by",
+      "from_field": "requestedBy",
+      "to_field_fixed": "0xD15a672319Cf0352560eE76d9e89eAB0889046D3",
+      "weight_field": "amountOfShares",
+      "unit": "shares",
+      "metadata_fields": ["isCover", "amountOfStETH"]
+    },
+    {
+      "id": "burn_executed",
+      "category": "burn",
+      "event": "StETHBurnt",
+      "event_signature": "StETHBurnt(bool,uint256,uint256)",
+      "contract_address": "0xD15a672319Cf0352560eE76d9e89eAB0889046D3",
+      "edge_type": "burn_executed",
+      "from_field_fixed": "0xD15a672319Cf0352560eE76d9e89eAB0889046D3",
+      "to_field_fixed": "0x0000000000000000000000000000000000000000",
+      "weight_field": "amountOfShares",
+      "unit": "shares",
+      "metadata_fields": ["isCover", "amountOfStETH"]
+    },
+    {
+      "id": "burn_shares_lowlevel",
+      "category": "burn",
+      "event": "SharesBurnt",
+      "event_signature": "SharesBurnt(address,uint256,uint256,uint256)",
+      "contract_address": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+      "edge_type": "shares_burnt_lowlevel",
+      "from_field": "account",
+      "to_field_fixed": "0x0000000000000000000000000000000000000000",
+      "weight_field": "sharesAmount",
+      "unit": "shares",
+      "metadata_fields": ["preRebaseTokenAmount", "postRebaseTokenAmount"]
+    }
+  ]
+}

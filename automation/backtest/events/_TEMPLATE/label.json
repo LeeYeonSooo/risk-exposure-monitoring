@@ -1,0 +1,27 @@
+{
+  "event": "<EVENT NAME — e.g. USDC depeg (SVB) 2023-03-11>",
+  "source": "<where the data came from>",
+  "closed": false,
+  "cases": [
+    {
+      "id": "<case-id>",
+      "snapshot": "snapshots/<file>.json",
+      "prev": null,
+      "now": "<ISO8601>",
+      "peg_probes": {
+        "<edge_id>": { "price": 0.0, "peg": 1.0, "asset_class": "major" }
+      },
+      "oracle_probes": {},
+      "baselines": {},
+      "should_fire": [
+        { "signal_type": "DEPEG", "edge_id": "<edge_id>", "min_severity": "HIGH" }
+      ],
+      "must_not_fire": [
+        { "signal_type": "DEPEG", "edge_id": "<edge that should stay silent>" }
+      ],
+      "max_emitted": null,
+      "beta": 2.0,
+      "note": "<why this is the correct expectation>"
+    }
+  ]
+}

@@ -1,0 +1,848 @@
+{
+  "root": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+  "block": 25235536,
+  "edges": [
+    {
+      "from_token": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+      "holder": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "amount": 4321530.734652973,
+      "frac": 0.4858,
+      "kind": "erc20_receipt",
+      "label": "WstETH",
+      "depth": 0,
+      "note": "symbol=wstETH"
+    },
+    {
+      "from_token": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "holder": "0x12b54025c112aa61face2cdb7118740875a566e9",
+      "amount": 859082.890142141,
+      "frac": 0.2457,
+      "kind": "aToken",
+      "label": "InitializableImmutableAdminUpgradeabilityProxy",
+      "depth": 1
+    },
+    {
+      "from_token": "0x12b54025c112aa61face2cdb7118740875a566e9",
+      "holder": "0x9600a48ed0f931d0c422d574e3275a90d8b22745",
+      "amount": 130930.0611201089,
+      "frac": 0.1524,
+      "kind": "contract",
+      "label": "InstaAccountV2",
+      "depth": 2
+    },
+    {
+      "from_token": "0x12b54025c112aa61face2cdb7118740875a566e9",
+      "holder": "0x3a0dc3fc4b84e2427ced214c9ce858ea218e97d9",
+      "amount": 104276.16029715669,
+      "frac": 0.1214,
+      "kind": "contract",
+      "label": "InstaAccountV2",
+      "depth": 2
+    },
+    {
+      "from_token": "0x12b54025c112aa61face2cdb7118740875a566e9",
+      "holder": "0xd4584bf988c9e8994688b56484e2f74ceaeefb20",
+      "amount": 101179.25800398235,
+      "frac": 0.1178,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 2
+    },
+    {
+      "from_token": "0x12b54025c112aa61face2cdb7118740875a566e9",
+      "holder": "0x6231bd0147ca6d052b833183037b04cfb2090e5c",
+      "amount": 47693.05814516996,
+      "frac": 0.0555,
+      "kind": "contract",
+      "label": "InstaAccountV2",
+      "depth": 2
+    },
+    {
+      "from_token": "0x12b54025c112aa61face2cdb7118740875a566e9",
+      "holder": "0xcaf1943ce973c1de423fe6e9f1a255049e51666e",
+      "amount": 38692.10186800589,
+      "frac": 0.045,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 2
+    },
+    {
+      "from_token": "0x12b54025c112aa61face2cdb7118740875a566e9",
+      "holder": "0xda46f11ac5e394111d92f8879302a9347fe42259",
+      "amount": 31393.589371122693,
+      "frac": 0.0365,
+      "kind": "contract",
+      "label": "AccountImplementation",
+      "depth": 2
+    },
+    {
+      "from_token": "0x12b54025c112aa61face2cdb7118740875a566e9",
+      "holder": "0xd1781818f7f30b68155fec7d31f812abe7b00be9",
+      "amount": 29242.545983666823,
+      "frac": 0.034,
+      "kind": "contract",
+      "label": "DSProxy",
+      "depth": 2
+    },
+    {
+      "from_token": "0x12b54025c112aa61face2cdb7118740875a566e9",
+      "holder": "0xf0bb20865277abd641a307ece5ee04e79073416c",
+      "amount": 27770.14651282233,
+      "frac": 0.0323,
+      "kind": "erc20_receipt",
+      "label": "BoringVault",
+      "depth": 2,
+      "note": "symbol=liquidETH"
+    },
+    {
+      "from_token": "0xf0bb20865277abd641a307ece5ee04e79073416c",
+      "holder": "0x602d9abd5671d24026e2ca473903ff2a9a957407",
+      "amount": 6367.041779870756,
+      "frac": 0.0982,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 3
+    },
+    {
+      "from_token": "0xf0bb20865277abd641a307ece5ee04e79073416c",
+      "holder": "0xea1a6307d9b18f8d1cbf1c3dd6aad8416c06a221",
+      "amount": 4394.499288473274,
+      "frac": 0.0678,
+      "kind": "erc4626_vault",
+      "label": "CellarWithOracleWithBalancerFlashLoansWithMultiAssetDepositWithNativeSupport",
+      "depth": 3
+    },
+    {
+      "from_token": "0xea1a6307d9b18f8d1cbf1c3dd6aad8416c06a221",
+      "holder": "0x5f8f52ddc15990a45ba5aab85dfd9fdfae11b661",
+      "amount": 1078.143841600439,
+      "frac": 0.2453,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 4
+    },
+    {
+      "from_token": "0xea1a6307d9b18f8d1cbf1c3dd6aad8416c06a221",
+      "holder": "0xa86e3d1c80a750a310b484fb9bdc470753a7506f",
+      "amount": 1009.33835559276,
+      "frac": 0.2297,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 4
+    },
+    {
+      "from_token": "0xea1a6307d9b18f8d1cbf1c3dd6aad8416c06a221",
+      "holder": "0x59fc128f84226d1fbf9edcb38a1b6bbd244fcfdc",
+      "amount": 194.89410685562223,
+      "frac": 0.0443,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 4
+    },
+    {
+      "from_token": "0xea1a6307d9b18f8d1cbf1c3dd6aad8416c06a221",
+      "holder": "0xecc9a66007a19f11c7c6d9fc51180f12c679ab92",
+      "amount": 143.95598603378278,
+      "frac": 0.0328,
+      "kind": "safe",
+      "label": "GnosisSafeProxy",
+      "depth": 4
+    },
+    {
+      "from_token": "0xea1a6307d9b18f8d1cbf1c3dd6aad8416c06a221",
+      "holder": "0xdc5dee5f8e37edf84768d2018ac772431b6aa4c8",
+      "amount": 129.92837292236484,
+      "frac": 0.0296,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 4
+    },
+    {
+      "from_token": "0xea1a6307d9b18f8d1cbf1c3dd6aad8416c06a221",
+      "holder": "0x799f8bf2e1e50ad2c1c27d7d072f0150442d4316",
+      "amount": 98.94623886516204,
+      "frac": 0.0225,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 4
+    },
+    {
+      "from_token": "0xea1a6307d9b18f8d1cbf1c3dd6aad8416c06a221",
+      "holder": "0x02a0ff63fe227cc25e0c9c98424bb0fdaf366d6d",
+      "amount": 50.39457952629836,
+      "frac": 0.0115,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 4
+    },
+    {
+      "from_token": "0xea1a6307d9b18f8d1cbf1c3dd6aad8416c06a221",
+      "holder": "0x90cda2eab9a1d5fb098f5bd8954af798a6d03701",
+      "amount": 49.7711946430085,
+      "frac": 0.0113,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 4
+    },
+    {
+      "from_token": "0xf0bb20865277abd641a307ece5ee04e79073416c",
+      "holder": "0x267ed5f71ee47d3e45bb1569aa37889a2d10f91e",
+      "amount": 4141.454382959673,
+      "frac": 0.0639,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 3
+    },
+    {
+      "from_token": "0xf0bb20865277abd641a307ece5ee04e79073416c",
+      "holder": "0x0b1bad6fb57761591896374a2c3760b2edc90b7a",
+      "amount": 3057.2027396638705,
+      "frac": 0.0472,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 3
+    },
+    {
+      "from_token": "0xf0bb20865277abd641a307ece5ee04e79073416c",
+      "holder": "0x54d250405d22e858d125ce2c1affc7d73afe6029",
+      "amount": 2028.9340268586784,
+      "frac": 0.0313,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 3
+    },
+    {
+      "from_token": "0xf0bb20865277abd641a307ece5ee04e79073416c",
+      "holder": "0x1e78322001bdc85f21a7a2f3429dc55c1c13cfae",
+      "amount": 1089.4018075940855,
+      "frac": 0.0168,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 3
+    },
+    {
+      "from_token": "0xf0bb20865277abd641a307ece5ee04e79073416c",
+      "holder": "0xbf90446e72b09fa0fbe84b198aed2f05935468fa",
+      "amount": 1006.7667799614052,
+      "frac": 0.0155,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 3
+    },
+    {
+      "from_token": "0xf0bb20865277abd641a307ece5ee04e79073416c",
+      "holder": "0x3fb61cab57e70e23a1fd3a1fed21be866ca2bbfa",
+      "amount": 1003.7247102167527,
+      "frac": 0.0155,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 3
+    },
+    {
+      "from_token": "0xf0bb20865277abd641a307ece5ee04e79073416c",
+      "holder": "0x245d19b275331a67f5cb4b7ebcba11bec43eb282",
+      "amount": 967.6623453313653,
+      "frac": 0.0149,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 3
+    },
+    {
+      "from_token": "0xf0bb20865277abd641a307ece5ee04e79073416c",
+      "holder": "0x57fe3697e87782ec82ef872f0d266cdf479ada66",
+      "amount": 940.1779899251555,
+      "frac": 0.0145,
+      "kind": "safe",
+      "label": "GnosisSafeProxy",
+      "depth": 3
+    },
+    {
+      "from_token": "0x12b54025c112aa61face2cdb7118740875a566e9",
+      "holder": "0x3883d8cdcdda03784908cfa2f34ed2cf1604e4d7",
+      "amount": 27361.555612037428,
+      "frac": 0.0318,
+      "kind": "contract",
+      "label": "TransparentUpgradeableProxy",
+      "depth": 2
+    },
+    {
+      "from_token": "0x12b54025c112aa61face2cdb7118740875a566e9",
+      "holder": "0x7b1054f56374178550a0d121635d155e83acd18f",
+      "amount": 23712.69213264644,
+      "frac": 0.0276,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 2
+    },
+    {
+      "from_token": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "holder": "0x0b925ed163218f6662a35e0f0371ac234f9e9371",
+      "amount": 669416.9947476503,
+      "frac": 0.1915,
+      "kind": "aToken",
+      "label": "InitializableImmutableAdminUpgradeabilityProxy",
+      "depth": 1
+    },
+    {
+      "from_token": "0x0b925ed163218f6662a35e0f0371ac234f9e9371",
+      "holder": "0xe84a061897afc2e7ff5fb7e3686717c528617487",
+      "amount": 55219.13333394117,
+      "frac": 0.0818,
+      "kind": "contract",
+      "label": "Proxy",
+      "depth": 2
+    },
+    {
+      "from_token": "0x0b925ed163218f6662a35e0f0371ac234f9e9371",
+      "holder": "0x893aa69fbaa1ee81b536f0fbe3a3453e86290080",
+      "amount": 53774.65794928849,
+      "frac": 0.0797,
+      "kind": "contract",
+      "label": "TransparentUpgradeableProxy",
+      "depth": 2
+    },
+    {
+      "from_token": "0x0b925ed163218f6662a35e0f0371ac234f9e9371",
+      "holder": "0x7ee29373f075ee1d83b1b93b4fe94ae242df5178",
+      "amount": 42000.000066151195,
+      "frac": 0.0622,
+      "kind": "safe",
+      "label": "SafeProxy",
+      "depth": 2
+    },
+    {
+      "from_token": "0x0b925ed163218f6662a35e0f0371ac234f9e9371",
+      "holder": "0x81d0ac9a5f91188074fd753a03885162bec74246",
+      "amount": 27219.059887277963,
+      "frac": 0.0403,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 2
+    },
+    {
+      "from_token": "0x0b925ed163218f6662a35e0f0371ac234f9e9371",
+      "holder": "0x54b338e6cfd605dad2264b96b0a730fb2bdca9e4",
+      "amount": 17783.706228922478,
+      "frac": 0.0263,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 2
+    },
+    {
+      "from_token": "0x0b925ed163218f6662a35e0f0371ac234f9e9371",
+      "holder": "0xffefa70b6deaab975ef15a6474ce9c4214d82b02",
+      "amount": 17573.48786519956,
+      "frac": 0.026,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 2
+    },
+    {
+      "from_token": "0x0b925ed163218f6662a35e0f0371ac234f9e9371",
+      "holder": "0x989b96317735d70a7762bf96c034b203713aae18",
+      "amount": 15498.981275471013,
+      "frac": 0.023,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 2
+    },
+    {
+      "from_token": "0x0b925ed163218f6662a35e0f0371ac234f9e9371",
+      "holder": "0x9e2ab154f8f3a3072d7448b21b727c00f8914185",
+      "amount": 14273.80630624761,
+      "frac": 0.0211,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 2
+    },
+    {
+      "from_token": "0x0b925ed163218f6662a35e0f0371ac234f9e9371",
+      "holder": "0x04b35d8eb17729b2c4a4224d07727e2f71283b73",
+      "amount": 12239.997000893267,
+      "frac": 0.0181,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 2
+    },
+    {
+      "from_token": "0x0b925ed163218f6662a35e0f0371ac234f9e9371",
+      "holder": "0xe637b85b0649e2b4477663e1d219611d1aa3c64c",
+      "amount": 12155.247368057808,
+      "frac": 0.018,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 2
+    },
+    {
+      "from_token": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "holder": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "amount": 309438.5139488468,
+      "frac": 0.0885,
+      "kind": "ledger:morpho",
+      "label": "Morpho",
+      "depth": 1,
+      "note": "singleton ledger; expand via adapter:morpho",
+      "resolved": true
+    },
+    {
+      "from_token": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "holder": "0x7ee29373f075ee1d83b1b93b4fe94ae242df5178",
+      "amount": 204682.47914978434,
+      "frac": 0.6615,
+      "kind": "safe",
+      "label": "SafeProxy",
+      "depth": 2,
+      "via": "morpho"
+    },
+    {
+      "from_token": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "holder": "0x462a336dcac6eaf544106266914caa5a18b831d0",
+      "amount": 10824.23882274066,
+      "frac": 0.035,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 2,
+      "via": "morpho"
+    },
+    {
+      "from_token": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "holder": "0x1778767436111ec0adb10f9ba4f51a329d0e7770",
+      "amount": 7153.40240111895,
+      "frac": 0.0231,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 2,
+      "via": "morpho"
+    },
+    {
+      "from_token": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "holder": "0x20f6c325df578a11209817a30ebb2f0d5454176d",
+      "amount": 6703.904615206373,
+      "frac": 0.0217,
+      "kind": "safe",
+      "label": "SafeProxy",
+      "depth": 2,
+      "via": "morpho"
+    },
+    {
+      "from_token": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "holder": "0xb224f589297a5a207e6069de5dafd4b120129817",
+      "amount": 5599.559297054455,
+      "frac": 0.0181,
+      "kind": "contract",
+      "label": "MorphoLendingAdapter",
+      "depth": 2,
+      "via": "morpho"
+    },
+    {
+      "from_token": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "holder": "0x0b00c540bc5f203d97ac87da62164d3d37e19798",
+      "amount": 4174.280140276781,
+      "frac": 0.0135,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 2,
+      "via": "morpho"
+    },
+    {
+      "from_token": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "holder": "0x9a3569c7053f9fb5abeb7ccb1678bd33c47ad278",
+      "amount": 3812.787484252962,
+      "frac": 0.0123,
+      "kind": "contract",
+      "label": "ImmutableBeaconProxy",
+      "depth": 2,
+      "via": "morpho"
+    },
+    {
+      "from_token": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "holder": "0x248ccbf4864221fc0e840f29bb042ad5bfc89b5c",
+      "amount": 84755.94999319674,
+      "frac": 0.0242,
+      "kind": "ledger:maker",
+      "label": "GemJoin",
+      "depth": 1,
+      "note": "singleton ledger; expand via adapter:maker",
+      "resolved": false
+    },
+    {
+      "from_token": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "holder": "0x466a682931825f320f0327f65ed1607939f57501",
+      "amount": 71975.73855594457,
+      "frac": 0.0206,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "holder": "0x0f25c1dc2a9922304f2eac71dca9b07e310e8e5a",
+      "amount": 54145.149314850554,
+      "frac": 0.0155,
+      "kind": "contract",
+      "label": "OssifiableProxy",
+      "depth": 1
+    },
+    {
+      "from_token": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "holder": "0x52aa899454998be5b000ad077a46bbe360f4e497",
+      "amount": 54113.44782206155,
+      "frac": 0.0155,
+      "kind": "contract",
+      "label": "FluidLiquidityProxy",
+      "depth": 1
+    },
+    {
+      "from_token": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "holder": "0x5313b39bf226ced2332c81eb97bb28c6fd50d1a3",
+      "amount": 39011.04001906244,
+      "frac": 0.0112,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "holder": "0xa586a732394a1affcf15b972cd47c936033c9fa7",
+      "amount": 38713.29264411567,
+      "frac": 0.0111,
+      "kind": "contract",
+      "label": "SiloedLockReleaseTokenPool",
+      "depth": 1
+    },
+    {
+      "from_token": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "holder": "0x7c697d6cff279f3f9c2401d0ea2ac7e7ede0e2c3",
+      "amount": 37026.14528893533,
+      "frac": 0.0106,
+      "kind": "safe",
+      "label": "GnosisSafeProxy",
+      "depth": 1
+    },
+    {
+      "from_token": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+      "holder": "0x93c4b944d05dfe6df7645a86cd2206016c51564d",
+      "amount": 406263.38402463036,
+      "frac": 0.0457,
+      "kind": "ledger:eigenlayer",
+      "label": "TransparentUpgradeableProxy",
+      "depth": 0,
+      "note": "singleton ledger; expand via adapter:eigenlayer",
+      "resolved": true
+    },
+    {
+      "from_token": "0x93c4b944d05dfe6df7645a86cd2206016c51564d",
+      "holder": "0x79f17234746344e0365d40be50d8d43db9082c32",
+      "amount": 296502.8978120544,
+      "frac": 0.7298,
+      "kind": "ledger:kelp",
+      "label": "TransparentUpgradeableProxy",
+      "depth": 1,
+      "via": "eigenlayer",
+      "note": "singleton ledger; expand via adapter:kelp",
+      "resolved": true
+    },
+    {
+      "from_token": "0x79f17234746344e0365d40be50d8d43db9082c32",
+      "holder": "0xa1290d69c65a6fe4df752f95823fae25cb99e5a7",
+      "amount": 296502.8978120544,
+      "frac": 1.0,
+      "kind": "erc20_receipt",
+      "label": "TransparentUpgradeableProxy",
+      "depth": 2,
+      "via": "kelp",
+      "note": "symbol=rsETH"
+    },
+    {
+      "from_token": "0xa1290d69c65a6fe4df752f95823fae25cb99e5a7",
+      "holder": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+      "amount": 438851.4175358602,
+      "frac": 0.7684,
+      "kind": "aToken",
+      "label": "InitializableImmutableAdminUpgradeabilityProxy",
+      "depth": 3
+    },
+    {
+      "from_token": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+      "holder": "0xcdfa7efe670869c6b6be4375654e0b206ef49c89",
+      "amount": 113215.71129627421,
+      "frac": 0.258,
+      "kind": "contract",
+      "label": "TransparentUpgradeableProxy",
+      "depth": 4
+    },
+    {
+      "from_token": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+      "holder": "0xf7462251c14d2fb83c7ab96367a7985423c83010",
+      "amount": 75028.31169844794,
+      "frac": 0.1709,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 4
+    },
+    {
+      "from_token": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+      "holder": "0x40e93a52f6af9fcd3b476aedadd7feabd9f7aba8",
+      "amount": 61702.65515433545,
+      "frac": 0.1406,
+      "kind": "safe",
+      "label": "GnosisSafeProxy",
+      "depth": 4
+    },
+    {
+      "from_token": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+      "holder": "0x973ddb8ee2c9cc87e853c8d46253840c63951683",
+      "amount": 42388.363503986766,
+      "frac": 0.0966,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 4
+    },
+    {
+      "from_token": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+      "holder": "0x755013a759c6c56d95b687ef4b2b9864f3654e60",
+      "amount": 32235.563110030318,
+      "frac": 0.0734,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 4
+    },
+    {
+      "from_token": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+      "holder": "0xd8495b95a3a6a85f4e3baa003e8b7ed1ed85562d",
+      "amount": 26552.911251893012,
+      "frac": 0.0605,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 4
+    },
+    {
+      "from_token": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+      "holder": "0xa122687285dc5012141055a801045f069112e7c6",
+      "amount": 20814.08560006259,
+      "frac": 0.0474,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 4
+    },
+    {
+      "from_token": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+      "holder": "0x8cb04249117d37fb42f3c805c1a60cfe801a0f6e",
+      "amount": 13925.06758548231,
+      "frac": 0.0317,
+      "kind": "contract",
+      "label": "TransparentUpgradeableProxy",
+      "depth": 4
+    },
+    {
+      "from_token": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+      "holder": "0x537c351c374b013f4db9bbe2b078803ecffc6d54",
+      "amount": 10971.81541952956,
+      "frac": 0.025,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 4
+    },
+    {
+      "from_token": "0x2d62109243b87c4ba3ee7ba1d91b0dd0a074d7b1",
+      "holder": "0x9074212f22f75789ca3fa21a4b46d3a1489cc0a9",
+      "amount": 9940.179619604682,
+      "frac": 0.0226,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 4
+    },
+    {
+      "from_token": "0xa1290d69c65a6fe4df752f95823fae25cb99e5a7",
+      "holder": "0x85d456b2dff1fd8245387c0bfb64dfb700e98ef3",
+      "amount": 80549.10937012066,
+      "frac": 0.141,
+      "kind": "contract",
+      "label": "RSETH_OFTAdapter",
+      "depth": 3
+    },
+    {
+      "from_token": "0xa1290d69c65a6fe4df752f95823fae25cb99e5a7",
+      "holder": "0xa17581a9e3356d9a858b789d68b4d866e593ae94",
+      "amount": 9891.965761816911,
+      "frac": 0.0173,
+      "kind": "erc20_receipt",
+      "label": "TransparentUpgradeableProxy",
+      "depth": 3,
+      "note": "symbol=cWETHv3"
+    },
+    {
+      "from_token": "0xa17581a9e3356d9a858b789d68b4d866e593ae94",
+      "holder": "0xce27283c276f4aa7a7e302b24bfea7668e264877",
+      "amount": 29806.870826761005,
+      "frac": 0.5896,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 4
+    },
+    {
+      "from_token": "0xa17581a9e3356d9a858b789d68b4d866e593ae94",
+      "holder": "0x53fb0162bc8d5eec2fb1532923c4f8997bace111",
+      "amount": 7394.9131820009015,
+      "frac": 0.1463,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 4
+    },
+    {
+      "from_token": "0xa17581a9e3356d9a858b789d68b4d866e593ae94",
+      "holder": "0x023010bd0339f933fa4fcdd89fb53a4922b5ed63",
+      "amount": 2315.8236866293573,
+      "frac": 0.0458,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 4
+    },
+    {
+      "from_token": "0xa17581a9e3356d9a858b789d68b4d866e593ae94",
+      "holder": "0x3d6eef6a92b15361697698695334e98c5db91d6b",
+      "amount": 2066.8149527192254,
+      "frac": 0.0409,
+      "kind": "contract",
+      "label": "AeraVaultV2",
+      "depth": 4
+    },
+    {
+      "from_token": "0xa17581a9e3356d9a858b789d68b4d866e593ae94",
+      "holder": "0x3ec6f5793ce4b90f2b7381516c91acc4cf169553",
+      "amount": 1537.2266039323852,
+      "frac": 0.0304,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 4
+    },
+    {
+      "from_token": "0xa1290d69c65a6fe4df752f95823fae25cb99e5a7",
+      "holder": "0x62de59c08eb5dae4b7e6f7a8cad3006d6965ec16",
+      "amount": 9057.975164024747,
+      "frac": 0.0159,
+      "kind": "ledger:kelp",
+      "label": "TransparentUpgradeableProxy",
+      "depth": 3,
+      "note": "singleton ledger; expand via adapter:kelp",
+      "resolved": true
+    },
+    {
+      "from_token": "0x62de59c08eb5dae4b7e6f7a8cad3006d6965ec16",
+      "holder": "0xa1290d69c65a6fe4df752f95823fae25cb99e5a7",
+      "amount": 9057.975164024747,
+      "frac": 1.0,
+      "kind": "erc20_receipt",
+      "label": "TransparentUpgradeableProxy",
+      "depth": 4,
+      "via": "kelp",
+      "note": "symbol=rsETH"
+    },
+    {
+      "from_token": "0xa1290d69c65a6fe4df752f95823fae25cb99e5a7",
+      "holder": "0x22162dbba43fe0477cdc5234e248264ec7c6ea7c",
+      "amount": 5941.008118993307,
+      "frac": 0.0104,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 3
+    },
+    {
+      "from_token": "0x93c4b944d05dfe6df7645a86cd2206016c51564d",
+      "holder": "0x395884d1974a839702bcfcba176ac7871c788946",
+      "amount": 30660.554893784614,
+      "frac": 0.0755,
+      "kind": "ledger:kelp",
+      "label": "TransparentUpgradeableProxy",
+      "depth": 1,
+      "via": "eigenlayer",
+      "note": "singleton ledger; expand via adapter:kelp",
+      "resolved": true
+    },
+    {
+      "from_token": "0x395884d1974a839702bcfcba176ac7871c788946",
+      "holder": "0xa1290d69c65a6fe4df752f95823fae25cb99e5a7",
+      "amount": 30660.554893784614,
+      "frac": 1.0,
+      "kind": "erc20_receipt",
+      "label": "TransparentUpgradeableProxy",
+      "depth": 2,
+      "via": "kelp",
+      "note": "symbol=rsETH"
+    },
+    {
+      "from_token": "0x93c4b944d05dfe6df7645a86cd2206016c51564d",
+      "holder": "0xee5470e1519972c3ea95249d60ebd064af2d53d3",
+      "amount": 19038.262689092946,
+      "frac": 0.0469,
+      "kind": "ledger:kelp",
+      "label": "TransparentUpgradeableProxy",
+      "depth": 1,
+      "via": "eigenlayer",
+      "note": "singleton ledger; expand via adapter:kelp",
+      "resolved": true
+    },
+    {
+      "from_token": "0xee5470e1519972c3ea95249d60ebd064af2d53d3",
+      "holder": "0xa1290d69c65a6fe4df752f95823fae25cb99e5a7",
+      "amount": 19038.262689092946,
+      "frac": 1.0,
+      "kind": "erc20_receipt",
+      "label": "TransparentUpgradeableProxy",
+      "depth": 2,
+      "via": "kelp",
+      "note": "symbol=rsETH"
+    },
+    {
+      "from_token": "0x93c4b944d05dfe6df7645a86cd2206016c51564d",
+      "holder": "0x4c798c4653b1257d5149910523d7a6eed5712f83",
+      "amount": 7967.723513159294,
+      "frac": 0.0196,
+      "kind": "ledger:kelp",
+      "label": "TransparentUpgradeableProxy",
+      "depth": 1,
+      "via": "eigenlayer",
+      "note": "singleton ledger; expand via adapter:kelp",
+      "resolved": true
+    },
+    {
+      "from_token": "0x4c798c4653b1257d5149910523d7a6eed5712f83",
+      "holder": "0xa1290d69c65a6fe4df752f95823fae25cb99e5a7",
+      "amount": 7967.723513159294,
+      "frac": 1.0,
+      "kind": "erc20_receipt",
+      "label": "TransparentUpgradeableProxy",
+      "depth": 2,
+      "via": "kelp",
+      "note": "symbol=rsETH"
+    },
+    {
+      "from_token": "0x93c4b944d05dfe6df7645a86cd2206016c51564d",
+      "holder": "0x15f688feed7f014b933d306a74bc5d11506f54b9",
+      "amount": 4234.005530676995,
+      "frac": 0.0104,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1,
+      "via": "eigenlayer"
+    },
+    {
+      "from_token": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+      "holder": "0x176f3dab24a159341c0509bb36b833e7fdd0a132",
+      "amount": 233899.4449460155,
+      "frac": 0.0263,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 0
+    },
+    {
+      "from_token": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+      "holder": "0x000000000073f8f0541e942d85ef5fb5d0e84844",
+      "amount": 182405.44917152377,
+      "frac": 0.0205,
+      "kind": "contract",
+      "label": "ERC1967Proxy",
+      "depth": 0
+    }
+  ]
+}

@@ -1,0 +1,163 @@
+{
+  "nodes": [],
+  "edges": [
+    {
+      "edge_id": "eoa-bridge:aave-v3<->sky",
+      "edge_type": "protocol",
+      "from": "aave_v3",
+      "to": "0xdc035d45d973e3ec169d2276ddab16f1e407384f",
+      "protocol": "cross-protocol",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true,
+        "layer": "eoa_bridge",
+        "tier": "latent",
+        "shared_whales": 44,
+        "realized_flows": 0,
+        "realized_amount": 0.0,
+        "weight_hint": 44
+      }
+    },
+    {
+      "edge_id": "eoa-bridge:aave-v3<->lido",
+      "edge_type": "protocol",
+      "from": "aave_v3",
+      "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+      "protocol": "cross-protocol",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true,
+        "layer": "eoa_bridge",
+        "tier": "latent",
+        "shared_whales": 94,
+        "realized_flows": 0,
+        "realized_amount": 0.0,
+        "weight_hint": 94
+      }
+    },
+    {
+      "edge_id": "eoa-bridge:lido<->sky",
+      "edge_type": "contagion",
+      "from": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+      "to": "0xdc035d45d973e3ec169d2276ddab16f1e407384f",
+      "protocol": "cross-protocol",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true,
+        "layer": "eoa_bridge",
+        "tier": "realized",
+        "shared_whales": 40,
+        "realized_flows": 60570,
+        "realized_amount": 8732742.63,
+        "weight_hint": 8732742.63
+      }
+    },
+    {
+      "edge_id": "eoa-bridge:aave-v3<->morpho",
+      "edge_type": "contagion",
+      "from": "aave_v3",
+      "to": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "protocol": "cross-protocol",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true,
+        "layer": "eoa_bridge",
+        "tier": "realized",
+        "shared_whales": 18,
+        "realized_flows": 416,
+        "realized_amount": 935995.4,
+        "weight_hint": 935995.4
+      }
+    },
+    {
+      "edge_id": "eoa-bridge:lido<->morpho",
+      "edge_type": "protocol",
+      "from": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+      "to": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "protocol": "cross-protocol",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true,
+        "layer": "eoa_bridge",
+        "tier": "latent",
+        "shared_whales": 9,
+        "realized_flows": 0,
+        "realized_amount": 0.0,
+        "weight_hint": 9
+      }
+    },
+    {
+      "edge_id": "eoa-bridge:morpho<->sky",
+      "edge_type": "protocol",
+      "from": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "to": "0xdc035d45d973e3ec169d2276ddab16f1e407384f",
+      "protocol": "cross-protocol",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true,
+        "layer": "eoa_bridge",
+        "tier": "latent",
+        "shared_whales": 7,
+        "realized_flows": 0,
+        "realized_amount": 0.0,
+        "weight_hint": 7
+      }
+    }
+  ],
+  "_meta": {
+    "discovered_at": 1780480166.709988,
+    "bridges": [
+      {
+        "protocol_a": "aave-v3",
+        "protocol_b": "sky",
+        "shared_whales": 44,
+        "realized_flows": 0,
+        "realized_amount": 0.0,
+        "tier": "latent"
+      },
+      {
+        "protocol_a": "aave-v3",
+        "protocol_b": "lido",
+        "shared_whales": 94,
+        "realized_flows": 0,
+        "realized_amount": 0.0,
+        "tier": "latent"
+      },
+      {
+        "protocol_a": "lido",
+        "protocol_b": "sky",
+        "shared_whales": 40,
+        "realized_flows": 60570,
+        "realized_amount": 8732742.63,
+        "tier": "realized"
+      },
+      {
+        "protocol_a": "aave-v3",
+        "protocol_b": "morpho",
+        "shared_whales": 18,
+        "realized_flows": 416,
+        "realized_amount": 935995.4,
+        "tier": "realized"
+      },
+      {
+        "protocol_a": "lido",
+        "protocol_b": "morpho",
+        "shared_whales": 9,
+        "realized_flows": 0,
+        "realized_amount": 0.0,
+        "tier": "latent"
+      },
+      {
+        "protocol_a": "morpho",
+        "protocol_b": "sky",
+        "shared_whales": 7,
+        "realized_flows": 0,
+        "realized_amount": 0.0,
+        "tier": "latent"
+      }
+    ],
+    "error": null,
+    "bridges_count": 6,
+    "total_real_edges_scanned": 44397
+  }
+}

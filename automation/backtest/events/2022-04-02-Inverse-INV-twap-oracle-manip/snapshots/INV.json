@@ -1,0 +1,83 @@
+{
+  "_invariant": "Inverse Finance INV TWAP oracle-manipulation bad-debt, 2022-04-02. Attacker pumped INV on a THIN SushiSwap INV/WETH pool; Inverse's Keep3r TWAP sampled the manipulated price only ~15s into a 30-min window, grossly OVER-VALUING INV collateral; attacker deposited INV and borrowed ~$15.6M (DOLA/ETH/WBTC/YFI), leaving ~$3.65M DOLA BAD DEBT. The oracle (TWAP) reported a FRESH but grossly-wrong INV price vs the honest market (Coinbase/Sushi reference). answer/reference injected per-case via oracle_probes. NOTE: the ~$3.65M DOLA bad-debt AFTERMATH is a recall gap (no bad-debt detector; LendingRisk models no outstanding debt) \u2014 only the oracle-manipulation LEG is caught here (d04b cross-ref deviation).",
+  "meta": {
+    "token": "INV",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2022-04-02T12:00:00Z",
+    "snapshot_block": 14506358
+  },
+  "nodes": [
+    {
+      "node_id": "token:INV",
+      "type": "Token",
+      "label": "Inverse DAO",
+      "address": "0x41D5D79431A913C4aE7d69a668ecdfE5fF9DFB68",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "INV",
+        "decimals": 18,
+        "market_cap_usd": 120000000
+      }
+    },
+    {
+      "node_id": "protocol:inverse_frontier",
+      "type": "DefiProtocol",
+      "label": "Inverse Frontier",
+      "address": "0x4dCf7407AE5C07f8681e1659f626E114A7667339",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "mono_pool"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "INV-inverse-collateral",
+      "source": "token:INV",
+      "target": "protocol:inverse_frontier",
+      "classification": {
+        "edge_type": "collateral_shared",
+        "venue_type": "shared_pool",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 2000000,
+        "amount_usd": 16000000,
+        "pct_of_supply": 0.18,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "Keep3r INV/ETH TWAP (30-min, thin Sushi pool)",
+        "oracle_address": "0xinvkeep3rtwaporacle0000000000000000000a",
+        "depeg_sensitive": true
+      },
+      "lending_risk": {
+        "ltv": 0.6,
+        "lt": 0.6667,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": null,
+        "utilization": 0.7,
+        "is_frozen": false,
+        "emode_category": null
+      },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        {
+          "loan_asset": "DOLA",
+          "collateral_asset": "INV",
+          "lltv": 0.6667,
+          "market_size_usd": 16000000,
+          "oracle_address": "0xinvkeep3rtwaporacle0000000000000000000a",
+          "utilization": 0.7
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+# fly.toml — Fly.io deployment manifest for the simulator backend.
+#
+# After `fly launch --no-deploy` writes its own values, you can keep this file
+# as-is; just make sure your app name + region match. Once a Fly account is
+# created and ALCHEMY_API_KEY is set as a secret, every push to main triggers
+# a redeploy via GitHub Actions (.github/workflows/fly-deploy.yml).
+
+app = "chainspiral-simulator-backend"
+primary_region = "iad"             # US East — closest to most Alchemy nodes
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  # ALCHEMY_API_KEY is set via `fly secrets set ALCHEMY_API_KEY=...`
+  # DO NOT commit secrets here.
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"      # hibernate when idle (free tier friendly)
+  auto_start_machines = true       # wake on first request
+  min_machines_running = 0
+  processes = ["app"]
+
+  [[http_service.checks]]
+    grace_period  = "10s"
+    interval      = "30s"
+    method        = "GET"
+    timeout       = "5s"
+    path          = "/api/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "2gb"                   # Anvil fork eats ~600MB; Python + FastAPI ~400MB.
+                                   # 1GB caused OOM kills during simulation requests.
+  cpus = 1

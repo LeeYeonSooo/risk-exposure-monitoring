@@ -1,0 +1,63 @@
+{
+  "inputs": [
+    {
+      "input": "peg_probe:USR-curve-collateral@24711714",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:curve 0x3ee841f47947fefbe510366e4bbb49e145484195 get_dy(0,1) @ethereum:24711714",
+      "price": 0.050804
+    },
+    {
+      "input": "peg_probe:USR-curve-collateral@24698570",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:curve 0x3ee841f47947fefbe510366e4bbb49e145484195 get_dy(0,1) @ethereum:24698570",
+      "price": 0.999682
+    },
+    {
+      "input": "total_supply:USR@24711714",
+      "detector": "d05",
+      "measured": true,
+      "source": "onchain:erc20 totalSupply USR 0x66a1E3\u2026e110 @ethereum:24711714",
+      "value_usr": 178655619.3856
+    },
+    {
+      "input": "total_supply:USR@24709326",
+      "detector": "d05",
+      "measured": true,
+      "source": "onchain:erc20 totalSupply USR @ethereum:24709326",
+      "value_usr": 102507700.6095
+    },
+    {
+      "input": "total_supply:USR@24698570",
+      "detector": "d05",
+      "measured": true,
+      "source": "onchain:erc20 totalSupply USR @ethereum:24698570",
+      "value_usr": 102762977.2995
+    },
+    {
+      "input": "total_supply:USR@24691400",
+      "detector": "d05",
+      "measured": true,
+      "source": "onchain:erc20 totalSupply USR @ethereum:24691400",
+      "value_usr": 102828776.7681
+    },
+    {
+      "input": "single_mint:USR@24709326-24711714",
+      "detector": "d10",
+      "measured": true,
+      "source": "onchain:eth_getLogs Transfer 0x0->attacker, tx 0xfe37f25e\u202633743 @ethereum",
+      "amount_usr": 50000000.0,
+      "to": "0xa27a69ae\u202655861"
+    },
+    {
+      "input": "supply_delta:USR@24709326-24711714",
+      "detector": "d11",
+      "measured": true,
+      "source": "onchain:eth_getLogs net mint-burn over [24709326,24711714]",
+      "net_mint_usr": 76147918.7761,
+      "gross_mint_usr": 80199993.138,
+      "gross_burn_usr": 4052074.3619
+    }
+  ]
+}

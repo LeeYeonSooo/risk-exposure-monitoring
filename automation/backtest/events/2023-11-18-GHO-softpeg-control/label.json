@@ -1,0 +1,60 @@
+{
+  "event": "2023-11-18 GHO structural soft-peg discount (NORMAL-period CONTROL) \u2014 Aave's native CDP stablecoin traded a persistent ~$0.96-0.98 below par as its EXPECTED equilibrium (no 1:1 redemption floor), fully backed by over-collateralized Aave debt. Not a depeg/run/insolvency. The monitor MUST stay quiet (no HIGH/CRITICAL distress DEPEG). Real on-chain supply 32,540,788.80 GHO @ block 18600000. MEASURED GHO/USD @ block 18600000 = $0.9647 (Uniswap V3 GHO/USDC pool 0x5c95\u20265bc1d slot0 spot; corroborated by DefiLlama historical $0.9647 conf 0.99) \u2014 squarely inside the documented soft-peg band, confirming the structural-discount (not-distress) premise. See EVENT.md.",
+  "source": "CoinGecko/DefiLlama GHO price history; Aave Governance forum GHO-peg threads (2023 H2); Etherscan GHO 0x40D1\u20266C2f; on-chain Alchemy archive capture (totalSupply @ block 18600000; MEASURED GHO/USD via Uniswap V3 GHO/USDC slot0 @ block 18600000). See EVENT.md.",
+  "closed": true,
+  "cases": [
+    {
+      "id": "gho-softpeg-discount-0.975-quiet",
+      "snapshot": "snapshots/gho.json",
+      "now": "2023-11-18T16:45:59Z",
+      "peg_probes": {
+        "GHO-morpho_blue-collateral_isolated": {
+          "price": 0.9647205872666431,
+          "peg": 1.0,
+          "asset_class": "stable",
+          "source": "onchain:univ3 0x5c95d4b1c3321cf898d25949f41d50be2db5bc1d 0in1 @ethereum:18600000",
+          "by_design_discount": true
+        }
+      },
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "GHO-morpho_blue-collateral_isolated"
+        }
+      ],
+      "max_emitted": {
+        "severity": "HIGH",
+        "count": 0
+      },
+      "note": "(MEASURED on-chain @block 18600000) GHO/USD = $0.9647 read from the Uniswap V3 GHO/USDC pool 0x5c95d4b1c3321cf898d25949f41d50be2db5bc1d (slot0 spot, token0=GHO 18dp / token1=USDC 6dp -> price0in1), corroborated to 4dp by DefiLlama historical ($0.964733, confidence 0.99) at the same timestamp. This REPLACES the hand-asserted 0.975 for the deepest-mark control case; the measured spot is the true deepest-band reading at this anchor block and is ~1.1 cents below the prior asserted value but still squarely inside the documented ~$0.96-0.98 structural soft-peg band. GHO at ~$0.965 is a STRUCTURAL soft-peg discount, fully backed by over-collateralized Aave debt. GHO has no 1:1 fiat redemption floor, so its market price floats a few percent below par whenever mint demand < sell pressure \u2014 the EXPECTED equilibrium, not a depeg. The discount was slow-moving (weeks at ~$0.96-0.98), there was no unbacked supply, no insolvency, and the $0.965 mark sits ~25% above the GHO/USDC market's 0.77 liquidation line, so no looped position is under water. by_design_discount=true tells the monitor to compare against the asset's structural soft-peg equilibrium, not a naive $1.00 \u2014 exactly like the Pendle-PT / RWA by-design-discount controls. A naive -3.5% vs $1.00 is a wrong-reference artifact. The DEPEG must stay silent and the snapshot must raise NO HIGH-or-above signal (noise ceiling). A low INFO/WARN 'trading below par' housekeeping note is tolerable; a HIGH/CRITICAL page on a fully-backed CDP stable's known design state is the exact overnight false positive this control guards against. NOTE: the measured -3.5% is deeper than the prior asserted -2.5% but the verdict TIER is unchanged (still a benign, fully-backed, far-above-liquidation soft-peg control) \u2014 it CONFIRMS the structural-discount premise rather than contradicting it."
+    },
+    {
+      "id": "gho-softpeg-discount-0.985-quiet",
+      "snapshot": "snapshots/gho.json",
+      "now": "2023-11-18T16:45:59Z",
+      "peg_probes": {
+        "GHO-morpho_blue-collateral_isolated": {
+          "price": 0.985,
+          "peg": 1.0,
+          "asset_class": "stable",
+          "by_design_discount": true,
+          "source": "asserted (band-coverage scenario point; no measured on-chain source at this anchor \u2014 the measured GHO/USD @ block 18600000 is $0.9647, the deepest-band case; 0.985 anchors the shallow upper edge of the documented ~$0.96-0.99 soft-peg band)"
+        }
+      },
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "GHO-morpho_blue-collateral_isolated"
+        }
+      ],
+      "max_emitted": {
+        "severity": "HIGH",
+        "count": 0
+      },
+      "note": "Upper-band variant of the same soft-peg control (~$0.985, -1.5% vs par). KEPT ASSERTED (measured=False): 0.985 is a deliberate band-coverage scenario point, NOT a reading at this anchor block \u2014 the MEASURED GHO/USD at block 18600000 is $0.9647 (the deepest-mark case above), and there is no separate on-chain block at this same `now`/edge that reads 0.985, so a measured source is not available for this scenario point and one was NOT fabricated. Same rationale as the measured case: a fully-backed CDP stable a hair below par by structural design must not raise a distress DEPEG. Anchors the shallow upper edge of the soft-peg band so the control covers the whole ~$0.96-0.99 region the asset actually occupied, not just the deepest mark. by_design_discount=true; DEPEG silent; no HIGH-or-above signal on the snapshot."
+    }
+  ],
+  "ratified": "auto(reviewer)"
+}

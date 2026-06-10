@@ -1,0 +1,705 @@
+{
+  "ground_truth": {
+    "channel_note": "Solvency loss measured by share-price impairment (model scope). totalAssets drops with flat share price are WITHDRAWALS = liquidity channel (out of model scope, per sim_spec 5.3).",
+    "solvency_loss_total_usd": 4790,
+    "solvency_victims": [
+      {
+        "name": "Apostro Resolv USR",
+        "address": "0x5085Dd6FAd07c12e38fae01bc2a4938d2C08B1Bc",
+        "impairment_frac": 0.885,
+        "loss_usd": 4716
+      }
+    ],
+    "liquidity_only_drops": [
+      {
+        "name": "Clearstar Yield USDC",
+        "totalassets_drop_usd": 5026440.292287512
+      },
+      {
+        "name": "Etherealm USDC",
+        "totalassets_drop_usd": 1796067.5679099327
+      }
+    ],
+    "headline": "USR depegged -88.6% yet curated USDC vaults took ~0 solvency loss (over-collateralization + working liquidations). Only pure-USR vaults impaired."
+  },
+  "event": {
+    "id": "resolv_usr_depeg_2026_03",
+    "date": "2026-03-23",
+    "pre_shock_date": "2026-03-22",
+    "post_shock_date": "2026-04-10",
+    "shock_node": "USR",
+    "delta": 0.8858,
+    "usr_pre_price": 0.999380720578376,
+    "usr_trough_price": 0.11409975432879249,
+    "price_trough": {
+      "USR": {
+        "pre": 0.999380720578376,
+        "trough": 0.11409975432879249
+      },
+      "wstUSR": {
+        "pre": 1.1316623046210796,
+        "trough": 0.1293179699581429
+      },
+      "RLP": {
+        "pre": 1.2846759865408501,
+        "trough": 0.4316691557670521
+      }
+    },
+    "price_trajectory": {
+      "USR": [
+        {
+          "d": "04-14",
+          "p": 0.1688
+        },
+        {
+          "d": "04-13",
+          "p": 0.1699
+        },
+        {
+          "d": "04-12",
+          "p": 0.1671
+        },
+        {
+          "d": "04-11",
+          "p": 0.1729
+        },
+        {
+          "d": "04-10",
+          "p": 0.1713
+        },
+        {
+          "d": "04-09",
+          "p": 0.1878
+        },
+        {
+          "d": "04-08",
+          "p": 0.2121
+        },
+        {
+          "d": "04-07",
+          "p": 0.2316
+        },
+        {
+          "d": "04-06",
+          "p": 0.2354
+        },
+        {
+          "d": "04-05",
+          "p": 0.2402
+        },
+        {
+          "d": "04-04",
+          "p": 0.3015
+        },
+        {
+          "d": "04-03",
+          "p": 0.1141
+        },
+        {
+          "d": "04-02",
+          "p": 0.1243
+        },
+        {
+          "d": "04-01",
+          "p": 0.149
+        },
+        {
+          "d": "03-31",
+          "p": 0.1447
+        },
+        {
+          "d": "03-30",
+          "p": 0.1675
+        },
+        {
+          "d": "03-29",
+          "p": 0.1657
+        },
+        {
+          "d": "03-28",
+          "p": 0.1708
+        },
+        {
+          "d": "03-27",
+          "p": 0.2009
+        },
+        {
+          "d": "03-26",
+          "p": 0.2974
+        },
+        {
+          "d": "03-25",
+          "p": 0.2702
+        },
+        {
+          "d": "03-24",
+          "p": 0.2665
+        },
+        {
+          "d": "03-23",
+          "p": 0.32
+        },
+        {
+          "d": "03-22",
+          "p": 0.9989
+        },
+        {
+          "d": "03-21",
+          "p": 0.9994
+        },
+        {
+          "d": "03-20",
+          "p": 0.9993
+        },
+        {
+          "d": "03-19",
+          "p": 0.9993
+        },
+        {
+          "d": "03-18",
+          "p": 0.9993
+        },
+        {
+          "d": "03-17",
+          "p": 0.9997
+        },
+        {
+          "d": "03-16",
+          "p": 0.9988
+        },
+        {
+          "d": "03-15",
+          "p": 0.9992
+        }
+      ],
+      "wstUSR": [
+        {
+          "d": "04-12",
+          "p": 0.1894
+        },
+        {
+          "d": "04-09",
+          "p": 0.2112
+        },
+        {
+          "d": "04-08",
+          "p": 0.243
+        },
+        {
+          "d": "04-06",
+          "p": 0.265
+        },
+        {
+          "d": "04-05",
+          "p": 0.2721
+        },
+        {
+          "d": "04-04",
+          "p": 0.3429
+        },
+        {
+          "d": "04-03",
+          "p": 0.1293
+        },
+        {
+          "d": "04-02",
+          "p": 0.1408
+        },
+        {
+          "d": "04-01",
+          "p": 0.1684
+        },
+        {
+          "d": "03-28",
+          "p": 0.1935
+        },
+        {
+          "d": "03-27",
+          "p": 0.2264
+        },
+        {
+          "d": "03-26",
+          "p": 0.336
+        },
+        {
+          "d": "03-25",
+          "p": 0.3061
+        },
+        {
+          "d": "03-24",
+          "p": 0.3044
+        },
+        {
+          "d": "03-22",
+          "p": 1.1325
+        },
+        {
+          "d": "03-21",
+          "p": 1.1317
+        },
+        {
+          "d": "03-20",
+          "p": 1.132
+        },
+        {
+          "d": "03-19",
+          "p": 1.1323
+        },
+        {
+          "d": "03-18",
+          "p": 1.1323
+        },
+        {
+          "d": "03-17",
+          "p": 1.1321
+        },
+        {
+          "d": "03-16",
+          "p": 1.1322
+        },
+        {
+          "d": "03-15",
+          "p": 1.1314
+        }
+      ],
+      "RLP": [
+        {
+          "d": "04-14",
+          "p": 0.4317
+        },
+        {
+          "d": "04-13",
+          "p": 0.4675
+        },
+        {
+          "d": "04-12",
+          "p": 0.4522
+        },
+        {
+          "d": "04-11",
+          "p": 0.4625
+        },
+        {
+          "d": "04-10",
+          "p": 0.4609
+        },
+        {
+          "d": "04-09",
+          "p": 0.5212
+        },
+        {
+          "d": "04-08",
+          "p": 0.5908
+        },
+        {
+          "d": "04-07",
+          "p": 0.6103
+        },
+        {
+          "d": "04-06",
+          "p": 0.6206
+        },
+        {
+          "d": "04-05",
+          "p": 0.6512
+        },
+        {
+          "d": "04-04",
+          "p": 0.69
+        },
+        {
+          "d": "04-03",
+          "p": 0.6038
+        },
+        {
+          "d": "04-02",
+          "p": 0.6258
+        },
+        {
+          "d": "04-01",
+          "p": 0.6718
+        },
+        {
+          "d": "03-31",
+          "p": 0.6614
+        },
+        {
+          "d": "03-30",
+          "p": 0.7009
+        },
+        {
+          "d": "03-29",
+          "p": 0.7027
+        },
+        {
+          "d": "03-28",
+          "p": 0.711
+        },
+        {
+          "d": "03-27",
+          "p": 0.7321
+        },
+        {
+          "d": "03-26",
+          "p": 0.7886
+        },
+        {
+          "d": "03-25",
+          "p": 0.7898
+        },
+        {
+          "d": "03-24",
+          "p": 0.7503
+        },
+        {
+          "d": "03-23",
+          "p": 0.9847
+        },
+        {
+          "d": "03-22",
+          "p": 1.2841
+        },
+        {
+          "d": "03-21",
+          "p": 1.2847
+        },
+        {
+          "d": "03-20",
+          "p": 1.2858
+        },
+        {
+          "d": "03-19",
+          "p": 1.2852
+        },
+        {
+          "d": "03-18",
+          "p": 1.2798
+        },
+        {
+          "d": "03-17",
+          "p": 1.2836
+        },
+        {
+          "d": "03-16",
+          "p": 1.2858
+        },
+        {
+          "d": "03-15",
+          "p": 1.2834
+        }
+      ]
+    },
+    "source": "Morpho Blue API historicalPriceUsd + market/vault historicalState (data-selected event)"
+  },
+  "markets": [
+    {
+      "marketId": "0xe1b65304edd8ceaea9b629df4c3c926a37d1216e27900505c04f14b2ed279f33",
+      "collateral": "RLP",
+      "loan": "USDC",
+      "lltv": 0.86,
+      "pre_collateral_usd": 18823006.342481676,
+      "pre_supply_usd": 1654261.5306432305,
+      "pre_borrow_usd": 1404777.354824712
+    },
+    {
+      "marketId": "0x4b86442549b52826e0fc11770ec5154450cb3c5c14dc751a761d81dcfbe7a7b2",
+      "collateral": "RLP",
+      "loan": "AUSD",
+      "lltv": 0.86,
+      "pre_collateral_usd": 382802.5062887207,
+      "pre_supply_usd": 315828.5828375884,
+      "pre_borrow_usd": 280212.4836169597
+    },
+    {
+      "marketId": "0x8e7cc042d739a365c43d0a52d5f24160fa7ae9b7e7c9a479bd02a56041d4cf77",
+      "collateral": "USR",
+      "loan": "USDC",
+      "lltv": 0.915,
+      "pre_collateral_usd": 13468.705193681952,
+      "pre_supply_usd": 10072.118372825938,
+      "pre_borrow_usd": 9069.078505514351
+    },
+    {
+      "marketId": "0xd9e34b1eed46d123ac1b69b224de1881dbc88798bc7b70f504920f62f58f28cc",
+      "collateral": "wstUSR",
+      "loan": "USDC",
+      "lltv": 0.915,
+      "pre_collateral_usd": 8202.641722675375,
+      "pre_supply_usd": 4935.3619489668745,
+      "pre_borrow_usd": 4051.9449262164767
+    },
+    {
+      "marketId": "0x308cb8d01d8fe656ceaf4841abc62cee6587f9e46533622e30a0053337953432",
+      "collateral": "RLP",
+      "loan": "USR",
+      "lltv": 0.86,
+      "pre_collateral_usd": 4104.902584041167,
+      "pre_supply_usd": 4025.6321426095187,
+      "pre_borrow_usd": 3355.8309640006455
+    },
+    {
+      "marketId": "0x1a516baea7dd26c9526a293057212a53a693d621023add54bfd04a627f9c28d6",
+      "collateral": "RLP",
+      "loan": "USR",
+      "lltv": 0.86,
+      "pre_collateral_usd": 1545.6257963069604,
+      "pre_supply_usd": 1587.6303092002872,
+      "pre_borrow_usd": 1300.1584789403905
+    },
+    {
+      "marketId": "0xcfe8238ad5567886652ced15ee29a431c161a5904e5a6f380baaa1b4fdc8e302",
+      "collateral": "wstUSR",
+      "loan": "USR",
+      "lltv": 0.915,
+      "pre_collateral_usd": 1148.414357629733,
+      "pre_supply_usd": 1325.4864295801635,
+      "pre_borrow_usd": 1012.4356675006304
+    },
+    {
+      "marketId": "0x0ec590b250f171c22d39958a55a0589091431fe90599d55409c39aeb01363cb0",
+      "collateral": "USR",
+      "loan": "USDT",
+      "lltv": 0.915,
+      "pre_collateral_usd": 8.202888211892395,
+      "pre_supply_usd": 12.136552013527375,
+      "pre_borrow_usd": 4.231978856964887
+    },
+    {
+      "marketId": "0x13dd22c3111106f703052d5f9166812f0bf1f4679f3db7dfd82037971ce5468f",
+      "collateral": "RLP",
+      "loan": "sUSDS",
+      "lltv": 0.86,
+      "pre_collateral_usd": 3.537271004071218,
+      "pre_supply_usd": 2.093632701759125,
+      "pre_borrow_usd": 1.8859560635807906
+    },
+    {
+      "marketId": "0x010e577cd5d40210ae600cd877710c252a26afd7b50b1280642c76c4612bd6df",
+      "collateral": "wstUSR",
+      "loan": "AUSD",
+      "lltv": 0.915,
+      "pre_collateral_usd": 4.00652793819076,
+      "pre_supply_usd": 1.396408087007126,
+      "pre_borrow_usd": 0.0
+    },
+    {
+      "marketId": "0xac5e7868966e4ba9173c691a8f7e94a9f5966815121a0493042fb341db8d2d3f",
+      "collateral": "wstUSR",
+      "loan": "USDT",
+      "lltv": 0.915,
+      "pre_collateral_usd": 4.00652793819076,
+      "pre_supply_usd": 1.3958291684243032,
+      "pre_borrow_usd": 0.0
+    },
+    {
+      "marketId": "0x71c0ed6dc446470316162d86e7d915794fa8c61dbc4e50f87caadfe87f4fd805",
+      "collateral": "wstUSR",
+      "loan": "USR",
+      "lltv": 0.945,
+      "pre_collateral_usd": 3.996824927350115,
+      "pre_supply_usd": 1.1340869846750294,
+      "pre_borrow_usd": 0.9096954004171626
+    },
+    {
+      "marketId": "0xaaf6549df354a014f5b17f69317cbd22f988e5f61f32da27f41442d1e092f63a",
+      "collateral": "wstUSR",
+      "loan": "USDT",
+      "lltv": 0.915,
+      "pre_collateral_usd": 3.9966448445583267,
+      "pre_supply_usd": 1.0012203958326371,
+      "pre_borrow_usd": 0.9102299022159093
+    }
+  ],
+  "vaults": [
+    {
+      "address": "0x5085Dd6FAd07c12e38fae01bc2a4938d2C08B1Bc",
+      "name": "Apostro Resolv USR",
+      "pre_total_usd": 5328.934927555886,
+      "post_total_usd": 227.63302478128747,
+      "totalassets_drop_usd": 5101.301902774599,
+      "share_price_pre": 1.0665896343581729,
+      "share_price_min_post": 0.12265618162573814,
+      "impairment_frac": 0.885,
+      "realized_loss_usd": 4716,
+      "pre_resolv_exposure_usd": 5328.891502284883,
+      "alloc_by_market": {
+        "0x308cb8d01d8fe656ceaf4841abc62cee6587f9e46533622e30a0053337953432": 4023.1470883358015,
+        "0xcfe8238ad5567886652ced15ee29a431c161a5904e5a6f380baaa1b4fdc8e302": 1305.7444139490813
+      }
+    },
+    {
+      "address": "0x5b56F90340dBAa6a8693DADb141D620f0e154fE6",
+      "name": "Avantgarde USDC Core",
+      "pre_total_usd": 343172.6101497955,
+      "post_total_usd": 343179.67706142296,
+      "totalassets_drop_usd": 0.0,
+      "share_price_pre": 1.0497877003260399,
+      "share_price_min_post": 1.0495740852240876,
+      "impairment_frac": 0.0002,
+      "realized_loss_usd": 70,
+      "pre_resolv_exposure_usd": 0.0,
+      "alloc_by_market": {
+        "0x8e7cc042d739a365c43d0a52d5f24160fa7ae9b7e7c9a479bd02a56041d4cf77": 0.0,
+        "0xd9e34b1eed46d123ac1b69b224de1881dbc88798bc7b70f504920f62f58f28cc": 0.0,
+        "0xe1b65304edd8ceaea9b629df4c3c926a37d1216e27900505c04f14b2ed279f33": 0.0
+      }
+    },
+    {
+      "address": "0x0F359FD18BDa75e9c49bC027E7da59a4b01BF32a",
+      "name": "Relend USDC",
+      "pre_total_usd": 30139.2391907858,
+      "post_total_usd": 25775.51962923706,
+      "totalassets_drop_usd": 4363.71956154874,
+      "share_price_pre": 0.01746157948369486,
+      "share_price_min_post": 0.017459137194245196,
+      "impairment_frac": 0.0001,
+      "realized_loss_usd": 4,
+      "pre_resolv_exposure_usd": 0.0,
+      "alloc_by_market": {
+        "0x8e7cc042d739a365c43d0a52d5f24160fa7ae9b7e7c9a479bd02a56041d4cf77": 0.0,
+        "0xe1b65304edd8ceaea9b629df4c3c926a37d1216e27900505c04f14b2ed279f33": 0.0
+      }
+    },
+    {
+      "address": "0x55555815a5595991C3A0Ff119B59AEF6C8B55555",
+      "name": "Adpend USDC",
+      "pre_total_usd": 6234935.943717868,
+      "post_total_usd": 9357318.166375259,
+      "totalassets_drop_usd": 0.0,
+      "share_price_pre": 7.396235664337621,
+      "share_price_min_post": 7.547889485383249,
+      "impairment_frac": 0.0,
+      "realized_loss_usd": 0,
+      "pre_resolv_exposure_usd": 0.0,
+      "alloc_by_market": {
+        "0xd9e34b1eed46d123ac1b69b224de1881dbc88798bc7b70f504920f62f58f28cc": 0.0,
+        "0xe1b65304edd8ceaea9b629df4c3c926a37d1216e27900505c04f14b2ed279f33": 0.0
+      }
+    },
+    {
+      "address": "0x9B5E92fd227876b4C07a8c02367E2CB23c639DfA",
+      "name": "Clearstar Yield USDC",
+      "pre_total_usd": 6548407.8265813375,
+      "post_total_usd": 1521967.5342938257,
+      "totalassets_drop_usd": 5026440.292287512,
+      "share_price_pre": 1.0303392828354334,
+      "share_price_min_post": 1.0305627471788337,
+      "impairment_frac": 0.0,
+      "realized_loss_usd": 0,
+      "pre_resolv_exposure_usd": 0.0,
+      "alloc_by_market": {
+        "0xe1b65304edd8ceaea9b629df4c3c926a37d1216e27900505c04f14b2ed279f33": 0.0
+      }
+    },
+    {
+      "address": "0x0B6C8ef0DE1Be5ed1B59E6e7a67fB9442FB9E49C",
+      "name": "Duplicated Key",
+      "pre_total_usd": 49668.25472318983,
+      "post_total_usd": 51477.77869823235,
+      "totalassets_drop_usd": 0.0,
+      "share_price_pre": 1.1784119054711288,
+      "share_price_min_post": 1.1787064967301668,
+      "impairment_frac": 0.0,
+      "realized_loss_usd": 0,
+      "pre_resolv_exposure_usd": 2483.30301125921,
+      "alloc_by_market": {
+        "0xe1b65304edd8ceaea9b629df4c3c926a37d1216e27900505c04f14b2ed279f33": 2483.30301125921
+      }
+    },
+    {
+      "address": "0x214B47C50057eFaa7adc1B1C2608C3751Cd77D78",
+      "name": "Apostro Resolv USDC",
+      "pre_total_usd": 30962.149967460547,
+      "post_total_usd": 20912.16156110303,
+      "totalassets_drop_usd": 10049.98840635752,
+      "share_price_pre": 1.0825868629784108,
+      "share_price_min_post": 1.082782483841081,
+      "impairment_frac": 0.0,
+      "realized_loss_usd": 0,
+      "pre_resolv_exposure_usd": 30954.946691728397,
+      "alloc_by_market": {
+        "0x8e7cc042d739a365c43d0a52d5f24160fa7ae9b7e7c9a479bd02a56041d4cf77": 0.0,
+        "0xd9e34b1eed46d123ac1b69b224de1881dbc88798bc7b70f504920f62f58f28cc": 0.0,
+        "0xe1b65304edd8ceaea9b629df4c3c926a37d1216e27900505c04f14b2ed279f33": 30954.946691728397
+      }
+    },
+    {
+      "address": "0xca7c196f00e04A5e1c71B91476d0d58f82499734",
+      "name": "Tanken USDC",
+      "pre_total_usd": 4722.068119695972,
+      "post_total_usd": 4467.574795374018,
+      "totalassets_drop_usd": 254.49332432195388,
+      "share_price_pre": 1.0263909938497022,
+      "share_price_min_post": 1.0265890256072812,
+      "impairment_frac": 0.0,
+      "realized_loss_usd": 0,
+      "pre_resolv_exposure_usd": 655.6013054198041,
+      "alloc_by_market": {
+        "0xd9e34b1eed46d123ac1b69b224de1881dbc88798bc7b70f504920f62f58f28cc": 0.0,
+        "0xe1b65304edd8ceaea9b629df4c3c926a37d1216e27900505c04f14b2ed279f33": 655.6013054198041
+      }
+    },
+    {
+      "address": "0xcB82e29930835A937429D4BCAD0a6fa6636755D7",
+      "name": "Adpend",
+      "pre_total_usd": 1500.0517942240583,
+      "post_total_usd": 2065.749787060361,
+      "totalassets_drop_usd": 0.0,
+      "share_price_pre": 17.493661680149632,
+      "share_price_min_post": 17.80098352488701,
+      "impairment_frac": 0.0,
+      "realized_loss_usd": 0,
+      "pre_resolv_exposure_usd": 0.0,
+      "alloc_by_market": {
+        "0x8e7cc042d739a365c43d0a52d5f24160fa7ae9b7e7c9a479bd02a56041d4cf77": 0.0,
+        "0xd9e34b1eed46d123ac1b69b224de1881dbc88798bc7b70f504920f62f58f28cc": 0.0,
+        "0xe1b65304edd8ceaea9b629df4c3c926a37d1216e27900505c04f14b2ed279f33": 0.0
+      }
+    },
+    {
+      "address": "0x7193794ec82f527Efb618Ac50C078D348eCBA4b6",
+      "name": "Etherealm USDC",
+      "pre_total_usd": 2021394.5949888872,
+      "post_total_usd": 225327.02707895444,
+      "totalassets_drop_usd": 1796067.5679099327,
+      "share_price_pre": 1.017577237425712,
+      "share_price_min_post": 1.017813037040489,
+      "impairment_frac": 0.0,
+      "realized_loss_usd": 0,
+      "pre_resolv_exposure_usd": 0.0,
+      "alloc_by_market": {
+        "0xe1b65304edd8ceaea9b629df4c3c926a37d1216e27900505c04f14b2ed279f33": 0.0
+      }
+    },
+    {
+      "address": "0xb5a4d705bb345D8C5753878AAFC6969547AFC061",
+      "name": "Hackarrot USDC prime",
+      "pre_total_usd": 61362.33478165529,
+      "post_total_usd": 71906.36026690002,
+      "totalassets_drop_usd": 0.0,
+      "share_price_pre": 1.0257359430136863,
+      "share_price_min_post": 1.0260110865781231,
+      "impairment_frac": 0.0,
+      "realized_loss_usd": 0,
+      "pre_resolv_exposure_usd": 0.0,
+      "alloc_by_market": {
+        "0xe1b65304edd8ceaea9b629df4c3c926a37d1216e27900505c04f14b2ed279f33": 0.0
+      }
+    },
+    {
+      "address": "0x09C4C7B1D2e9Aa7506db8B76f1dBbD61c08c114b",
+      "name": "Everstone",
+      "pre_total_usd": 390131.58392767346,
+      "post_total_usd": 406227.32662907883,
+      "totalassets_drop_usd": 0.0,
+      "share_price_pre": 2.1426967974855304,
+      "share_price_min_post": 2.143239090762834,
+      "impairment_frac": 0.0,
+      "realized_loss_usd": 0,
+      "pre_resolv_exposure_usd": 0.0,
+      "alloc_by_market": {
+        "0xe1b65304edd8ceaea9b629df4c3c926a37d1216e27900505c04f14b2ed279f33": 0.0
+      }
+    }
+  ]
+}

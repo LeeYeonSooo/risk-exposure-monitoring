@@ -1,0 +1,217 @@
+{
+  "nodes": [
+    {
+      "address": "0xdc24316b9ae028f1497c275eb9192a3ea0f67022",
+      "chain_id": 1,
+      "type": "vault",
+      "protocol": "curve",
+      "label": "Curve stETH/ETH Pool",
+      "metadata": {
+        "category": "dex_pool",
+        "kind": "stable_pool",
+        "discovered_by": "consumer_discovery",
+        "expected_tokens": [
+          "stETH"
+        ]
+      }
+    },
+    {
+      "address": "0x828b154032950c8ff7cf8085d841723db2696056",
+      "chain_id": 1,
+      "type": "vault",
+      "protocol": "curve",
+      "label": "Curve wstETH/WETH Pool",
+      "metadata": {
+        "category": "dex_pool",
+        "kind": "stable_pool",
+        "discovered_by": "consumer_discovery",
+        "expected_tokens": [
+          "wstETH"
+        ]
+      }
+    },
+    {
+      "address": "0x21e27a5e5513d6e65c4f830167390997aa84843a",
+      "chain_id": 1,
+      "type": "vault",
+      "protocol": "curve",
+      "label": "Curve ETH/stETH NG Pool",
+      "metadata": {
+        "category": "dex_pool",
+        "kind": "stable_pool_ng",
+        "discovered_by": "consumer_discovery",
+        "expected_tokens": [
+          "stETH"
+        ]
+      }
+    },
+    {
+      "address": "0x93c4b944d05dfe6df7645a86cd2206016c51564d",
+      "chain_id": 1,
+      "type": "vault",
+      "protocol": "eigenlayer",
+      "label": "EigenLayer wstETH Strategy",
+      "metadata": {
+        "category": "restaking_strategy",
+        "kind": "strategy",
+        "discovered_by": "consumer_discovery",
+        "expected_tokens": [
+          "wstETH"
+        ]
+      }
+    },
+    {
+      "address": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+      "chain_id": 1,
+      "type": "protocol_pool",
+      "protocol": "compound-v3",
+      "label": "Compound V3 USDC Comet",
+      "metadata": {
+        "category": "lending",
+        "kind": "comet",
+        "discovered_by": "consumer_discovery",
+        "expected_tokens": [
+          "wstETH"
+        ]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "consumer-discovered:0xdc24316b->0xae7ab965",
+      "edge_type": "mint_wrapper",
+      "from": "0xdc24316b9ae028f1497c275eb9192a3ea0f67022",
+      "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+      "protocol": "external",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true,
+        "layer": "consumer_holds_token",
+        "balance_raw": "23122197398471689697472"
+      }
+    },
+    {
+      "edge_id": "consumer-discovered:0x828b1540->0xae7ab965",
+      "edge_type": "mint_wrapper",
+      "from": "0x828b154032950c8ff7cf8085d841723db2696056",
+      "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+      "protocol": "external",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true,
+        "layer": "consumer_holds_token",
+        "balance_raw": "17411992543223414183"
+      }
+    },
+    {
+      "edge_id": "consumer-discovered:0x21e27a5e->0xae7ab965",
+      "edge_type": "mint_wrapper",
+      "from": "0x21e27a5e5513d6e65c4f830167390997aa84843a",
+      "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+      "protocol": "external",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true,
+        "layer": "consumer_holds_token",
+        "balance_raw": "5969015781474645990383"
+      }
+    },
+    {
+      "edge_id": "consumer-discovered:0x93c4b944->0xae7ab965",
+      "edge_type": "mint_wrapper",
+      "from": "0x93c4b944d05dfe6df7645a86cd2206016c51564d",
+      "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+      "protocol": "external",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true,
+        "layer": "consumer_holds_token",
+        "balance_raw": "438186663932386576147240"
+      }
+    },
+    {
+      "edge_id": "consumer-discovered:0xc3d688b6->0x7f39c581",
+      "edge_type": "mint_wrapper",
+      "from": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+      "to": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "protocol": "external",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true,
+        "layer": "consumer_holds_token",
+        "balance_raw": "22696287125439423506876"
+      }
+    },
+    {
+      "edge_id": "consumer-discovered:0xc3d688b6->0xcd5fe23c",
+      "edge_type": "mint_wrapper",
+      "from": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+      "to": "0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee",
+      "protocol": "external",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true,
+        "layer": "consumer_holds_token",
+        "balance_raw": "11996070558308447445956"
+      }
+    },
+    {
+      "edge_id": "consumer-discovered:0xc3d688b6->0xa1290d69",
+      "edge_type": "mint_wrapper",
+      "from": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+      "to": "0xa1290d69c65a6fe4df752f95823fae25cb99e5a7",
+      "protocol": "external",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true,
+        "layer": "consumer_holds_token",
+        "balance_raw": "16802620070854901001"
+      }
+    }
+  ],
+  "_meta": {
+    "discovered_at": 1779938246.2103848,
+    "tokens_count": 5,
+    "consumers_count": 9,
+    "pairs_checked": 45,
+    "holdings": [
+      {
+        "consumer": "0xdc24316b9ae028f1497c275eb9192a3ea0f67022",
+        "token": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+        "balance_raw": 23122197398471689697472
+      },
+      {
+        "consumer": "0x828b154032950c8ff7cf8085d841723db2696056",
+        "token": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+        "balance_raw": 17411992543223414183
+      },
+      {
+        "consumer": "0x21e27a5e5513d6e65c4f830167390997aa84843a",
+        "token": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+        "balance_raw": 5969015781474645990383
+      },
+      {
+        "consumer": "0x93c4b944d05dfe6df7645a86cd2206016c51564d",
+        "token": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+        "balance_raw": 438186663932386576147240
+      },
+      {
+        "consumer": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+        "token": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+        "balance_raw": 22696287125439423506876
+      },
+      {
+        "consumer": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+        "token": "0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee",
+        "balance_raw": 11996070558308447445956
+      },
+      {
+        "consumer": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+        "token": "0xa1290d69c65a6fe4df752f95823fae25cb99e5a7",
+        "balance_raw": 16802620070854901001
+      }
+    ],
+    "error": null,
+    "holdings_count": 7
+  }
+}

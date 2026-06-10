@@ -1,0 +1,76 @@
+{
+  "event": "Renzo ezETH (LRT) depeg 2024-04-24 — ETH-relative depeg to ~0.80-0.85, market-price oracle pushed Morpho ezETH/WETH 0.86-LLTV loops into liquidation (~$23M Morpho, ~$60M total, 10.96 WETH bad debt)",
+  "source": "CoinDesk, Protos, Morpho Governance Forum (Gauntlet LRT Core Vault post-mortem), Unchained, Cointelegraph, AMBCrypto, Prisma Risk, Etherscan — see EVENT.md",
+  "closed": true,
+  "cases": [
+    {
+      "id": "depeg-trough-eth-relative-0.82",
+      "snapshot": "snapshots/ezETH.json",
+      "now": "2024-04-24T03:02:00Z",
+      "peg_probes": {
+        "ezETH-morpho_blue-collateral_isolated": {
+          "price": 0.8832567393095667,
+          "peg": 1.0,
+          "asset_class": "lst",
+          "source": "onchain:univ3 0xbe80225f09645f172b079394312220637c440a63 0in1 @ethereum:19722430"
+        }
+      },
+      "should_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "ezETH-morpho_blue-collateral_isolated",
+          "min_severity": "CRITICAL"
+        }
+      ],
+      "must_not_fire": [],
+      "beta": 2.0,
+      "note": "(MEASURED on-chain @block 19722430) ezETH/WETH spot read from the UniV3 ezETH/WETH 0.01% pool (0xbe80225f09645f172b079394312220637c440a63, token0=ezETH/token1=WETH) at the case's `now` block = 0.88326 (~11.7% below ETH parity), replacing the hand-asserted 0.82 trough figure. This is the actual DEX market price the Morpho market-price ezETH/ETH oracle tracked at 03:02 UTC (ezETH already partly recovering from the deeper ~0.80-0.85 trough). ezETH at ~0.88 of its ETH-backing is still an order of magnitude past an LRT's normal 10-60 bps steady-state discount. ezETH was a major Morpho Blue collateral on the ezETH/WETH/0.86-LLTV market (~7.6k WETH / ~$23M supplied) priced by a real market-price ezETH/ETH oracle (NOT a hardcoded 1.0). The oracle dipped below 1.0 at 02:25 UTC and drove looped positions THROUGH the 0.86 LLTV: real on-chain liquidations cascaded (~$60M total, ~$23M on Morpho) and 10.96 WETH of bad debt was actually realized (7.12 WETH socialized to the Gauntlet vault). Realized-liquidation depeg of a major collateral -> DEPEG must fire at CRITICAL (parity with the USD0++ market-price-oracle CRITICAL case; here bad debt was actually realized). Measured 0.88326 vs asserted 0.82 does NOT change the verdict tier (both deep market-price depegs >= the USD0++ ~11% CRITICAL anchor)."
+    },
+    {
+      "id": "depeg-at-lltv-line-0.86",
+      "snapshot": "snapshots/ezETH.json",
+      "now": "2024-04-24T02:40:00Z",
+      "peg_probes": {
+        "ezETH-morpho_blue-collateral_isolated": {
+          "price": 0.8562921792506183,
+          "peg": 1.0,
+          "asset_class": "lst",
+          "source": "onchain:univ3 0xbe80225f09645f172b079394312220637c440a63 0in1 @ethereum:19722320"
+        }
+      },
+      "should_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "ezETH-morpho_blue-collateral_isolated",
+          "min_severity": "HIGH"
+        }
+      ],
+      "must_not_fire": [],
+      "beta": 2.0,
+      "note": "(MEASURED on-chain @block 19722320) ezETH/WETH spot read from the UniV3 ezETH/WETH 0.01% pool (0xbe80225f09645f172b079394312220637c440a63) at the case's `now` block (02:40 UTC) = 0.85629, essentially exact to the hand-asserted 0.86 and landing right on the market's 0.86 liquidation line — the threshold at which looped positions begin to be liquidated. A ~14% depeg of a major Morpho collateral right at the LLTV boundary is unambiguously actionable and must fire (>= HIGH). This case anchors the lower edge of the depeg: the monitor must already be alarming by the time price reaches the liquidation line, not only at the deeper trough. Set HIGH (not CRITICAL) as a floor so the trough case carries the top severity, but a CRITICAL here is also defensible given liquidations begin precisely at this level. Measured 0.85629 vs asserted 0.86 does NOT change the verdict tier."
+    },
+    {
+      "id": "benign-normal-lst-discount-0.997",
+      "snapshot": "snapshots/ezETH.json",
+      "now": "2024-04-22T16:00:00Z",
+      "peg_probes": {
+        "ezETH-morpho_blue-collateral_isolated": {
+          "price": 1.006314274209556,
+          "peg": 1.0,
+          "asset_class": "lst",
+          "source": "onchain:univ3 0xbe80225f09645f172b079394312220637c440a63 0in1 @ethereum:19711992"
+        }
+      },
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "ezETH-morpho_blue-collateral_isolated"
+        }
+      ],
+      "beta": 2.0,
+      "note": "(MEASURED on-chain @block 19711992) FP-trap: ezETH/WETH spot read from the UniV3 ezETH/WETH 0.01% pool (0xbe80225f09645f172b079394312220637c440a63) two days BEFORE the event (2024-04-22 16:00 UTC) = 1.00631 — ezETH a hair ABOVE ETH parity (a ~63 bps premium), within normal liquid-restaking-token steady-state band. The hand-asserted 0.997 was a routine ~30 bps discount; the measured value is a symmetric ~63 bps premium. Either way this must NOT raise a DEPEG: a healthy LRT trades within a few tens of bps of its ETH backing on either side. Guards against a hair-trigger that would alarm on every LRT every day (the whole top-100 restaking book sits in this band continuously). The real event was an order of magnitude deeper (~0.86 and below) and crossed the 0.86 LLTV. Measured 1.00631 vs asserted 0.997 does NOT change the verdict tier (both benign near-parity, must_not_fire)."
+    }
+  ],
+  "ratified": "auto(reviewer)"
+}

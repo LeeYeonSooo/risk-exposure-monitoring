@@ -1,0 +1,69 @@
+{
+  "event": "Resupply reUSD ERC4626-donation oracle manipulation — 2025-06-26 (Ethereum). Attacker donated 2,000 crvUSD into a freshly-deployed EMPTY cvcrvUSD ERC4626 wrapper used as the wstUSR market's price oracle, then minted 1 share; the inflated share price (past 1e36) made exchangeRate = 1e36/price floor-divide to ZERO, zeroing the LTV/health check, so ~10M reUSD was borrowed against ~1 wei of collateral (~$9.5–9.56M loss). The oracle/exchange-rate READ returns a dead/garbage ZERO value — the canonical empty-ERC4626-donation share-price failure — injected per-case via oracle_probes.",
+  "source": "BlockSec, SolidityScan, crypto.news, Ackee Blockchain, QuillAudits, Rekt, The Block — see EVENT.md",
+  "closed": false,
+  "cases": [
+    {
+      "id": "reusd-erc4626-oracle-zeroed",
+      "snapshot": "snapshots/reUSD.json",
+      "now": "2025-06-26T02:00:00Z",
+      "oracle_probes": {
+        "reUSD-resupply-wstUSR_market": {
+          "updated_at": 1750903200,
+          "answer": 0.0,
+          "reference_answer": 1.0,
+          "asset_class": "stable",
+          "oracle_address": "0xcb7e25fbbd8afe4ce73d7dac647dbc3d847f3c82",
+          "market_identity": {
+            "loan_asset": "reUSD",
+            "collateral_asset": "wstUSR",
+            "oracle_address": "0xcb7e25fbbd8afe4ce73d7dac647dbc3d847f3c82",
+            "lltv": 0.97
+          }
+        }
+      },
+      "should_fire": [
+        {
+          "signal_type": "ORACLE_FREEZE",
+          "edge_id": "reUSD-resupply-wstUSR_market",
+          "min_severity": "CRITICAL"
+        }
+      ],
+      "must_not_fire": [],
+      "max_emitted": null,
+      "beta": 2.0,
+      "note": "Live-exploit window (now 2025-06-26T02:00:00Z is after the ~01:53 UTC attack tx and before BlockSec's 02:26 UTC public warning / 02:53 UTC pause). The cvcrvUSD ERC4626 wrapper that prices this market was donation-manipulated until its share price overflowed past 1e36, making Resupply's exchangeRate = 1e36/price floor-divide to ZERO; that zeroed LTV passed every solvency check and let the attacker borrow ~10M reUSD against 1 wei of collateral (~$9.56M loss). The decisive fact is the oracle/exchange-rate READ returning answer=0 against an honest reference of 1.0 — a dead/crashed/manipulated-to-zero feed on a live lending market. answer <= 0 is the unambiguous dead-feed condition, so ORACLE_FREEZE MUST page; CRITICAL because a zeroed price oracle disables liquidations and health checks entirely (catastrophic). This is a distinct recall path from UwU-style cross-reference deviation (wrong-but-nonzero price). (MEASURED on-chain @block 22785461, the attack block: ResupplyPair 0x6e90c85a495d54c6d7e1f3400fef1f6e59f86bd6 exchangeRateInfo() returns oracle=0xcb7e25fbbd8afe4ce73d7dac647dbc3d847f3c82 and storedExchangeRate=0; the ResupplyOracle.getPrices(cvcrvUSD 0x01144442fba7adccb5c9dc9cf33dd009d50a9e1d) read = 2000000000000000000001998001998001998 (~2.0e36, the donation-inflated share price), so 1e36//price floor-divides to 0. answer=0.0 is that zeroed exchange rate normalised to peg space [rate 0 / healthy 1e21]; reference 1.0 is the honest 1:1. oracle lastTimestamp on-chain = 1750902839 = 2025-06-26T01:53:59Z, the exact attack tx time.)"
+    },
+    {
+      "id": "reusd-healthy-oracle",
+      "snapshot": "snapshots/reUSD.json",
+      "now": "2025-06-25T12:00:00Z",
+      "oracle_probes": {
+        "reUSD-resupply-wstUSR_market": {
+          "updated_at": 1750852800,
+          "answer": 1.0,
+          "reference_answer": 1.0,
+          "asset_class": "stable",
+          "oracle_address": "0xcb7e25fbbd8afe4ce73d7dac647dbc3d847f3c82",
+          "market_identity": {
+            "loan_asset": "reUSD",
+            "collateral_asset": "wstUSR",
+            "oracle_address": "0xcb7e25fbbd8afe4ce73d7dac647dbc3d847f3c82",
+            "lltv": 0.97
+          }
+        }
+      },
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "ORACLE_FREEZE",
+          "edge_id": "reUSD-resupply-wstUSR_market"
+        }
+      ],
+      "max_emitted": { "severity": "WARN", "count": 0 },
+      "beta": 2.0,
+      "note": "FP-trap: the day before the exploit (now 2025-06-25T12:00:00Z, pre-attack) the same market's exchange-rate oracle reads a healthy, fresh answer of 1.0 that matches the honest reference of 1.0 exactly. A correct, fresh exchange-rate read must NOT raise ORACLE_FREEZE (or anything above WARN with count 0). Guards against a hair-trigger that pages on every normal oracle read and proves the INCIDENT alarm is driven by the answer<=0 dead-read, not by the mere presence of this market/oracle. (MEASURED on-chain @block 22785460, the last block before the attack: the same ResupplyOracle 0xcb7e25fbbd8afe4ce73d7dac647dbc3d847f3c82 getPrices(cvcrvUSD) read = 1000000000000000 (1e15), so 1e36//price = 1e21 = the healthy storedExchangeRate (exchangeRateInfo() word2 = 1000000000000000000000), a clean 1:1. answer=1.0 is that healthy rate normalised to peg space [rate 1e21 / healthy 1e21]. The cvcrvUSD market did not exist on the labelled now-date 2025-06-25 (it was deployed ~1.5h pre-attack), so the genuinely-calm same-market anchor is the immediately-pre-attack block 22785460 (2025-06-26T00:18:47Z); the labelled now is kept as-is.)"
+    }
+  ],
+  "ratified": "auto(reviewer)"
+}

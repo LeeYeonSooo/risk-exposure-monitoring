@@ -1,0 +1,161 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://defi-dependency-map/schemas/edge.json",
+  "title": "Edge Schema",
+  "description": "디파이 의존성 그래프의 엣지. 노드와 노드 사이의 사건/관계 표현.",
+  "type": "object",
+  "required": ["edge_id", "edge_type", "from", "to", "protocol"],
+  "properties": {
+    "edge_id": {
+      "type": "string",
+      "description": "전역 고유 ID. 권장 형식: '{protocol}:{market_id}:{edge_type}:{tx_hash}:{log_index}'"
+    },
+    "edge_type": {
+      "type": "string",
+      "description": "엣지 타입. shared/vocab/edge_types.md 의 표준 어휘.",
+      "enum": [
+        "supply",
+        "withdraw",
+        "borrow",
+        "repay",
+        "atoken_transfer",
+        "flashloan",
+        "treasury_accrual",
+        "gsm_swap",
+        "psm_swap",
+        "supply_on_behalf",
+        "debt_to",
+        "debt_reduced_for",
+        "credit_delegation",
+        "position_delegation",
+        "delegation",
+        "liquidation",
+        "repay_via_liquidation",
+        "collateral_seized",
+        "gho_facilitator_mint",
+        "gho_facilitator_burn",
+        "cdp_mint",
+        "cdp_burn",
+        "mint_wrapper",
+        "burn_wrapper",
+        "split",
+        "merge",
+        "swap",
+        "restake",
+        "withdraw_restake",
+        "vault_allocation",
+        "withdrawal_request",
+        "withdrawal_claim",
+        "safety_module_stake",
+        "safety_module_slash",
+        "price_dependency"
+      ]
+    },
+    "from": {
+      "type": "string",
+      "description": "출발 노드 주소 (소문자) 또는 논리 ID"
+    },
+    "to": {
+      "type": "string",
+      "description": "도착 노드 주소 (소문자) 또는 논리 ID"
+    },
+    "from_role": {
+      "type": ["string", "null"],
+      "description": "출발 노드의 역할 (node_type)"
+    },
+    "to_role": {
+      "type": ["string", "null"],
+      "description": "도착 노드의 역할 (node_type)"
+    },
+    "asset": {
+      "type": ["string", "null"],
+      "description": "관련 자산 주소. 자금 흐름 없는 엣지면 null"
+    },
+    "amount_raw": {
+      "type": ["string", "null"],
+      "description": "raw integer (wei 단위, stringified)"
+    },
+    "amount_decimal": {
+      "type": ["number", "null"],
+      "description": "human-readable (decimals 적용 후)"
+    },
+    "chain_id": {
+      "type": "integer"
+    },
+    "block_number": {
+      "type": ["integer", "null"]
+    },
+    "tx_hash": {
+      "type": ["string", "null"],
+      "pattern": "^0x[a-f0-9]{64}$"
+    },
+    "log_index": {
+      "type": ["integer", "null"]
+    },
+    "timestamp": {
+      "type": ["integer", "null"],
+      "description": "Unix timestamp (초)"
+    },
+    "protocol": {
+      "type": "string",
+      "enum": ["aave-v3", "lido", "sky", "morpho", "pendle", "chainlink", "eigenlayer", "external"]
+    },
+    "market_id": {
+      "type": ["string", "null"]
+    },
+    "metadata": {
+      "type": "object",
+      "description": "자유 형식 메타데이터. 엣지 타입별로 다름.",
+      "additionalProperties": true
+    }
+  },
+  "examples": [
+    {
+      "edge_id": "aave-v3:1:0x2f39:supply:0xabc...:128",
+      "edge_type": "supply",
+      "from": "0xuser...",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "from_role": "user",
+      "to_role": "protocol_pool",
+      "asset": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      "amount_raw": "100000000",
+      "amount_decimal": 100.0,
+      "chain_id": 1,
+      "block_number": 19000000,
+      "tx_hash": "0xabc...",
+      "log_index": 128,
+      "timestamp": 1707000000,
+      "protocol": "aave-v3",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "onBehalfOf": "0xuser...",
+        "referralCode": 0
+      }
+    },
+    {
+      "edge_id": "aave-v3:1:0x2f39:liquidation:0xdef...:256",
+      "edge_type": "liquidation",
+      "from": "0xliquidator...",
+      "to": "0xborrower...",
+      "from_role": "user",
+      "to_role": "user",
+      "asset": null,
+      "amount_raw": null,
+      "amount_decimal": null,
+      "chain_id": 1,
+      "block_number": 19000001,
+      "tx_hash": "0xdef...",
+      "log_index": 256,
+      "timestamp": 1707000012,
+      "protocol": "aave-v3",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "collateral_asset": "0xweth...",
+        "debt_asset": "0xusdc...",
+        "debt_covered": 40000,
+        "collateral_received": 42000,
+        "receive_atoken": false
+      }
+    }
+  ]
+}

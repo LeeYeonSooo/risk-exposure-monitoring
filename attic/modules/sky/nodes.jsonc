@@ -1,0 +1,523 @@
+// Sky/Maker 의존성 매핑 — nodes.jsonc v1.0
+// 13 시나리오 학습 + CRITERIA v1.0 + plan v7.3 기반
+//
+// 형식: role 기반 (Aave 양식 차용). 실제 인스턴스는 metadata.addresses에.
+//
+// 표준 node_id 규칙 (다른 팀 JSON과 호환):
+//   tok_<symbol>           — Token
+//   ilk_<name>             — Sky ilk
+//   psm_<gem>              — PSM
+//   savings_<token>        — Savings module
+//   vault_engine_<type>    — Vault Engine
+//   clipper_<ilk>          — Clipper (metadata로 흡수도 가능)
+//   d3m_<ilk>              — D3M module
+//   allocator_<star>       — Allocator
+//   ext_<protocol>_<pool>  — External protocol
+//   oracle_<feed>          — Oracle
+//   offchain_<entity>      — Off-chain entity
+//   chain_<name>           — Remote chain
+//   bridge_<type>          — Bridge
+//   gov_<module>           — Governance
+//   mom_<module>           — Mom (외부 trigger)
+//
+// 카운트: 37 static roles + 6 dynamic templates (실제 인스턴스 ~125)
+{
+  "_metadata": {
+    "version": "1.0",
+    "date": "2026-05-28",
+    "total_static_roles": 37,
+    "total_dynamic_templates": 6,
+    "compatible_with": ["events.jsonc v1.0", "edges.jsonc v1.0"]
+  },
+
+  "static_nodes": {
+
+    // ===== A. Tokens (7 roles) =====
+    "stablecoin": {
+      "label": "Sky 발행 stablecoin",
+      "role": "사용자 자산 + 시스템 핵심 산출물",
+      "count": 2,
+      "instances": [
+        { "node_id": "tok_usds", "address": "0xdC035D45d973E3EC169d2276DDab16f1e407384F", "symbol": "USDS", "decimals": 18 },
+        { "node_id": "tok_dai", "address": "0x6B175474E89094C44Da98b954EdeAC495271d0F", "symbol": "DAI", "decimals": 18 }
+      ],
+      "metadata": { "upgradeability_per_token": { "USDS": "uups", "DAI": "immutable" } }
+    },
+    "yield_share_token": {
+      "label": "ERC-4626 yield-bearing share",
+      "role": "USDS yield 또는 risk capital share. dual_role: token + vault",
+      "count": 2,
+      "instances": [
+        { "node_id": "tok_susds", "address": "0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD", "symbol": "sUSDS", "implementation": "0x4e7991e5C547ce825BdEb665EE14a3274f9F61e0" },
+        { "node_id": "tok_stusds", "address": "0x99CD4Ec3f88A45940936F469E4bB72A2A701EEB9", "symbol": "stUSDS", "implementation": "0x7A61B7adCFD493f7CF0F86dFCECB94b72c227F22" }
+      ],
+      "metadata": { "dual_role": ["token", "vault"], "underlying": "tok_usds" }
+    },
+    "gov_token": {
+      "label": "Governance + 담보 토큰",
+      "role": "거버넌스 잠금 + LockStake 담보",
+      "count": 2,
+      "instances": [
+        { "node_id": "tok_sky", "address": "0x56072C95FAA701256059aa122697B133aDEd9279", "symbol": "SKY" },
+        { "node_id": "tok_mkr", "address": "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2", "symbol": "MKR", "activity_label": "wind_down" }
+      ],
+      "metadata": { "migration_ratio": "1 MKR = 24000 SKY" }
+    },
+    "lockstake_share": {
+      "label": "lsSKY (LockStake share)",
+      "role": "SKY 잠근 증거 토큰. transferable ERC-20. mint=engine만",
+      "count": 1,
+      "instances": [
+        { "node_id": "tok_lssky", "address": "0xf9A9cfD3229E985B91F99Bc866d42938044FFa1C", "symbol": "lsSKY" }
+      ]
+    },
+    "external_token": {
+      "label": "Sky가 다루는 외부 토큰",
+      "role": "PSM/담보/Bridge 입력",
+      "count": 7,
+      "instances": [
+        { "node_id": "tok_usdc", "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "symbol": "USDC", "issuer": "offchain_circle" },
+        { "node_id": "tok_weth", "address": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", "symbol": "WETH" },
+        { "node_id": "tok_wsteth", "address": "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0", "symbol": "wstETH", "issuer": "offchain_lido_dao" },
+        { "node_id": "tok_reth", "address": "0xae78736Cd615f374D3085123A210448E74Fc6393", "symbol": "rETH", "issuer": "offchain_rocketpool_dao" },
+        { "node_id": "tok_wbtc", "address": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", "symbol": "WBTC", "issuer": "offchain_bitgo" },
+        { "node_id": "tok_spk", "address": "0xc20059e0317DE91738d13af027DfC4a50781b066", "symbol": "SPK", "external_protocol": "spark" }
+      ]
+    },
+    "lp_token": {
+      "label": "DEX LP 토큰",
+      "role": "Smart Burn 결과물 (USDS-SKY pair LP)",
+      "count": 1,
+      "instances": [
+        { "node_id": "tok_usds_sky_lp", "address": "0x2621CC0B3F3c079c1Db0E80794AA24976F0b9e3c", "symbol": "UNI-V2 USDS-SKY" }
+      ]
+    },
+    // cross_chain_token은 제외 (L1/L2 USDS는 같은 의존성, bridge_flow 엣지로 표현)
+
+
+    // ===== B. Vault / ilk / Liquidation (3 roles, clipper는 ilk metadata 흡수) =====
+    "ilk": {
+      "label": "Sky ilk (담보 type)",
+      "role": "자산 + 파라미터 (LR/line/duty/spot) + clipper + oracle 묶음",
+      "count": "30 active (ilk별)",
+      "instance_pattern": "per_collateral_type",
+      "example_instances": [
+        { "node_id": "ilk_eth_a", "ilk_name": "ETH-A", "underlying": "tok_weth", "clipper_addr": "0x...", "osm_addr": "0x..." },
+        { "node_id": "ilk_eth_b", "ilk_name": "ETH-B", "underlying": "tok_weth" },
+        { "node_id": "ilk_wsteth_a", "ilk_name": "WSTETH-A", "underlying": "tok_wsteth" },
+        { "node_id": "ilk_wbtc_a", "ilk_name": "WBTC-A", "underlying": "tok_wbtc" },
+        { "node_id": "ilk_reth_a", "ilk_name": "RETH-A", "underlying": "tok_reth" },
+        { "node_id": "ilk_lse_mkr_a", "ilk_name": "LSE-MKR-A", "underlying": "tok_sky", "clipper_addr": "lockstake_clip" },
+        { "node_id": "ilk_lite_psm_usdc_a", "ilk_name": "LITE-PSM-USDC-A", "underlying": "tok_usdc", "module": "psm" },
+        { "node_id": "ilk_direct_spark_dai", "ilk_name": "DIRECT-SPARK-DAI", "module": "d3m" },
+        { "node_id": "ilk_allocator_spark_a", "ilk_name": "ALLOCATOR-SPARK-A", "module": "allocator" }
+      ],
+      "metadata": { "discovered_via": "Vat.ilks(ilk).rate != 0 (init된 ilk)" }
+    },
+    "vault_engine": {
+      "label": "Vault 생성/운영 인프라",
+      "role": "사용자별 vault instance 생성 + ownership 관리",
+      "count": 2,
+      "instances": [
+        { "node_id": "vault_engine_cdp_manager", "address": "0x5ef30b9986345249bc32d8928B7ee64DE9435E39", "module": "cdp", "instance_pattern": "urn_handler_per_cdp" },
+        { "node_id": "vault_engine_lockstake", "address": "0xCe01C90dE7FD1bcFa39e237FE6D8D9F569e8A6a3", "module": "lockstake", "instance_pattern": "minimal_proxy_per_user_index" }
+      ]
+    },
+    "liquidation_router": {
+      "label": "Dog (청산 routing)",
+      "role": "★ Sky 모든 ilk 청산 진입점. Hole/hole 한도 + Vat.grab 호출 + Clipper.kick",
+      "count": 1,
+      "instances": [
+        { "node_id": "liquidation_router_dog", "address": "0x135954d155898D42C90D2a57824C690e0c7BEf1B" }
+      ],
+      "metadata": { "manages_ilks": "모든 active ilk의 Clipper" }
+    },
+    // clipper는 ilk의 metadata.clipper_addr로 흡수 (Aave에서도 청산은 Pool 통합)
+
+
+    // ===== C. Conversion & Swap (3 roles) =====
+    "psm": {
+      "label": "Peg Stability Module (USDS ↔ external stable)",
+      "role": "external stable과 1:1 swap. fee tin/tout",
+      "count": 1,
+      "instances": [
+        { "node_id": "psm_usdc", "address": "0xf6e72Db5454dd049d0788e411b06CfAF16853042", "ilk": "ilk_lite_psm_usdc_a", "gem": "tok_usdc", "mom": "0x467b32b0407Ad764f56304420Cddaa563bDab425" }
+      ],
+      "metadata": { "wind_down": "구 MCD_PSM_USDC_A (0x89B7...) 마이그 진행" }
+    },
+    "psm_pocket": {
+      "label": "PSM gem 보관소 (분리된 보안 단위)",
+      "role": "USDC 격리 보관. PSM과 분리 (blacklist 위험 격리)",
+      "count": 1,
+      "instances": [
+        { "node_id": "psm_pocket_usdc", "address": "0x37305B1cD40574E4C5Ce33f8e8306Be057fD7341" }
+      ]
+    },
+    "converter": {
+      "label": "토큰 변환기",
+      "role": "DAI↔USDS (양방향 1:1) OR MKR→SKY (단방향 1:24000)",
+      "count": 2,
+      "instances": [
+        { "node_id": "converter_dai_usds", "address": "0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A", "direction": "bidirectional", "ratio": "1:1" },
+        { "node_id": "converter_mkr_sky", "address": "0xA1Ea1bA18E88C381C724a75F23a130420C403f9a", "direction": "one_way", "ratio": "1:24000" }
+      ]
+    },
+
+
+    // ===== D. Savings (2 roles) =====
+    "savings_module": {
+      "label": "USDS yield share module (ERC-4626)",
+      "role": "USDS 잠그고 yield share 받음. dual_role: token+vault",
+      "count": 4,
+      "instances": [
+        { "node_id": "savings_susds", "share_token": "tok_susds", "rate_param": "ssr", "type": "yield_safe", "rate_setter": "rate_setter_spbeam" },
+        { "node_id": "savings_stusds", "share_token": "tok_stusds", "rate_param": "str", "type": "risk_capital", "rate_setter": "rate_setter_stusds", "bad_debt_absorb": true },
+        { "node_id": "savings_sdai", "address": "0x83F20F44975D03b1b09e64809B757c47f942BEeA", "rate_param": "pot.dsr (외부)", "type": "yield_safe", "activity_label": "wind_down" },
+        { "node_id": "savings_pot", "address": "0x197E90f9FAD81970bA7976f33CbD77088E5D7cf7", "rate_param": "dsr", "type": "yield_safe (legacy)", "activity_label": "dormant", "note": "LibNote 제거 — Type 4 view-only" }
+      ]
+    },
+    "rate_setter": {
+      "label": "Rate 동적 조정 모듈",
+      "role": "ilk duty + DSR + SSR/STR 통합 setter. 안전장치 (min/max/step/tau/bad)",
+      "count": 2,
+      "instances": [
+        { "node_id": "rate_setter_spbeam", "address": "0x30784615252B13E1DbE2bDf598627eaC297Bf4C5", "manages": ["ilk_duty", "DSR (pot)", "SSR (susds)"], "mom": "spbeam_mom" },
+        { "node_id": "rate_setter_stusds", "address": "0x30784615252B13E1DbE2bDf598627eaC297Bf4C5", "manages": ["STR (stusds.str)", "stusds duty", "stusds line", "stusds cap"], "mom": "stusds_mom", "note": "★ chainlog 상 SPBEAM과 같은 주소 — verified_contract 확인 필요" }
+      ],
+      "metadata": { "verified_contract": "chainlog mapping ambiguity — Etherscan에서 source 검증 필요" }
+    },
+
+
+    // ===== E. External Capital Distribution (3 roles) =====
+    "d3m_module": {
+      "label": "D3M (Sky → 외부 풀 자본 공급)",
+      "role": "★ Hub + per-ilk Pool/Plan 통합 (1 role, hub는 first instance)",
+      "count": 4,
+      "instances": [
+        { "node_id": "d3m_hub", "address": "0x12F36cdEA3A28C35aC8C6Cc71D9265c17C74A27F", "type": "hub", "manages_ilks": ["d3m_spark_dai", "d3m_spark_morpho_dai", "d3m_spk_aave_lido_usds"], "mom": "0x1AB3145E281c01a1597c8c62F9f060E8e3E02fAB" },
+        { "node_id": "d3m_spark_dai", "ilk": "ilk_direct_spark_dai", "pool_addr": "0xAfA2DD8a0594B2B24B59de405Da9338C4Ce23437", "plan_addr": "0x104FaDbb7e17db1A685bBa61007DfB015206a4D2", "external_pool": "ext_spark_sdai_vault", "operator": "external_protocol_admin (spark_subproxy)" },
+        { "node_id": "d3m_spark_morpho_dai", "external_pool": "ext_spark_morpho_vault" },
+        { "node_id": "d3m_spk_aave_lido_usds", "external_pool": "ext_aave_v3_lido_usds_pool" }
+      ],
+      "metadata": { "dormant_instances": ["d3m_aavev2_dai", "d3m_compv2_dai"] }
+    },
+    "allocator_vault": {
+      "label": "Allocator Vault per Star",
+      "role": "Star가 USDS draw/wipe. AllocatorRoles 권한 의존",
+      "count": "7 active Stars",
+      "instances": [
+        { "node_id": "allocator_spark_a", "address": "0x691a6c29e9e96dd897718305427Ad5D534db16BA", "ilk": "ilk_allocator_spark_a", "buffer": "allocator_buffer_spark_a", "ilk_admin": "external_protocol_admin (spark_subproxy)" },
+        { "node_id": "allocator_bloom_a", "address": "0x26512A41C8406800f21094a7a7A0f980f6e25d43" },
+        { "node_id": "allocator_nova_a", "address": "0xe4470DD3158F7A905cDeA07260551F72d4bB0e77" },
+        { "node_id": "allocator_obex_a", "address": "0xF275110dFE7B80df66a762f968f59B70BABE2b29" },
+        { "node_id": "allocator_pattern_a", "address": "0xbd34fc6AAa1d3F52B314CB9D78023dd23eAc3B0E" },
+        { "node_id": "allocator_prysm_a", "address": "0x146181Aa9B362EaEC2eC3aDd7429a06D53B43d1a" },
+        { "node_id": "allocator_interval_a", "address": "0xDD3bE7650589E6A6171d454b026C4AD1a2C02720" }
+      ]
+    },
+    "allocator_buffer": {
+      "label": "Allocator Buffer per Star (자산 보관)",
+      "role": "★ vault와 분리된 custody. approve만",
+      "count": "7 active",
+      "instances": [
+        { "node_id": "allocator_buffer_spark_a", "address": "0xc395D150e71378B47A1b8E9de0c1a83b75a08324", "vault": "allocator_spark_a" }
+      ]
+    },
+    "allocator_funnel": {
+      "label": "Allocator Funnel per Star (외부 운용)",
+      "role": "IAllocatorConduit 구현. Star가 deploy. external_protocol_pool과 연결",
+      "count": "varies (Star별 deploy)",
+      "instances": [
+        { "node_id": "allocator_funnel_spark_alm", "external_protocol": "ext_spark_alm_controller", "note": "spark-alm-controller 별도 레포" }
+      ],
+      "metadata": { "interface_only": true, "implementations": "Star별 별도 deploy" }
+    },
+
+
+    // ===== F. Smart Burn (2 roles) =====
+    "smart_burn_engine": {
+      "label": "Smart Burn Engine (Splitter + FlapperUniV2 통합)",
+      "role": "vow surplus → USDS-SKY swap + LP mint",
+      "count": 1,
+      "instances": [
+        { "node_id": "smart_burn_engine", "splitter_addr": "0x374D9c3d5134052Bc558F432Afa1df6575f07407 (MCD_FLAP)", "flapper_addr": "FlapperUniV2 instance", "mom": "0xF51a075d468dE7dE3599C1Dc47F5C42d02C9230e (SPLITTER_MOM)", "keeper": "0xE564C4E237f4D7e0130FdFf6ecC8a5E931C51494 (CRON_FLAP_JOB)", "lp_receiver": "PauseProxy 또는 별도 burner (deploy 시 immutable)", "verified_contract": "chainlog 표시 vs Etherscan 검증 필요 — MCD_FLAP가 FlapperUniV2SwapOnly로 보임" }
+      ],
+      "metadata": { "kicker_alt_entry": "kicker_alt (2025 신규, chainlog 미등록) — 추후 확인 후 별도 노드 가능", "flop_dormant_addr": "0xA41B6EF151E06da0e34B009B86E828308986736D — bad_debt_mint edge source" }
+    },
+    "staking_farm": {
+      "label": "StakingRewards (LSSKY/USDS reward)",
+      "role": "사용자가 LSSKY 또는 USDS stake → reward token 받음. Synthetix-style",
+      "count": "3 active",
+      "instances": [
+        { "node_id": "farm_lssky_usds", "address": "0x38E4254bD82ED5Ee97CD1C4278FAae748d998865", "stake_token": "tok_lssky", "reward_token": "tok_usds", "reward_source": "REWARDS_DIST_USDS_SKY (0xC8d6...) — metadata로 흡수" },
+        { "node_id": "farm_lssky_spk", "address": "0x99cBC0e4E6427F6939536eD24d1275B95ff77404", "stake_token": "tok_lssky", "reward_token": "tok_spk", "reward_source": "REWARDS_DIST_USDS_SPK (0x3959...)" },
+        { "node_id": "farm_lssky_sky", "address": "0xB44C2Fb4181D7Cb06bdFf34A46FdFe4a259B40Fc", "stake_token": "tok_lssky", "reward_token": "tok_sky", "reward_source": "REWARDS_DIST_LSSKY_SKY (0x6756...)" }
+      ],
+      "metadata": { "rewards_distributor_addrs": ["0x3959e23A63CA7ac12D658bb44F90cb1f7Ee4C02c", "0xC8d67Fcf101d3f89D0e1F3a2857485A84072a63F", "0x675671A8756dDb69F7254AFB030865388Ef699Ee"], "rewards_keeper": "0x6464C34A02DD155dd0c630CE233DD6e21C24F9A5 (CRON_REWARDS_DIST_JOB)" }
+    },
+
+
+    // ===== G. Flash (1 role) =====
+    "flash_mint": {
+      "label": "DssFlash (EIP-3156 + VatDai)",
+      "role": "DAI atomic loan, fee=0 (현재)",
+      "count": 1,
+      "instances": [
+        { "node_id": "flash_mint", "address": "0x60744434d6339a6B27d73d9Eda62b6F66a0a04FA", "modes": ["flashLoan (EIP-3156)", "vatDaiFlashLoan (Vat-native)"], "fee": "0 currently" }
+      ]
+    },
+
+
+    // ===== H. Cross-chain (2 roles) =====
+    "bridge": {
+      "label": "Cross-chain bridge",
+      "role": "L1 ↔ L2 토큰 이동 (OFT or native)",
+      "count": 6,
+      "instances": [
+        { "node_id": "bridge_usds_oft", "address": "0x1e1D42781FC170EF9da004Fb735f56F0276d01B8", "type": "lz_oft", "token": "tok_usds", "destinations": "any LZ-supported" },
+        { "node_id": "bridge_susds_oft", "address": "0x85A3FE4DA2a6cB98A5bdF62458B0dB8471B9f0f1", "type": "lz_oft", "token": "tok_susds" },
+        { "node_id": "bridge_native_optimism", "address": "0x3d25B7d486caE1810374d37A48BCf0963c9B8057", "type": "native", "destination": "chain_optimism", "token": "tok_usds", "gov_relay": "0x09B354CDA89203BB7B3131CC728dFa06ab09AE2F" },
+        { "node_id": "bridge_native_arbitrum", "address": "0x84b9700E28B23F873b82c1BEb23d86C091b6079E", "type": "native", "destination": "chain_arbitrum", "gov_relay": "0x9ba25c289e351779E0D481Ba37489317c34A899d" },
+        { "node_id": "bridge_native_base", "address": "0xA5874756416Fa632257eEA380CAbd2E87cED352A", "type": "native", "destination": "chain_base", "gov_relay": "0x1Ee0AE8A993F2f5abDB51EAF4AC2876202b65c3b" },
+        { "node_id": "bridge_native_unichain", "address": "0xDF0535a4C96c9Cd8921d8FeC92A7680b281681d2", "type": "native", "destination": "chain_unichain", "gov_relay": "0xb383070Cf9F4f01C3a2cfD0ef6da4BC057b429b7" }
+      ],
+      "metadata": {
+        "wind_down": "OPTIMISM/ARBITRUM_DAI_BRIDGE (구 DAI), STARKNET_DAI_BRIDGE (legacy), Teleport bridges (deprecated)",
+        "lz_gov_relay": "0x2beBFe397D497b66cB14461cB6ee467b4C3B7D61",
+        "starknet_escrow_mom": "0xc238E3D63DfD677Fa0FA9985576f0945C581A266 (mom_breaker_trigger)",
+        "governance_channel_via_gov_relays": true
+      }
+    },
+    "remote_chain": {
+      "label": "Remote chain (L2 또는 다른 L1)",
+      "role": "Sky 토큰의 cross-chain 노출",
+      "count": 6,
+      "instances": [
+        { "node_id": "chain_optimism" },
+        { "node_id": "chain_arbitrum" },
+        { "node_id": "chain_base" },
+        { "node_id": "chain_unichain" },
+        { "node_id": "chain_starknet", "activity_label": "dormant" },
+        { "node_id": "chain_lz_universe", "label": "LayerZero supported any chain" }
+      ]
+    },
+
+
+    // ===== I. Oracle (3 roles) =====
+    "price_feed": {
+      "label": "Chainlink Aggregator (1차 source)",
+      "role": "외부 가격 데이터. Sky OSM의 upstream",
+      "count": "~8",
+      "instances": [
+        { "node_id": "oracle_chainlink_eth_usd", "feed": "ETH/USD" },
+        { "node_id": "oracle_chainlink_btc_usd", "feed": "BTC/USD" },
+        { "node_id": "oracle_chainlink_wsteth_eth", "feed": "wstETH/ETH" }
+      ],
+      "metadata": { "external_dependency": true, "discovered_via": "Spot.ilks(ilk).pip → osm → chainlink" }
+    },
+    "osm_wrapper": {
+      "label": "Sky OSM (1h delay wrapper)",
+      "role": "Chainlink 가격을 1시간 delay 후 Vat.spot에 노출",
+      "count": "~6 (자산별)",
+      "instances": [
+        { "node_id": "oracle_osm_eth_a", "ilk": "ilk_eth_a", "upstream": "oracle_chainlink_eth_usd" },
+        { "node_id": "oracle_osm_wsteth_a", "upstream": "oracle_chainlink_wsteth_eth" },
+        { "node_id": "oracle_osm_wbtc_a", "upstream": "oracle_chainlink_btc_usd" }
+      ],
+      "metadata": { "mom": "OSM_MOM (0x76416A4d5190d071bfed309861527431304aA14f) — stop emergency" }
+    },
+    "custom_oracle": {
+      "label": "특수 oracle",
+      "role": "상수 또는 capped oracle",
+      "count": 2,
+      "instances": [
+        { "node_id": "oracle_allocator_const", "type": "constant_1.0", "used_by": "all allocator ilks", "note": "Allocator ilk = 무담보 신용 (spot 항상 1.0)" },
+        { "node_id": "oracle_lockstake_capped_osm", "address": "0x0C13fF3DC02E85aC169c4099C09c9B388f2943Fd", "type": "capped", "underlying": "tok_sky", "note": "SKY 가격 cap 적용" }
+      ]
+    },
+
+
+    // ===== J. External Protocol (2 roles) =====
+    "external_protocol_pool": {
+      "label": "외부 lending/AMM/vault pool",
+      "role": "Sky가 D3M/Allocator로 자본 공급 OR Smart Burn swap",
+      "count": "~10 (활성)",
+      "instances": [
+        { "node_id": "ext_spark_lending_pool", "external_protocol": "spark" },
+        { "node_id": "ext_spark_sdai_vault", "type": "erc4626", "used_by": "d3m_spark_dai" },
+        { "node_id": "ext_spark_morpho_vault", "used_by": "d3m_spark_morpho_dai" },
+        { "node_id": "ext_aave_v3_lido_usds_pool", "used_by": "d3m_spk_aave_lido_usds" },
+        { "node_id": "ext_morpho_metamorpho" },
+        { "node_id": "ext_uniswap_v2_usds_sky_pair", "address": "0x2621CC0B3F3c079c1Db0E80794AA24976F0b9e3c", "used_by": "smart_burn_engine" },
+        { "node_id": "ext_curve", "external_protocol": "curve" },
+        { "node_id": "ext_pendle", "external_protocol": "pendle" },
+        { "node_id": "ext_lido", "external_protocol": "lido" },
+        { "node_id": "ext_rocketpool", "external_protocol": "rocketpool" }
+      ],
+      "metadata": { "dormant": ["ext_compound_v2 (D3M dormant)"] }
+    },
+    "external_protocol_admin": {
+      "label": "외부 운영 entity",
+      "role": "외부 풀의 admin/operator. Sky의 D3M operator로 등록되어 신뢰 위임",
+      "count": "~3",
+      "instances": [
+        { "node_id": "ext_spark_subproxy", "external_protocol": "spark", "operates": "d3m_spark_dai, d3m_spark_morpho_dai operator" },
+        { "node_id": "ext_spark_alm_controller", "external_protocol": "spark", "operates": "allocator_funnel_spark_alm" }
+      ]
+    },
+
+
+    // ===== K. Off-chain & Trust (2 roles) =====
+    "offchain_issuer": {
+      "label": "Off-chain 발행/custody entity",
+      "role": "외부 자산의 trust 의존. blacklist/pause 권한 보유",
+      "count": "~7",
+      "instances": [
+        { "node_id": "offchain_circle", "issued_token": "tok_usdc", "risk": "blacklist + pause 권한" },
+        { "node_id": "offchain_bitgo", "issued_token": "tok_wbtc", "risk": "custody key" },
+        { "node_id": "offchain_lido_dao", "issued_token": "tok_wsteth (via ext_lido)", "risk": "validator slashing" },
+        { "node_id": "offchain_rocketpool_dao", "issued_token": "tok_reth (via ext_rocketpool)" },
+        { "node_id": "offchain_monetalis", "rwa_role": "operator (RWA001 등 dormant)" },
+        { "node_id": "offchain_blocktower", "rwa_role": "operator (rwa_015_a)" },
+        { "node_id": "offchain_coinbase", "rwa_role": "custodian (rwa_014_a)" }
+      ]
+    },
+    "rwa_vault": {
+      "label": "RWA vault (담보로 등록된 RWA만)",
+      "role": "off-chain 자산 → on-chain vault. operator 신뢰 의존",
+      "count": "~3 active (vault ilk 등록된 것만)",
+      "instances": [
+        { "node_id": "rwa_009_a", "ilk": "ilk_rwa_009_a", "operator": "offchain_monetalis OR centrifuge" },
+        { "node_id": "rwa_014_a", "ilk": "ilk_rwa_014_a", "operator": "offchain_coinbase", "asset": "tok_usdc (custody)" },
+        { "node_id": "rwa_015_a", "ilk": "ilk_rwa_015_a", "operator": "offchain_blocktower" }
+      ],
+      "metadata": { "dormant_rwas": "RWA001~RWA008 등 사용 미미 — 제외" }
+    },
+
+
+    // ===== L. Governance (5 roles, ★ allocator_roles_module 이동) =====
+    "gov_chief": {
+      "label": "DSChief (SKY 잠금 + slate vote)",
+      "role": "SKY holder의 거버넌스 진입점. hat=spell address",
+      "count": 1,
+      "instances": [
+        { "node_id": "gov_chief", "address": "MCD_ADM (chainlog)", "verified_contract": "TBD" }
+      ]
+    },
+    "vote_delegate_factory": {
+      "label": "VoteDelegateFactory",
+      "role": "vote_delegate_instance 생성. LockstakeEngine과 연결",
+      "count": 1,
+      "instances": [
+        { "node_id": "vote_delegate_factory", "address": "0x4Cf3DaeFA2683Cd18df00f7AFF5169C00a9EccD5" }
+      ],
+      "metadata": { "legacy": "0xC3D809E87A2C9da4F6d98fECea9135d834d6F5A0 (VOTE_DELEGATE_FACTORY_LEGACY, wind_down)" }
+    },
+    "emergency_module": {
+      "label": "ESM (Emergency Shutdown Module)",
+      "role": "50k SKY 임계 → Vat.cage trigger. 분산 emergency",
+      "count": 1,
+      "instances": [
+        { "node_id": "esm", "address": "0x09e05fF6142F2f9de8B6B65855A1d56B6cfE4c58", "threshold_sky": "50000" }
+      ]
+    },
+    "pause_proxy": {
+      "label": "PauseProxy (super-wards)",
+      "role": "★ 거의 모든 Sky 컨트랙트의 ward. spell 실행 endpoint. 시각화 hub",
+      "count": 1,
+      "instances": [
+        { "node_id": "pause_proxy", "address": "0xBE8E3e3618f7474F8cB1d074A26afFef007E98FB", "pause_addr": "0xbE286431454714F511008713973d3B053A2d38f3", "delay": "4 days (GSM)" }
+      ]
+    },
+    "allocator_roles_module": {
+      "label": "AllocatorRoles (bit-packed 권한)",
+      "role": "7 Star 모두 이 권한 시스템 의존. ilk별 256 roles bitmask",
+      "count": 1,
+      "instances": [
+        { "node_id": "allocator_roles_module", "address": "0x9A865A710399cea85dbD9144b7a09C889e94E803", "registry_addr": "0xCdCFA95343DA7821fdD01dc4d0AeDA958051bB3B" }
+      ]
+    },
+
+
+    // ===== M. Permissionless Trigger (2 roles) =====
+    "keeper_cron": {
+      "label": "Sky 자동화 keeper (외부 호출)",
+      "role": "Sequencer 통해 24/7 자동화",
+      "count": 5,
+      "instances": [
+        { "node_id": "keeper_psm_job", "address": "0x0C86162ba3E507592fC8282b07cF18c7F902C401", "target": "psm" },
+        { "node_id": "keeper_flap_job", "address": "0xE564C4E237f4D7e0130FdFf6ecC8a5E931C51494", "target": "smart_burn_engine" },
+        { "node_id": "keeper_d3m_job", "address": "0x2Ea4aDE144485895B923466B4521F5ebC03a0AeF", "target": "d3m_module" },
+        { "node_id": "keeper_autoline_job", "address": "0x67AD4000e73579B9725eE3A149F85C4Af0A61361", "target": "ilk (line auto-adjust)" },
+        { "node_id": "keeper_rewards_dist_job", "address": "0x6464C34A02DD155dd0c630CE233DD6e21C24F9A5", "target": "staking_farm" }
+      ],
+      "metadata": { "sequencer_addr": "0x238b4E35dAed6100C6162fAE4510261f88996EC9", "other_cron_jobs": ["CRON_CLIPPER_MOM_JOB", "CRON_LERP_JOB", "CRON_ORACLE_JOB", "CRON_STARGUARD_JOB"] }
+    },
+    "breaker_mom": {
+      "label": "Mom (외부 trigger 가능한 emergency)",
+      "role": "permissionless 자동 trip 또는 거버넌스 emergency",
+      "count": 2,
+      "instances": [
+        { "node_id": "mom_clipper", "address": "0x79FBDF16b366DFb14F66cE4Ac2815Ca7296405A0", "target": "all clippers", "trigger": "permissionless tripBreaker (oracle drop) + auth setBreaker" },
+        { "node_id": "mom_osm", "address": "0x76416A4d5190d071bfed309861527431304aA14f", "target": "all osm_wrappers", "trigger": "governance only" }
+      ],
+      "metadata": {
+        "governance_only_moms": "SPLITTER_MOM (0xF51a...), DIRECT_MOM (0x1AB3...), SPBEAM_MOM (0xf0C6...), STUSDS_MOM (0xf5DEe...), LITE_PSM_MOM (0x467b...), LINE_MOM (0x9c25...) — 사용자 trigger 불가, metadata로 흡수"
+      }
+    },
+
+
+    // ===== N. Emergency Shutdown (1 role, cure → end metadata 흡수) =====
+    "end_module": {
+      "label": "End (Global Settlement)",
+      "role": "★ DORMANT — 발동 시 모든 시스템 정지. 9단계 cage→skim→snip→pack→cash",
+      "count": 1,
+      "instances": [
+        { "node_id": "end_module", "address": "0x0e2e8F1D1326A4B9633D96222Ce399c708B19c28", "cure_addr": "0x0085c9feAb2335447E1F4DC9bf3593a8e28bdfc7 (Cure metadata 흡수)" }
+      ],
+      "activity_label": "dormant",
+      "metadata": { "cure": "Cure는 End의 D3M 부채 집계 보조. 별도 노드 X — metadata로 흡수" }
+    }
+  },
+
+
+  // ===== Dynamic templates (6) =====
+  "dynamic_templates": {
+    "user_eoa": {
+      "label": "사용자 EOA",
+      "role": "Sky 모든 진입점 호출자",
+      "discovered_via": "indexer가 Sky 모든 진입점 (PSM/Savings/LockStake/Bridge 등) 호출자 추출",
+      "metadata_examples": { "active_modules": ["cdp", "lockstake", "susds"], "total_collateral_usd": 0, "total_debt_usd": 0 }
+    },
+    "dsproxy": {
+      "label": "DSProxy instance (사용자별)",
+      "role": "사용자 개인 wallet. atomic combo 호출",
+      "discovered_via": "DSProxyFactory.Created event",
+      "metadata_examples": { "owner": "user_eoa addr", "factory_addr": "0xA26e15C895EFc0616177B7c1e7270A4C7D51C997" }
+    },
+    "vault_instance": {
+      "label": "Vault instance (cdp 또는 lockstake urn)",
+      "role": "사용자별 담보 잠금 단위",
+      "discovered_via": "CDPManager.NewCdp event OR LockstakeEngine.Open event",
+      "metadata_examples": { "vault_engine": "cdp_manager OR lockstake", "owner": "user_eoa addr", "ilk": "ilk_eth_a", "ink": "현재 담보 (view)", "art": "현재 부채 (view)" }
+    },
+    "vote_delegate_instance": {
+      "label": "VoteDelegate instance",
+      "role": "delegate 1명당 1개. 사용자가 lock한 SKY로 vote",
+      "discovered_via": "VoteDelegateFactory.Created event + VoteDelegateFactory.created(addr) mapping",
+      "metadata_examples": { "delegate": "delegate addr", "total_sky_locked": "view stake" }
+    },
+    "spell_instance": {
+      "label": "Spell instance (1회용 거버넌스 action)",
+      "role": "DSPause queued spell. 4d 후 executable",
+      "discovered_via": "DSPause.Plot event",
+      "metadata_examples": { "eta": "execution time", "target": "spell target addr", "executed": "bool", "fax": "calldata" }
+    },
+    "liquidator_bot": {
+      "label": "청산 봇 / MEV bot",
+      "role": "Dog.bark / Clipper.take 자주 호출",
+      "discovered_via": "Dog.Bark + Clipper.Take 호출자 빈도 분석. 알려진 봇 라벨 (Etherscan, Dune)",
+      "metadata_examples": { "liquidation_count": 0, "modules_used": ["all_clippers", "lockstake_clipper"] }
+    }
+  }
+}

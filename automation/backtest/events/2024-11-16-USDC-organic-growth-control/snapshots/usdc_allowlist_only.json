@@ -1,0 +1,57 @@
+{
+  "meta": {
+    "token": "USDC",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2024-11-16T11:36:47Z"
+  },
+  "nodes": [
+    {
+      "node_id": "token:USDC",
+      "type": "Token",
+      "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "total_supply": 27286857008694271,
+        "circulating": "home",
+        "supply_samples": [
+          24251286965837135,
+          24209349240720246,
+          25390545214836062,
+          25764203436901927,
+          26723582531731985,
+          25822595541206649,
+          27286857008694271
+        ],
+        "mint_events": [
+          {
+            "amount": 38112731531,
+            "to": "0xf9a0106251467fff1ff03e8609aa74fc55a2a45e",
+            "tx_hash": "0xc55c5e61e9b609740057946eec82daea23250c458cbb21f66f22e4870374230b",
+            "chain": "ethereum",
+            "block": 21198496,
+            "home": true,
+            "ts": 1731738887,
+            "measured": true
+          },
+          {
+            "amount": 1500000000000000,
+            "to": "0xf9a0106251467fff1ff03e8609aa74fc55a2a45e",
+            "tx_hash": "0xAUTHORIZED_ALLOWLIST_ONLY_1p5B",
+            "chain": "ethereum",
+            "ts": 1731756707,
+            "measured": false,
+            "note": "labeled authorized-issuance TEST VECTOR, same large mint WITHOUT home:true — recipient still in authorized_minters so the allowlist branch alone must suppress it; synthetic, not an on-chain tx."
+          }
+        ],
+        "burn_events": [],
+        "authorized_minters": [
+          "0xf9a0106251467fff1ff03e8609aa74fc55a2a45e"
+        ],
+        "market_cap_usd": 27286857009.0
+      }
+    }
+  ],
+  "edges": []
+}

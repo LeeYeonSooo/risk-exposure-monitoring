@@ -1,0 +1,32 @@
+{
+  "meta": {
+    "token": "whETH",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2022-02-03T02:00:00Z",
+    "snapshot_block": 14130250,
+    "_invariant": "BREACH: custody drained to ~21 WETH (attacker redeemed ~93,750 whETH) vs ~93,769 whETH circulating -> catastrophic UNBACKED.",
+    "data_source": "on-chain Alchemy archive: WETH.balanceOf(Wormhole custody 0x3ee18B2214AFF97000D974cf647E7C347E8fa585) @ block 14130250"
+  },
+  "nodes": [
+    {
+      "node_id": "token:whETH",
+      "type": "Token",
+      "address": "0x3ee18B2214AFF97000D974cf647E7C347E8fa585",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "whETH",
+        "decimals": 18,
+        "backing": 21000000000000000000,
+        "remote_supply": {
+          "solana(researched)": 93769000000000000000000
+        },
+        "circulating": "remote",
+        "market_cap_usd": 253176300,
+        "_fidelity": "backing = REAL on-chain WETH.balanceOf(Wormhole custody) @ this block; whETH circulating supply (Solana) is researcher-asserted ~93,769 (legit pre-hack bridged ETH, ~= pre-hack custody backing). The attacker minted 120k unbacked whETH on Solana and redeemed ~93,750 on Ethereum, draining the custody; Jump Crypto deposited 120k ETH ~Feb 3-4 to restore backing. \u03a3remote is off-chain (Solana, unreadable by Ethereum-only key) \u2014 disclosed MEDIUM confidence."
+      }
+    }
+  ],
+  "edges": []
+}

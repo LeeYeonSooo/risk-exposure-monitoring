@@ -1,0 +1,132 @@
+{
+  "inputs": [
+    {
+      "input": "lending_risk.ltv:CRV-aave_v2-collateral@16040000",
+      "detector": "d12-context",
+      "measured": true,
+      "source": "onchain:aave_v2.getReserveData(CRV).configuration @ethereum:16040000 (pool 0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9)",
+      "value": 0.55
+    },
+    {
+      "input": "lending_risk.lt:CRV-aave_v2-collateral@16040000",
+      "detector": "d12-context",
+      "measured": true,
+      "source": "onchain:aave_v2.getReserveData(CRV).configuration @ethereum:16040000 (pool 0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9)",
+      "value": 0.61
+    },
+    {
+      "input": "lending_risk.liquidation_bonus:CRV-aave_v2-collateral@16040000",
+      "detector": "d12-context",
+      "measured": true,
+      "source": "onchain:aave_v2.getReserveData(CRV).configuration @ethereum:16040000 (pool 0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9)",
+      "value": 1.08
+    },
+    {
+      "input": "lending_risk.reserve_factor:CRV-aave_v2-collateral@16040000",
+      "detector": "d12-context",
+      "measured": true,
+      "source": "onchain:aave_v2.getReserveData(CRV).configuration @ethereum:16040000 (pool 0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9)",
+      "value": 0.2
+    },
+    {
+      "input": "lending_risk.is_frozen:CRV-aave_v2-collateral@16040000",
+      "detector": "d12-context",
+      "measured": true,
+      "source": "onchain:aave_v2.getReserveData(CRV).configuration @ethereum:16040000 (pool 0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9)",
+      "value": false
+    },
+    {
+      "input": "lending_risk.utilization:CRV-aave_v2-collateral@16040000",
+      "detector": "d07-context",
+      "measured": true,
+      "source": "onchain:aave_v2 totalDebt/totalLiquidity from variableDebtToken.totalSupply + CRV.balanceOf(aCRV) @ethereum:16040000",
+      "value": 0.5053
+    },
+    {
+      "input": "core_weight.amount_token:CRV-aave_v2-collateral@16040000",
+      "detector": "d06-context",
+      "measured": true,
+      "source": "onchain:aCRV.totalSupply (CRV supplied) @ethereum:16040000 (aToken 0x8dae6cb04688c62d939ed9b68d32bc62e49970b1)",
+      "value": 127531805
+    },
+    {
+      "input": "core_weight.amount_usd:CRV-aave_v2-collateral@16040000",
+      "detector": "d06-context",
+      "measured": true,
+      "source": "onchain:chainlink CRV/USD 0xCd627aA160A6fA45Eb793D19Ef54f5062F20f33f @ethereum:16040000",
+      "value": 87610920,
+      "crv_usd": 0.686973
+    },
+    {
+      "input": "lending_risk.bad_debt_usd:CRV-aave_v2-collateral@16040000",
+      "detector": "d12",
+      "measured": false,
+      "source": "asserted: off-chain-derived realized deficit (outstanding CRV debt - recoverable collateral, valued at CRV price); documented post-mortem ~$1.6M = 2.64M CRV. NOT a single on-chain read.",
+      "value": 1600000
+    },
+    {
+      "input": "lending_risk.ltv:CRV-aave_v2-collateral@15870000",
+      "detector": "d12-context",
+      "measured": true,
+      "source": "onchain:aave_v2.getReserveData(CRV).configuration @ethereum:15870000 (pool 0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9)",
+      "value": 0.55
+    },
+    {
+      "input": "lending_risk.lt:CRV-aave_v2-collateral@15870000",
+      "detector": "d12-context",
+      "measured": true,
+      "source": "onchain:aave_v2.getReserveData(CRV).configuration @ethereum:15870000 (pool 0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9)",
+      "value": 0.61
+    },
+    {
+      "input": "lending_risk.liquidation_bonus:CRV-aave_v2-collateral@15870000",
+      "detector": "d12-context",
+      "measured": true,
+      "source": "onchain:aave_v2.getReserveData(CRV).configuration @ethereum:15870000 (pool 0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9)",
+      "value": 1.08
+    },
+    {
+      "input": "lending_risk.reserve_factor:CRV-aave_v2-collateral@15870000",
+      "detector": "d12-context",
+      "measured": true,
+      "source": "onchain:aave_v2.getReserveData(CRV).configuration @ethereum:15870000 (pool 0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9)",
+      "value": 0.2
+    },
+    {
+      "input": "lending_risk.is_frozen:CRV-aave_v2-collateral@15870000",
+      "detector": "d12-context",
+      "measured": true,
+      "source": "onchain:aave_v2.getReserveData(CRV).configuration @ethereum:15870000 (pool 0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9)",
+      "value": false
+    },
+    {
+      "input": "lending_risk.utilization:CRV-aave_v2-collateral@15870000",
+      "detector": "d07-context",
+      "measured": true,
+      "source": "onchain:aave_v2 totalDebt/totalLiquidity from variableDebtToken.totalSupply + CRV.balanceOf(aCRV) @ethereum:15870000",
+      "value": 0.4571
+    },
+    {
+      "input": "core_weight.amount_token:CRV-aave_v2-collateral@15870000",
+      "detector": "d06-context",
+      "measured": true,
+      "source": "onchain:aCRV.totalSupply (CRV supplied) @ethereum:15870000 (aToken 0x8dae6cb04688c62d939ed9b68d32bc62e49970b1)",
+      "value": 163372017
+    },
+    {
+      "input": "core_weight.amount_usd:CRV-aave_v2-collateral@15870000",
+      "detector": "d06-context",
+      "measured": true,
+      "source": "onchain:chainlink CRV/USD 0xCd627aA160A6fA45Eb793D19Ef54f5062F20f33f @ethereum:15870000",
+      "value": 144503516,
+      "crv_usd": 0.884506
+    },
+    {
+      "input": "lending_risk.bad_debt_usd:CRV-aave_v2-collateral@15870000",
+      "detector": "d12",
+      "measured": false,
+      "source": "asserted: healthy control, zero deficit by construction (off-chain-derived, not an on-chain read).",
+      "value": 0
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "_invariant": "All edges connect exactly one token node and one protocol node. USDe-aave_v3-collateral models Ethena USDe as collateral on Aave V3 Ethereum (mono_pool, governance-controlled single AaveOracle source per asset). This snapshot records the oracle source = NEW 0xc26d...4ff8 (hardcoded USDe = USDT 1:1 stable adapter) whose depeg_sensitive = false: it prices USDe at USDT/USD and IGNORES a USDe depeg, so a USDe deviation no longer liquidates borrowers (the depeg risk has moved to the Aave protocol as latent bad-debt exposure). Identical to usde_depeg_sensitive.json except oracle.oracle_address and oracle.depeg_sensitive.",
+  "meta": {
+    "token": "USDe",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2025-03-08T14:01:47Z",
+    "snapshot_block": 22002625,
+    "node_count": 2,
+    "edge_count": 1,
+    "data_source": "on-chain archive read (re-measured 2026-06-07): AaveOracle(0x54586bE62E3c3580375aE3723C145253060Ca0C2).getSourceOfAsset(USDe) @ block 22002625 -> 0xc26d4a1c46d884cff6de9800b6ae7a8cf48b4ff8 (NEW source). Block ts MEASURED = 1741442507 = 2025-03-08T14:01:47Z. Source flipped across exactly one block (22002624 -> 22002625). USDe market price unchanged at swap: OLD source-feed.latestAnswer @22002625 = $0.998857; NEW adapter.latestAnswer @22002625 = $0.999800 (returns USDT/USD ~1.00) -> NO depeg, pure config event.",
+    "coverage_pct": 1.0
+  },
+
+  "nodes": [
+    {
+      "node_id": "token:USDe",
+      "type": "Token",
+      "label": "Ethena USDe",
+      "address": "0x4c9EDD5852cd905f086C759E8383e09bff1E68B3",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "USDe",
+        "decimals": 18,
+        "paused": false,
+        "_note": "Ethena synthetic dollar (delta-neutral basis position). NOT a hard-redeemable fiat stablecoin; secondary-market USDe price can transiently discount during high redemptions / thin sell-side liquidity."
+      }
+    },
+    {
+      "node_id": "protocol:aave_v3",
+      "type": "DefiProtocol",
+      "label": "Aave V3",
+      "address": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "mono_pool",
+        "core_contract": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+        "oracle_contract": "AaveOracle 0x54586bE62E3c3580375aE3723C145253060Ca0C2",
+        "governance": "Aave DAO"
+      }
+    }
+  ],
+
+  "edges": [
+    {
+      "edge_id": "USDe-aave_v3-collateral",
+      "source": "token:USDe",
+      "target": "protocol:aave_v3",
+      "classification": { "edge_type": "collateral", "venue_type": "market", "protocol_class": "lending" },
+      "core_weight": { "amount_token": null, "amount_usd": 300000000, "pct_of_supply": null, "pct_of_protocol_tvl": null },
+      "oracle": { "oracle_type": "MARKET", "oracle_provider": "Hardcoded USDe=USDT 1:1 stable adapter (prices USDe at USDT/USD)", "oracle_address": "0xc26d4a1c46d884cff6de9800b6ae7a8cf48b4ff8", "depeg_sensitive": false },
+      "lending_risk": { "ltv": null, "lt": null, "liquidation_bonus": null, "supply_cap": null, "borrow_cap": null, "reserve_factor": null, "utilization": null, "is_frozen": false, "emode_category": null },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": null,
+      "top_pools": null,
+      "meta": { "snapshot_block": 22002625, "snapshot_ts": "2025-03-08T14:01:47Z", "verifiable_onchain": true, "confidence": "HIGH", "data_source": "AaveOracle.getSourceOfAsset(0x4c9E...68B3) @ block 22002625 -> 0xc26d...4ff8 (NEW source = hardcoded USDe=USDT 1:1 stable adapter, depeg-INsensitive) [MEASURED 2026-06-07]. depeg_sensitive=false classified from feed TYPE (a fixed-peg adapter: latestAnswer @22002625 = $0.999800 returning USDT/USD regardless of USDe market price) + Aave gov rationale (a USDe deviation no longer liquidates borrowers; risk moved to the protocol). USDe was NOT depegged at the swap (market = $0.998857) — pure config event." }
+    }
+  ]
+}

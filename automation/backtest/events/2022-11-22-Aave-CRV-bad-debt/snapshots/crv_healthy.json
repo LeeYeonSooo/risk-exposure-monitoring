@@ -1,0 +1,86 @@
+{
+  "_invariant": "calm control: Aave V2 CRV market healthy, zero bad debt (pre-attack).",
+  "meta": {
+    "token": "CRV",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2022-11-01T12:00:00Z",
+    "snapshot_block": 15870000,
+    "block_timestamp_utc": "2022-10-31T19:02:23Z",
+    "data_source": "MEASURED on-chain @ block 15870000 (Aave V2 LendingPool 0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9), pre-attack: reserve config (LTV/LT/liqBonus/reserveFactor/is_frozen) decoded from getReserveData(CRV).configuration; utilization = totalDebt(variableDebtToken.totalSupply) / totalLiquidity(CRV.balanceOf(aCRV)+totalDebt); amount_token = aCRV.totalSupply; amount_usd = amount_token * Chainlink CRV/USD 0xCd627aA160A6fA45Eb793D19Ef54f5062F20f33f ($0.884506). bad_debt_usd = 0 by construction (healthy control; off-chain-derived, not an on-chain read). See snapshots/fidelity.json."
+  },
+  "nodes": [
+    {
+      "node_id": "token:CRV",
+      "type": "Token",
+      "label": "Curve DAO",
+      "address": "0xD533a949740bb3306d119CC777fa900bA034cd52",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "CRV",
+        "decimals": 18,
+        "market_cap_usd": 400000000
+      }
+    },
+    {
+      "node_id": "protocol:aave_v2",
+      "type": "DefiProtocol",
+      "label": "Aave V2",
+      "address": "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "mono_pool"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "CRV-aave_v2-collateral",
+      "source": "token:CRV",
+      "target": "protocol:aave_v2",
+      "classification": {
+        "edge_type": "collateral_shared",
+        "venue_type": "shared_pool",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 163372017,
+        "amount_usd": 144503516,
+        "pct_of_supply": 0.02,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "Aave CRV/USD",
+        "oracle_address": null,
+        "depeg_sensitive": false
+      },
+      "lending_risk": {
+        "ltv": 0.55,
+        "lt": 0.61,
+        "liquidation_bonus": 1.08,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": 0.2,
+        "utilization": 0.4571,
+        "is_frozen": false,
+        "emode_category": null,
+        "bad_debt_usd": 0
+      },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        {
+          "loan_asset": "USDC",
+          "collateral_asset": "CRV",
+          "lltv": 0.61,
+          "market_size_usd": 144503643,
+          "oracle_address": null,
+          "utilization": 0.4571
+        }
+      ]
+    }
+  ]
+}

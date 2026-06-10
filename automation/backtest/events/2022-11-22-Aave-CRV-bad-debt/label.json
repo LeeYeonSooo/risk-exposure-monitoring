@@ -1,0 +1,50 @@
+{
+  "event": "Aave V2 CRV market REALIZED bad debt (~$1.6M) 2022-11-22 \u2014 Avi Eisenberg's CRV-short attack on Aave V2 (Ethereum) failed (CRV rose instead of crashing), but the forced liquidations of his ~92M-CRV short could NOT fully cover the debt: Aave V2 was left with ~2.64M CRV (~$1.6\u20131.7M) of irretrievable debt = a reserve deficit / realized bad debt that impairs CRV-market depositors (later repaid Jan-2023 from the Aave treasury, with ~$280k subsidized by Gauntlet's insolvency fund). The realized impairment \u2014 outstanding debt > recoverable collateral, so depositors can't be made whole \u2014 is the distinct BAD_DEBT signal; it is host-fed via lending_risk.bad_debt_usd and independent of any peg/oracle probe.",
+  "source": "Post-mortem documented deficit ~$1.6M (= 2.64M CRV at the time): The Defiant, Blockworks ($1.7M), Cointelegraph, Aave Governance ARC (repay excess CRV debt for Aave V2 ETH), Kaiko Research, arXiv 2302.04068. Snapshots now encode the surrounding reserve state MEASURED on-chain (Aave V2 LendingPool 0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9 getReserveData(CRV): LTV/LT/liqBonus/reserveFactor/is_frozen decoded from the config word; utilization from variableDebtToken.totalSupply over CRV.balanceOf(aCRV)+debt; amount_token = aCRV.totalSupply; amount_usd via Chainlink CRV/USD 0xCd627aA160A6fA45Eb793D19Ef54f5062F20f33f). The decisive d12 input lending_risk.bad_debt_usd stays host-fed / off-chain-derived (per-position health, not a single on-chain read). On-chain block 16040000 (block ts 2022-11-24T13:00:59Z) anchors the Aave V2 CRV market identity (CRV 0xD533a949740bb3306d119CC777fa900bA034cd52). See EVENT.md and snapshots/fidelity.json (16/18 measured = 88.9%).",
+  "closed": false,
+  "cases": [
+    {
+      "id": "aave-crv-realized-bad-debt",
+      "snapshot": "snapshots/crv_baddebt.json",
+      "prev": null,
+      "now": "2022-11-23T12:00:00Z",
+      "peg_probes": {},
+      "oracle_probes": {},
+      "baselines": {},
+      "should_fire": [
+        {
+          "signal_type": "BAD_DEBT",
+          "edge_id": "CRV-aave_v2-collateral",
+          "min_severity": "HIGH"
+        }
+      ],
+      "must_not_fire": [],
+      "max_emitted": null,
+      "beta": 2.0,
+      "note": "After Eisenberg's CRV-short attack failed, the forced liquidations of his ~92M-CRV short on Aave V2 could not fully cover the debt \u2014 CRV rose during the unwind, so the discounted USDC collateral seized fell short of the CRV owed, leaving Aave V2 with ~2.64M CRV (~$1.6\u20131.7M) of irretrievable debt. The snapshot encodes this documented deficit as host-fed lending_risk.bad_debt_usd = 1600000 on edge CRV-aave_v2-collateral (protocol_class: lending). A realized reserve deficit means outstanding debt > recoverable collateral, so depositors in the CRV market cannot be made whole \u2014 exactly what BAD_DEBT must surface, independent of any peg/oracle probe (the price-crash/oracle attempts are upstream causes; this is the realized impairment). $1.6M is well above the ~$1M actionable floor \u2192 fire. Severity HIGH (a real, actionable market deficit), NOT CRITICAL: it is far below a systemic ~$50M+ hole and was within Aave's backstop limits (later repaid from treasury / Gauntlet insolvency fund). Edge identity anchored on-chain via block 16040000 (block ts 2022-11-24T13:00:59Z, post-liquidation). MEASURED BACKFILL (data-only; judgment unchanged): reserve config read on-chain CONFIRMS the labelled premise \u2014 LTV 0.55, LT 0.61, reserve_factor 0.20, is_frozen false (all match the modelled values); liquidation_bonus measured 1.08 (was null). Utilization measured 0.5053 (was hand-modelled 0.65 \u2014 flagged: real util is LOWER, not higher, but immaterial to BAD_DEBT which keys on the deficit). Venue size measured FAR larger than modelled: aCRV.totalSupply = 127,531,805 CRV (~$87.6M at $0.686973) vs modelled 20,000,000 CRV / $12M. bad_debt_usd KEPT asserted (1,600,000): the realized deficit is off-chain-derived per-position health, NOT a single on-chain read, so it remains host-fed (fidelity measured=false) \u2014 no fabrication. No contradiction: every on-chain-readable fact confirms market identity and parameters."
+    },
+    {
+      "id": "aave-crv-healthy",
+      "snapshot": "snapshots/crv_healthy.json",
+      "prev": null,
+      "now": "2022-11-01T12:00:00Z",
+      "peg_probes": {},
+      "oracle_probes": {},
+      "baselines": {},
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "BAD_DEBT",
+          "edge_id": "CRV-aave_v2-collateral"
+        }
+      ],
+      "max_emitted": {
+        "severity": "WARN",
+        "count": 0
+      },
+      "beta": 2.0,
+      "note": "Negative control: same Aave V2 CRV market (edge CRV-aave_v2-collateral), pre-attack on 2022-11-01, with lending_risk.bad_debt_usd = 0 \u2014 a solvent, healthy lending market (identical params except the deficit). A zero reserve deficit means depositors are fully covered, so BAD_DEBT MUST stay silent, and nothing WARN-or-above should emit (max_emitted WARN/0). This guards the bad-debt detector against firing on a healthy market and proves the signal keys on the realized deficit, not on the market's mere existence or CRV's identity. MEASURED BACKFILL (data-only; judgment unchanged): reserve config read on-chain @ block 15870000 (block ts 2022-10-31T19:02:23Z) \u2014 LTV 0.55, LT 0.61, liquidation_bonus 1.08, reserve_factor 0.20, is_frozen false (same params as the incident block, as expected for a parameter-stable control). Utilization measured 0.4571 (was 0.65). Venue size measured aCRV.totalSupply = 163,372,017 CRV (~$144.5M at $0.884506) vs modelled 20,000,000 CRV / $12M. bad_debt_usd = 0 KEPT asserted (off-chain-derived, healthy by construction; fidelity measured=false). Identical params except the deficit holds against the measured data."
+    }
+  ],
+  "ratified": "auto(reviewer)"
+}

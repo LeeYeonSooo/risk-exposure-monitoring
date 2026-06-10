@@ -1,0 +1,554 @@
+// Sky/Maker 의존성 매핑 — edges.jsonc v1.0
+// 13 시나리오 학습 + CRITERIA v1.0 + plan v7.3 기반
+//
+// 형식: edge_type 정의 (Aave 양식). 인스턴스는 indexer가 자동 생성 + cumulative_stats 누적.
+//
+// 카운트: 36 edge types (양방향 8 + 단방향 28) in 12 카테고리
+//
+// 방향:
+//   "bidirectional" — 같은 두 노드 사이 양방향 가능 (forward/reverse 분리 통계)
+//   "directed" — 단방향
+//
+// 시각화:
+//   color: 카테고리별
+//   width: log(cumulative_stats.count)
+//   arrow: ↔ (양방향) OR → (단방향)
+{
+  "_metadata": {
+    "version": "1.0",
+    "date": "2026-05-28",
+    "total_edge_types": 36,
+    "bidirectional_count": 8,
+    "directed_count": 28,
+    "categories": 12,
+    "compatible_with": ["events.jsonc v1.0", "nodes.jsonc v1.0"]
+  },
+
+  "edges": {
+
+    // ===== Category 1: value_flow_swap (양방향 1) =====
+    "psm_swap": {
+      "category": "value_flow_swap",
+      "direction": "bidirectional",
+      "node_a_role": "user_eoa",
+      "node_b_role": "psm + psm_pocket",
+      "forward": {
+        "name": "psm_sell_gem",
+        "from": "node_a",
+        "to": "node_b",
+        "asset_in": "tok_usdc (external_token)",
+        "asset_out": "tok_usds (stablecoin)",
+        "source_event": "LitePSM.SellGem"
+      },
+      "reverse": {
+        "name": "psm_buy_gem",
+        "from": "node_b",
+        "to": "node_a",
+        "asset_in": "tok_usds",
+        "asset_out": "tok_usdc",
+        "source_event": "LitePSM.BuyGem"
+      },
+      "cumulative_stats": { "forward_count": 0, "forward_volume_usd": 0, "reverse_count": 0, "reverse_volume_usd": 0, "first_seen_block": null, "last_seen_block": null },
+      "visualization": { "arrow": "bidirectional ↔", "color": "blue", "width": "log_amount", "icon": "swap" }
+    },
+
+
+    // ===== Category 2: value_flow_yield (양방향 1) =====
+    "savings_flow": {
+      "category": "value_flow_yield",
+      "direction": "bidirectional",
+      "node_a_role": "user_eoa",
+      "node_b_role": "savings_module",
+      "forward": {
+        "name": "savings_deposit",
+        "from": "node_a",
+        "to": "node_b",
+        "asset_in": "tok_usds",
+        "asset_out": "tok_susds OR tok_stusds (per savings instance)",
+        "source_event": "ERC4626.Deposit"
+      },
+      "reverse": {
+        "name": "savings_withdraw",
+        "from": "node_b",
+        "to": "node_a",
+        "asset_in": "share token",
+        "asset_out": "tok_usds",
+        "source_event": "ERC4626.Withdraw"
+      },
+      "cumulative_stats": { "forward_count": 0, "reverse_count": 0 },
+      "visualization": { "arrow": "↔", "color": "green", "icon": "yield" },
+      "metadata": { "referral_id": "stUSDS.Referral / sUSDS.Referral event metadata로 흡수" }
+    },
+
+
+    // ===== Category 3: vault_op (양방향 2 + 단방향 2) =====
+    "vault_collateral_flow": {
+      "category": "vault_op",
+      "direction": "bidirectional",
+      "node_a_role": "user_eoa",
+      "node_b_role": "vault_instance (dynamic) + ilk",
+      "forward": {
+        "name": "vault_lock_collateral",
+        "from": "node_a",
+        "to": "node_b",
+        "asset_in": "ilk_underlying (tok_weth, tok_sky, etc.)",
+        "source_events": ["Vat.LogNote.frob (dink>0)", "LockstakeEngine.Lock"]
+      },
+      "reverse": {
+        "name": "vault_free_collateral",
+        "from": "node_b",
+        "to": "node_a",
+        "asset_out": "ilk_underlying",
+        "source_events": ["Vat.LogNote.frob (dink<0)", "LockstakeEngine.Free (fee burn)"]
+      },
+      "cumulative_stats": { "forward_count": 0, "reverse_count": 0 },
+      "visualization": { "arrow": "↔", "color": "yellow", "icon": "lock" },
+      "metadata": { "caller_is_owner": "boolean — third party action (3rd-party lock 또는 wipe)", "fee_on_free": "LockStake fee% (~15%) → SKY burn" }
+    },
+    "vault_debt_flow": {
+      "category": "vault_op",
+      "direction": "bidirectional",
+      "node_a_role": "vault_instance (dynamic)",
+      "node_b_role": "stablecoin (tok_usds OR tok_dai)",
+      "forward": {
+        "name": "vault_draw_stablecoin",
+        "from": "node_a",
+        "to": "user_eoa (recipient)",
+        "asset_out": "stablecoin",
+        "source_events": ["Vat.LogNote.frob (dart>0)", "LockstakeEngine.Draw", "AllocatorVault.Draw"]
+      },
+      "reverse": {
+        "name": "vault_wipe_stablecoin",
+        "from": "user_eoa",
+        "to": "node_a",
+        "asset_in": "stablecoin",
+        "source_events": ["Vat.LogNote.frob (dart<0)", "LockstakeEngine.Wipe", "AllocatorVault.Wipe"]
+      },
+      "cumulative_stats": { "forward_count": 0, "reverse_count": 0 },
+      "visualization": { "arrow": "↔", "color": "yellow", "icon": "debt" }
+    },
+    "vault_open": {
+      "category": "vault_op",
+      "direction": "directed",
+      "from_role": "user_eoa OR dsproxy",
+      "to_role": "vault_engine",
+      "source_events": ["CDPManager.NewCdp", "LockstakeEngine.Open"],
+      "description": "vault instance 생성 (dynamic node 등록 트리거)",
+      "creates_dynamic_node": "vault_instance",
+      "visualization": { "arrow": "→", "color": "yellow", "icon": "plus" }
+    },
+    "vault_transfer_ownership": {
+      "category": "vault_op",
+      "direction": "directed",
+      "from_role": "user_eoa (previous owner)",
+      "to_role": "user_eoa (new owner)",
+      "source_events": ["CDPManager.view_only (give)"],
+      "description": "★ Type 4 view-only — CDPManager.give는 이벤트 없음. owns(cdp) view polling으로 감지",
+      "visualization": { "arrow": "→", "color": "yellow", "style": "dashed" }
+    },
+
+
+    // ===== Category 4: conversion (양방향 1 + 단방향 1) =====
+    "convert_token_bidir": {
+      "category": "conversion",
+      "direction": "bidirectional",
+      "node_a_role": "user_eoa",
+      "node_b_role": "converter (DaiUsds)",
+      "forward": {
+        "name": "dai_to_usds",
+        "from": "node_a",
+        "to": "user_eoa",
+        "asset_in": "tok_dai",
+        "asset_out": "tok_usds",
+        "source_event": "DaiUsds.DaiToUsds",
+        "ratio": "1:1"
+      },
+      "reverse": {
+        "name": "usds_to_dai",
+        "from": "node_a",
+        "to": "user_eoa",
+        "asset_in": "tok_usds",
+        "asset_out": "tok_dai",
+        "source_event": "DaiUsds.UsdsToDai",
+        "ratio": "1:1"
+      },
+      "cumulative_stats": { "forward_count": 0, "reverse_count": 0 },
+      "visualization": { "arrow": "↔", "color": "purple", "icon": "convert" }
+    },
+    "convert_token_oneway": {
+      "category": "conversion",
+      "direction": "directed",
+      "from_role": "user_eoa",
+      "to_role": "user_eoa (via converter MkrSky)",
+      "source_event": "MkrSky.MkrToSky",
+      "asset_in": "tok_mkr",
+      "asset_out": "tok_sky",
+      "ratio": "1:24000",
+      "description": "MKR → SKY migration. fee 있을 수 있음 (현재 0)",
+      "visualization": { "arrow": "→", "color": "purple", "icon": "migrate" }
+    },
+
+
+    // ===== Category 5: external_capital (양방향 2) =====
+    "d3m_capital_flow": {
+      "category": "external_capital",
+      "direction": "bidirectional",
+      "node_a_role": "d3m_module (per ilk)",
+      "node_b_role": "external_protocol_pool",
+      "forward": {
+        "name": "d3m_wind",
+        "from": "node_a",
+        "to": "node_b",
+        "source_event": "D3MHub.Wind",
+        "asset": "tok_usds OR tok_dai (per ilk)"
+      },
+      "reverse": {
+        "name": "d3m_unwind",
+        "from": "node_b",
+        "to": "node_a",
+        "source_event": "D3MHub.Unwind"
+      },
+      "cumulative_stats": { "forward_count": 0, "reverse_count": 0 },
+      "visualization": { "arrow": "↔", "color": "gray", "style": "dashed", "icon": "external" },
+      "metadata": { "external_depth": "1 (Spark) or 2 (Aave Lido)" }
+    },
+    "allocator_capital_flow": {
+      "category": "external_capital",
+      "direction": "bidirectional",
+      "node_a_role": "allocator_funnel",
+      "node_b_role": "external_protocol_pool",
+      "forward": {
+        "name": "allocator_supply",
+        "from": "node_a",
+        "to": "node_b",
+        "source_event": "IAllocatorConduit.Deposit"
+      },
+      "reverse": {
+        "name": "allocator_withdraw",
+        "from": "node_b",
+        "to": "node_a",
+        "source_event": "IAllocatorConduit.Withdraw"
+      },
+      "cumulative_stats": { "forward_count": 0, "reverse_count": 0 },
+      "visualization": { "arrow": "↔", "color": "gray", "style": "dashed" }
+    },
+
+
+    // ===== Category 6: cross_chain (양방향 1) =====
+    "bridge_flow": {
+      "category": "cross_chain",
+      "direction": "bidirectional",
+      "node_a_role": "user_eoa",
+      "node_b_role": "remote_chain (via bridge)",
+      "forward": {
+        "name": "bridge_send",
+        "from": "node_a",
+        "to": "node_b",
+        "via": "bridge",
+        "source_events": ["OFT.Send (LZ)", "NativeBridge.ERC20BridgeInitiated"]
+      },
+      "reverse": {
+        "name": "bridge_receive",
+        "from": "node_b",
+        "to": "node_a",
+        "source_events": ["OFT receive event", "NativeBridge.ERC20BridgeFinalized"]
+      },
+      "cumulative_stats": { "forward_count": 0, "reverse_count": 0 },
+      "visualization": { "arrow": "↔", "color": "cyan", "style": "dotted", "icon": "bridge" },
+      "metadata": { "bridge_pattern": "lz_oft OR native (per bridge instance)", "governance_channel": "GOV_RELAY (LZ + 4 native + Starknet) — payload_type metadata" }
+    },
+
+
+    // ===== Category 7: system_param (단방향 4) =====
+    "ilk_parameter_change": {
+      "category": "system_param",
+      "direction": "directed",
+      "from_role": "gov_chief (via spell_execute)",
+      "to_role": "ilk",
+      "source_events": ["Vat.LogNote (file line/dust)", "Jug.LogNote (file duty)", "Spot.LogNote (file mat/pip)"],
+      "description": "거버넌스 spell이 ilk 파라미터 변경",
+      "visualization": { "arrow": "→", "color": "gray", "style": "dotted", "icon": "param" }
+    },
+    "ilk_dynamic_line_adjust": {
+      "category": "system_param",
+      "direction": "directed",
+      "from_role": "savings_module (stUSDS self-dynamic) OR keeper_cron (autoline)",
+      "to_role": "ilk",
+      "source_events": ["stUSDS._setLine 내부 vat.file", "AutoLineJob.Work"],
+      "description": "자동 line 조정 (spell 없이)",
+      "visualization": { "arrow": "→", "color": "gray", "style": "dotted" }
+    },
+    "system_rate_accrue": {
+      "category": "system_param",
+      "direction": "directed",
+      "from_role": "rate_setter",
+      "to_role": "ilk OR savings_module",
+      "source_events": ["SPBEAM.Set", "StUsdsRateSetter.Set", "Jug.LogNote.drip"],
+      "description": "duty/ssr/str 동적 조정 (안전장치: min/max/step/tau)",
+      "visualization": { "arrow": "→", "color": "gray", "style": "dotted" }
+    },
+    "psm_keeper_action": {
+      "category": "system_param",
+      "direction": "directed",
+      "from_role": "keeper_cron (keeper_psm_job)",
+      "to_role": "psm",
+      "source_events": ["LitePSM.Fill", "LitePSM.Trim", "LitePSM.Chug"],
+      "description": "PSM keeper 자동 보조 (pre-mint, 잉여 burn, fee → vow)",
+      "visualization": { "arrow": "→", "color": "gray", "style": "dotted" }
+    },
+
+
+    // ===== Category 8: yield (단방향 1) =====
+    "savings_yield_drip": {
+      "category": "yield",
+      "direction": "directed",
+      "from_role": "(vow internal)",
+      "to_role": "savings_module",
+      "source_events": ["Savings.Drip (sUSDS/stUSDS)", "Vat.LogNote.suck (u=vow, v=savings)"],
+      "description": "★ yield의 출처는 vow.sin (vat.suck) — 시스템 비용 (SF가 상쇄해야 균형)",
+      "asset": "tok_usds",
+      "visualization": { "arrow": "→", "color": "green", "style": "dotted" }
+    },
+
+
+    // ===== Category 9: risk_liquidation (단방향 4) =====
+    "liquidation_kick": {
+      "category": "risk_liquidation",
+      "direction": "directed",
+      "from_role": "liquidator_bot",
+      "to_role": "vault_instance + clipper (per ilk)",
+      "source_events": ["Dog.Bark", "Clipper.Kick", "Vat.LogNote.grab"],
+      "description": "★ 가장 강한 의존성 엣지 — vault unsafe 청산 시작",
+      "asset_required": false,
+      "atomic_with": ["Vat.LogNote.grab"],
+      "visualization": { "arrow": "→", "color": "red", "width": "bold", "icon": "warn" }
+    },
+    "liquidation_take": {
+      "category": "risk_liquidation",
+      "direction": "directed",
+      "from_role": "liquidator_bot (caller)",
+      "to_role": "clipper",
+      "source_event": "Clipper.Take",
+      "description": "Dutch auction 입찰. LockstakeClipper일 경우 callback으로 bad_debt_absorb 트리거",
+      "visualization": { "arrow": "→", "color": "red", "icon": "bid" }
+    },
+    "bad_debt_absorb": {
+      "category": "risk_liquidation",
+      "direction": "directed",
+      "from_role": "clipper (lockstake_clipper)",
+      "to_role": "savings_module (stusds)",
+      "source_events": ["stUSDS.Cut", "LockstakeClipper.Take (sale.lot==0 && due>owe) — Type 6 callback"],
+      "description": "★ bad debt 자동 흡수 — chi 감소로 모든 stUSDS holder 손실 분배",
+      "atomic_with": ["liquidation_take (LockstakeClipper)"],
+      "visualization": { "arrow": "→", "color": "red", "width": "bold", "icon": "absorb" }
+    },
+    "bad_debt_mint": {
+      "category": "risk_liquidation",
+      "direction": "directed",
+      "from_role": "(vow internal)",
+      "to_role": "gov_token (tok_sky)",
+      "source_event": "Flop.Kick",
+      "description": "★ DORMANT — sin > sump 시 SKY mint해서 시장 판매 (최후 수단)",
+      "activity_label": "dormant",
+      "visualization": { "arrow": "→", "color": "red", "style": "dashed", "icon": "mint" }
+    },
+
+
+    // ===== Category 10: surplus_distribution (단방향 3) =====
+    "surplus_to_burn": {
+      "category": "surplus_distribution",
+      "direction": "directed",
+      "from_role": "(vow internal)",
+      "to_role": "smart_burn_engine",
+      "source_event": "Splitter.Kick",
+      "description": "vow surplus → split (burn lot + farm pay)",
+      "visualization": { "arrow": "→", "color": "yellow", "icon": "fire" }
+    },
+    "burn_swap_external": {
+      "category": "surplus_distribution",
+      "direction": "directed",
+      "from_role": "smart_burn_engine",
+      "to_role": "external_protocol_pool (ext_uniswap_v2_usds_sky_pair)",
+      "source_event": "FlapperUniV2.Exec",
+      "description": "USDS-SKY pair에서 swap + LP add (LP → receiver = effective_lockup)",
+      "atomic_with": ["UniswapV2.Swap", "UniswapV2.Mint"],
+      "visualization": { "arrow": "→", "color": "orange", "icon": "swap" },
+      "metadata": { "effective_lockup": "LP receiver (PauseProxy?) — SKY 영구 lockup", "lp_receiver_addr": "smart_burn_engine.metadata.lp_receiver_addr" }
+    },
+    "farm_reward_distribute": {
+      "category": "surplus_distribution",
+      "direction": "directed",
+      "from_role": "smart_burn_engine OR rewards_distributor (staking_farm.reward_source metadata)",
+      "to_role": "staking_farm → user_eoa",
+      "source_events": ["Farm.RewardAdded", "Farm.RewardPaid", "LockstakeEngine.GetReward"],
+      "description": "Splitter pay → farm.notifyRewardAmount → user.getReward",
+      "visualization": { "arrow": "→", "color": "green", "icon": "reward" }
+    },
+
+
+    // ===== Category 11: flash (단방향 1) =====
+    "flash_callback": {
+      "category": "flash",
+      "direction": "directed",
+      "from_role": "flash_mint",
+      "to_role": "user_eoa OR external_contract (receiver)",
+      "source_events": ["DssFlash.FlashLoan", "DssFlash.VatDaiFlashLoan"],
+      "description": "atomic loan + callback + repay cycle. fee=0",
+      "atomic_cycle": true,
+      "visualization": { "arrow": "→ cycle", "color": "purple", "style": "dotted", "icon": "lightning" },
+      "metadata": { "modes": ["ERC-3156 (DAI ERC-20)", "Vat-native (vat_dai)"], "fee": "0 currently" }
+    },
+
+
+    // ===== Category 12: governance (단방향 5) =====
+    "gov_lock_sky": {
+      "category": "governance",
+      "direction": "directed",
+      "from_role": "user_eoa",
+      "to_role": "gov_chief (via vote_delegate_instance)",
+      "source_events": ["VoteDelegate.Lock", "VoteDelegate.Free", "Chief.LogNote (lock direct)"],
+      "asset": "tok_sky",
+      "description": "SKY voting power 잠금. LockstakeEngine 통해서도 자동 호출",
+      "visualization": { "arrow": "→", "color": "purple", "icon": "lock" }
+    },
+    "vote_delegation": {
+      "category": "governance",
+      "direction": "directed",
+      "from_role": "user_eoa",
+      "to_role": "vote_delegate_instance",
+      "source_events": ["LockstakeEngine.SelectVoteDelegate"],
+      "description": "위임 대상 설정",
+      "visualization": { "arrow": "→", "color": "purple" }
+    },
+    "farm_selection": {
+      "category": "governance",
+      "direction": "directed",
+      "from_role": "user_eoa",
+      "to_role": "staking_farm",
+      "source_event": "LockstakeEngine.SelectFarm",
+      "description": "LSSKY stake할 farm 선택 (vote_delegation과 같은 패턴)",
+      "visualization": { "arrow": "→", "color": "purple" }
+    },
+    "emergency_join": {
+      "category": "governance",
+      "direction": "directed",
+      "from_role": "user_eoa",
+      "to_role": "emergency_module (ESM)",
+      "source_event": "ESM.Join",
+      "description": "50k SKY 임계 기여. 분산 emergency 메커니즘",
+      "asset": "tok_sky",
+      "visualization": { "arrow": "→", "color": "red", "icon": "emergency" }
+    },
+    "spell_execute": {
+      "category": "governance",
+      "direction": "directed",
+      "from_role": "gov_chief (winning spell)",
+      "to_role": "spell_instance + (target system contracts via pause_proxy)",
+      "source_events": ["DSPause.Plot (queued)", "DSPause.Exec (executed)"],
+      "description": "거버넌스 spell 실행. 4d GSM delay 후. PauseProxy delegatecall로 시스템 변경",
+      "visualization": { "arrow": "→", "color": "purple", "icon": "spell" },
+      "metadata": { "creates_dynamic_node": "spell_instance (per Plot)" }
+    },
+
+
+    // ===== Category 13: emergency (단방향 4) =====
+    "mom_breaker_trigger": {
+      "category": "emergency",
+      "direction": "directed",
+      "from_role": "(anyone for tripBreaker OR governance) → breaker_mom",
+      "to_role": "(target module — clipper OR osm_wrapper)",
+      "source_events": ["ClipperMom.SetBreaker", "OSM_MOM.Stop"],
+      "description": "permissionless 자동 trip (ClipperMom) OR governance 정지 (OSM_MOM 등)",
+      "visualization": { "arrow": "→", "color": "red", "icon": "halt" },
+      "metadata": { "governance_only_moms": "SPLITTER_MOM, DIRECT_MOM, SPBEAM_MOM, STUSDS_MOM, LITE_PSM_MOM, LINE_MOM, STARKNET_ESCROW_MOM — 사용자 trigger 불가" }
+    },
+    "end_global_settlement_action": {
+      "category": "emergency",
+      "direction": "directed",
+      "from_role": "emergency_module (ESM.Fire) OR governance",
+      "to_role": "end_module + (all_modules via cage cascade)",
+      "source_events": ["ESM.Fire", "End.GlobalSettlement (cage/skim/snip/pack/cash 통합)"],
+      "description": "★ DORMANT — Global Settlement 발동 시 모든 시스템 정지 + DAI holder 비례 회수",
+      "activity_label": "dormant",
+      "visualization": { "arrow": "→", "color": "red", "width": "bold", "icon": "shutdown" }
+    },
+    "d3m_emergency_cycle": {
+      "category": "emergency",
+      "direction": "directed",
+      "from_role": "governance (cage) OR anyone after tau (cull) OR keeper (exit)",
+      "to_role": "d3m_module",
+      "source_event": "D3MHub.Emergency (Cage/Cull/Uncull/Exit 통합)",
+      "description": "D3M pool 단계적 정리 (cage → tau wait → cull → exit). uncull은 End 시만",
+      "visualization": { "arrow": "→", "color": "red", "style": "dashed" }
+    },
+    "urn_permission_grant": {
+      "category": "governance",
+      "direction": "directed",
+      "from_role": "user_eoa (owner)",
+      "to_role": "user_eoa (delegated usr)",
+      "source_events": ["LockstakeEngine.Hope", "LockstakeEngine.Nope", "CDPManager.view_only (cdpAllow/urnAllow)"],
+      "description": "★ user → user 권한 위임 — 위임받은 자가 urn 조작 가능. 신뢰 의존성",
+      "visualization": { "arrow": "→", "color": "purple", "icon": "delegate" },
+      "metadata": { "scope": "lockstake_urn at index OR cdp_vault_urn", "type4_handling": "CDPManager.cdpAllow/urnAllow은 이벤트 X — view polling" }
+    },
+
+
+    // ===== Category 14: external_operator (단방향 1) =====
+    "external_operator_delegation": {
+      "category": "external_operator",
+      "direction": "directed",
+      "from_role": "external_protocol_admin (Spark SubProxy)",
+      "to_role": "d3m_module (D3MOperatorPlan)",
+      "source_event": "D3MOperatorPlan.view_only (setTargetAssets)",
+      "description": "★ Type 4 view-only — Spark가 D3M target 직접 결정 (Sky가 Spark에 신뢰 위임)",
+      "visualization": { "arrow": "→", "color": "gray", "style": "dotted", "icon": "delegate" }
+    },
+
+
+    // ===== Category 15: oracle (단방향 2) =====
+    "price_dependency": {
+      "category": "oracle",
+      "direction": "directed",
+      "from_role": "ilk OR external_token OR psm",
+      "to_role": "osm_wrapper OR price_feed OR custom_oracle",
+      "source_events": ["static (constructor) + Spot.LogNote (file pip)"],
+      "description": "자산의 가격 source 의존. multi-hop 가능 (ilk → osm → chainlink)",
+      "visualization": { "arrow": "→", "color": "gray", "style": "dotted", "width": "thin" },
+      "metadata": { "multi_hop": "osm → chainlink 같은 chain도 같은 edge_type으로 표현" }
+    },
+
+
+    // ===== Category 16: trust (단방향 1, 통합) =====
+    "trust_dependency": {
+      "category": "trust",
+      "direction": "directed",
+      "from_role": "external_token OR rwa_vault",
+      "to_role": "offchain_issuer",
+      "source_event": "static (issuer-token mapping)",
+      "description": "★ off-chain trust. blacklist/pause/custody 권한 의존",
+      "visualization": { "arrow": "→", "color": "gray", "style": "dotted", "icon": "trust" },
+      "metadata": { "trust_type": "issuer (Circle USDC, BitGo WBTC) OR rwa_operator (BlockTower, Coinbase)" }
+    }
+  },
+
+
+  // ===== 카테고리 시각화 요약 =====
+  "_categories_summary": {
+    "value_flow_swap": { "edges": ["psm_swap"], "color": "blue", "arrow": "↔" },
+    "value_flow_yield": { "edges": ["savings_flow"], "color": "green", "arrow": "↔" },
+    "vault_op": { "edges": ["vault_collateral_flow", "vault_debt_flow", "vault_open", "vault_transfer_ownership"], "color": "yellow", "arrow": "↔/→" },
+    "conversion": { "edges": ["convert_token_bidir", "convert_token_oneway"], "color": "purple", "arrow": "↔/→" },
+    "external_capital": { "edges": ["d3m_capital_flow", "allocator_capital_flow"], "color": "gray dashed", "arrow": "↔" },
+    "cross_chain": { "edges": ["bridge_flow"], "color": "cyan dotted", "arrow": "↔" },
+    "system_param": { "edges": ["ilk_parameter_change", "ilk_dynamic_line_adjust", "system_rate_accrue", "psm_keeper_action"], "color": "gray dotted", "arrow": "→" },
+    "yield": { "edges": ["savings_yield_drip"], "color": "green dotted", "arrow": "→" },
+    "risk_liquidation": { "edges": ["liquidation_kick", "liquidation_take", "bad_debt_absorb", "bad_debt_mint"], "color": "red bold", "arrow": "→" },
+    "surplus_distribution": { "edges": ["surplus_to_burn", "burn_swap_external", "farm_reward_distribute"], "color": "yellow/orange", "arrow": "→" },
+    "flash": { "edges": ["flash_callback"], "color": "purple dotted", "arrow": "→ cycle" },
+    "governance": { "edges": ["gov_lock_sky", "vote_delegation", "farm_selection", "emergency_join", "spell_execute", "urn_permission_grant"], "color": "purple", "arrow": "→" },
+    "emergency": { "edges": ["mom_breaker_trigger", "end_global_settlement_action", "d3m_emergency_cycle"], "color": "red", "arrow": "→" },
+    "external_operator": { "edges": ["external_operator_delegation"], "color": "gray dotted", "arrow": "→" },
+    "oracle": { "edges": ["price_dependency"], "color": "gray dotted thin", "arrow": "→" },
+    "trust": { "edges": ["trust_dependency"], "color": "gray dotted", "arrow": "→" }
+  }
+}

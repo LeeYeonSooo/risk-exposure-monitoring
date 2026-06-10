@@ -1,0 +1,50 @@
+{
+  "inputs": [
+    {
+      "input": "irm_address:WETH@20398673(prev)",
+      "detector": "d03",
+      "measured": true,
+      "source": "onchain:aave_v3.getReserveData(WETH).interestRateStrategyAddress @ethereum:20398673",
+      "irm": "0x42ec99a020b78c449d17d93bc4c89e0189b5811d"
+    },
+    {
+      "input": "irm_address:WETH@20398674(curr)",
+      "detector": "d03",
+      "measured": true,
+      "source": "onchain:aave_v3.getReserveData(WETH).interestRateStrategyAddress @ethereum:20398674",
+      "irm": "0x847a3364cc5fe389283bd821cfc8a477288d9e82"
+    },
+    {
+      "input": "irm_address:WETH@20655578(calm-control)",
+      "detector": "d03",
+      "measured": true,
+      "source": "onchain:aave_v3.getReserveData(WETH).interestRateStrategyAddress @ethereum:20655578",
+      "irm": "0x847a3364cc5fe389283bd821cfc8a477288d9e82",
+      "note": "unchanged from swap -> control's prev==curr is faithful"
+    },
+    {
+      "input": "aave_config:WETH@20398673(prev)",
+      "detector": "d01/d03/d13",
+      "measured": true,
+      "source": "onchain:aave_v3.getConfiguration(WETH) @ethereum:20398673",
+      "lt": 0.83,
+      "ltv": 0.805,
+      "is_frozen": false
+    },
+    {
+      "input": "aave_config:WETH@20398674(curr)",
+      "detector": "d01/d03/d13",
+      "measured": true,
+      "source": "onchain:aave_v3.getConfiguration(WETH) @ethereum:20398674",
+      "lt": 0.83,
+      "ltv": 0.805,
+      "is_frozen": false
+    },
+    {
+      "input": "irm_address:WETH@none(modeled-absence)",
+      "detector": "d03",
+      "measured": false,
+      "source": "modeled: interest-rate-strategy field absent (new-reserve / transient collector miss) \u2014 FP-trap, intentionally not a chain read"
+    }
+  ]
+}

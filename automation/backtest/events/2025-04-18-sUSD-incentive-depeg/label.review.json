@@ -1,0 +1,5 @@
+{
+  "verdict": "APPROVE",
+  "summary": "Data-only backfill: should_fire/must_not_fire/severities/max_emitted/beta/probe-keys byte-identical to prior label.json (no re-judging); measured trough 0.833 (16.7% off peg, on-chain Curve get_dy@22295741, pool 79.9% sUSD ~matches >75%) is a genuine deep depeg consistent with EVENT.md (deeper ~$0.66 cross-venue/Optimism trough disclosed, not overclaimed); recovery 0.998 matches ~$0.998 Oct-2025 and is correctly degraded measured=false; fidelity flags (true@22295741 / false@23582953) correct; edge sUSD-curve-collateral resolves. Note: trough note's stale 'below lt=0.80' sub-clause no longer literal for 0.833 but is non-load-bearing prose and CRITICAL still justified on magnitude.",
+  "draft_sha256": "b39064e90e4e13447748c86f30b8b62f6ea854c1904e164c581bd5a38fc23432"
+}

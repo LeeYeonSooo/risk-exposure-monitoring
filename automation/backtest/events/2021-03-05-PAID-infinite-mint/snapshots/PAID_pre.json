@@ -1,0 +1,44 @@
+{
+  "_invariant": "`prev` for the PAID infinite-mint case: PAID V1 totalSupply at block 11979831 (pre-burn, ~18:01:07Z) = 594,717,455.710 PAID — RE-CAPTURED & VERIFIED on-chain (Alchemy ETH archive, recapture 2026-06-07: totalSupply @ 11979831 = 594717455710e18 ✓). IDENTICAL to the post-mint curr supply. This is what makes the burn-then-remint net-supply-neutral: an hourly monitor diffing prev->curr sees ZERO supply change, so d05 cannot fire. No unauthorized mint/burn events in this calm prev (the burn at 11979832 is AFTER this block).",
+  "meta": {
+    "token": "PAID",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2021-03-05T18:00:00Z",
+    "snapshot_block": 11979831,
+    "node_count": 1,
+    "edge_count": 0,
+    "data_source": "on-chain Alchemy ETH archive (recapture 2026-06-07, VERIFIED): PAID V1 0x8c8687fc965593dfb2f0b4eaefd55e9d8df348df totalSupply @ block 11979831 = 594717455710e18"
+  },
+  "nodes": [
+    {
+      "node_id": "token:PAID",
+      "type": "Token",
+      "label": "PAID Network (V1, exploited)",
+      "address": "0x8c8687fc965593dfb2f0b4eaefd55e9d8df348df",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "PAID",
+        "decimals": 18,
+        "total_supply": 594717455710000000000000000,
+        "supply_samples": [
+          594717455710000000000000000,
+          594717455710000000000000000,
+          594717455710000000000000000,
+          594717455710000000000000000,
+          594717455710000000000000000
+        ],
+        "mint_events": [],
+        "burn_events": [],
+        "authorized_minters": [
+          "0x53bc21d38281d6acdfe0b92e0b534a19c90344cc"
+        ],
+        "holders": null,
+        "market_cap_usd": 265000000,
+        "paused": false
+      }
+    }
+  ],
+  "edges": []
+}

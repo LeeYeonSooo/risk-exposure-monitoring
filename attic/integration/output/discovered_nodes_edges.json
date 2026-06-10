@@ -1,0 +1,2385 @@
+{
+  "nodes": [
+    {
+      "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "asset 0xc02aaa",
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x4d5f47fa6a74757f35c14fd3a6ef8e3c9bc514e8",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aToken 0x4d5f47",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+        "transferable": true,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0xea51d7853eefb32b6ee06b1c12e6dcca88be0ffe",
+      "chain_id": 1,
+      "type": "variable_debt_token",
+      "protocol": "aave-v3",
+      "label": "debt 0xea51d7",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+        "transferable": false,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "asset 0x7f39c5",
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x0b925ed163218f6662a35e0f0371ac234f9e9371",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aEthwstETH",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+        "transferable": true,
+        "discovered": true,
+        "symbol": "aEthwstETH"
+      }
+    },
+    {
+      "address": "0xc96113eed8cab59cd8a66813bcb0ceb29f06d2e4",
+      "chain_id": 1,
+      "type": "variable_debt_token",
+      "protocol": "aave-v3",
+      "label": "debt 0xc96113",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+        "transferable": false,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "asset 0x2260fa",
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x5ee5bf7ae06d1be5997a1a72006fe6c607ec6de8",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aToken 0x5ee5bf",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+        "transferable": true,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x40aabef1aa8f0eec637e0e7d92fbffb2f26a8b7b",
+      "chain_id": 1,
+      "type": "variable_debt_token",
+      "protocol": "aave-v3",
+      "label": "debt 0x40aabe",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+        "transferable": false,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "asset 0xa0b869",
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x98c23e9d8f34fefb1b7bd6a91b7ff122f4e16f5c",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aToken 0x98c23e",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "transferable": true,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x72e95b8931767c79ba4eee721354d6e99a61d004",
+      "chain_id": 1,
+      "type": "variable_debt_token",
+      "protocol": "aave-v3",
+      "label": "debt 0x72e95b",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "transferable": false,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x3f73f03aa83b2a48ed27e964ed0fdb590332095b",
+      "chain_id": 1,
+      "type": "price_feed",
+      "protocol": "chainlink",
+      "label": "Chainlink feed 0x3f73…",
+      "metadata": {
+        "discovered": true,
+        "base_currency": "USD",
+        "for_asset": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+      }
+    },
+    {
+      "address": "0x6b175474e89094c44da98b954eedeac495271d0f",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "asset 0x6b1754",
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x018008bfb33d285247a21d44e50697654f754e63",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aToken 0x018008",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0x6b175474e89094c44da98b954eedeac495271d0f",
+        "transferable": true,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0xcf8d0c70c850859266f5c338b38f9d663181c314",
+      "chain_id": 1,
+      "type": "variable_debt_token",
+      "protocol": "aave-v3",
+      "label": "debt 0xcf8d0c",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0x6b175474e89094c44da98b954eedeac495271d0f",
+        "transferable": false,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x5c66322ca59bb61e867b28195576dbd8da4b08de",
+      "chain_id": 1,
+      "type": "price_feed",
+      "protocol": "chainlink",
+      "label": "Chainlink feed 0x5c66…",
+      "metadata": {
+        "discovered": true,
+        "base_currency": "USD",
+        "for_asset": "0x6b175474e89094c44da98b954eedeac495271d0f"
+      }
+    },
+    {
+      "address": "0x514910771af9ca656af840dff83e8264ecf986ca",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "asset 0x514910",
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x5e8c8a7243651db1384c0ddfdbe39761e8e7e51a",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aToken 0x5e8c8a",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0x514910771af9ca656af840dff83e8264ecf986ca",
+        "transferable": true,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x4228f8895c7dda20227f6a5c6751b8ebf19a6ba8",
+      "chain_id": 1,
+      "type": "variable_debt_token",
+      "protocol": "aave-v3",
+      "label": "debt 0x4228f8",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0x514910771af9ca656af840dff83e8264ecf986ca",
+        "transferable": false,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0xc7e9b623ed51f033b32ae7f1282b1ad62c28c183",
+      "chain_id": 1,
+      "type": "price_feed",
+      "protocol": "chainlink",
+      "label": "Chainlink feed 0xc7e9…",
+      "metadata": {
+        "discovered": true,
+        "base_currency": "USD",
+        "for_asset": "0x514910771af9ca656af840dff83e8264ecf986ca"
+      }
+    },
+    {
+      "address": "0xbe9895146f7af43049ca1c1ae358b0541ea49704",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "asset 0xbe9895",
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x977b6fc5de62598b08c85ac8cf2b745874e8b78c",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aToken 0x977b6f",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xbe9895146f7af43049ca1c1ae358b0541ea49704",
+        "transferable": true,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x0c91bca95b5fe69164ce583a2ec9429a569798ed",
+      "chain_id": 1,
+      "type": "variable_debt_token",
+      "protocol": "aave-v3",
+      "label": "debt 0x0c91bc",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xbe9895146f7af43049ca1c1ae358b0541ea49704",
+        "transferable": false,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "asset 0xdac17f",
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x23878914efe38d27c4d67ab83ed1b93a74d4086a",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aToken 0x238789",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+        "transferable": true,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x6df1c1e379bc5a00a7b4c6e67a203333772f45a8",
+      "chain_id": 1,
+      "type": "variable_debt_token",
+      "protocol": "aave-v3",
+      "label": "debt 0x6df1c1",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+        "transferable": false,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0xae78736cd615f374d3085123a210448e74fc6393",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "asset 0xae7873",
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "address": "0xcc9ee9483f662091a1de4795249e24ac0ac2630f",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aToken 0xcc9ee9",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xae78736cd615f374d3085123a210448e74fc6393",
+        "transferable": true,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0xae8593dd575fe29a9745056aa91c4b746eee62c8",
+      "chain_id": 1,
+      "type": "variable_debt_token",
+      "protocol": "aave-v3",
+      "label": "debt 0xae8593",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xae78736cd615f374d3085123a210448e74fc6393",
+        "transferable": false,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x5f98805a4e8be255a32880fdec7f6728c6568ba0",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "asset 0x5f9880",
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x3fe6a295459fae07df8a0cecc36f37160fe86aa9",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aToken 0x3fe6a2",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0x5f98805a4e8be255a32880fdec7f6728c6568ba0",
+        "transferable": true,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x33652e48e4b74d18520f11bfe58edd2ed2cec5a2",
+      "chain_id": 1,
+      "type": "variable_debt_token",
+      "protocol": "aave-v3",
+      "label": "debt 0x33652e",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0x5f98805a4e8be255a32880fdec7f6728c6568ba0",
+        "transferable": false,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0xba100000625a3754423978a60c9317c58a424e3d",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "asset 0xba1000",
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x2516e7b3f76294e03c42aa4c5b5b4dce9c436fb8",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aToken 0x2516e7",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xba100000625a3754423978a60c9317c58a424e3d",
+        "transferable": true,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x3d3efceb4ff0966d34d9545d3a2fa2dcdbf451f2",
+      "chain_id": 1,
+      "type": "variable_debt_token",
+      "protocol": "aave-v3",
+      "label": "debt 0x3d3efc",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xba100000625a3754423978a60c9317c58a424e3d",
+        "transferable": false,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x5a98fcbea516cf06857215779fd812ca3bef1b32",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "asset 0x5a98fc",
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x9a44fd41566876a39655f74971a3a6ea0a17a454",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aToken 0x9a44fd",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0x5a98fcbea516cf06857215779fd812ca3bef1b32",
+        "transferable": true,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0xc30808705c01289a3d306ca9cab081ba9114ec82",
+      "chain_id": 1,
+      "type": "variable_debt_token",
+      "protocol": "aave-v3",
+      "label": "debt 0xc30808",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0x5a98fcbea516cf06857215779fd812ca3bef1b32",
+        "transferable": false,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0xb01e6c9af83879b8e06a092f0dd94309c0d497e4",
+      "chain_id": 1,
+      "type": "price_feed",
+      "protocol": "chainlink",
+      "label": "Chainlink feed 0xb01e…",
+      "metadata": {
+        "discovered": true,
+        "base_currency": "USD",
+        "for_asset": "0x5a98fcbea516cf06857215779fd812ca3bef1b32"
+      }
+    },
+    {
+      "address": "0x853d955acef822db058eb8505911ed77f175b99e",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "asset 0x853d95",
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "address": "0xd4e245848d6e1220dbe62e155d89fa327e43cb06",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aToken 0xd4e245",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0x853d955acef822db058eb8505911ed77f175b99e",
+        "transferable": true,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x88b8358f5bc87c2d7e116cca5b65a9eeb2c5ea3f",
+      "chain_id": 1,
+      "type": "variable_debt_token",
+      "protocol": "aave-v3",
+      "label": "debt 0x88b835",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0x853d955acef822db058eb8505911ed77f175b99e",
+        "transferable": false,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0xdefa4e8a7bcba345f687a2f1456f5edd9ce97202",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "asset 0xdefa4e",
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x5b502e3796385e1e9755d7043b9c945c3accec9c",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aToken 0x5b502e",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xdefa4e8a7bcba345f687a2f1456f5edd9ce97202",
+        "transferable": true,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x253127ffc04981cea8932f406710661c2f2c3fd2",
+      "chain_id": 1,
+      "type": "variable_debt_token",
+      "protocol": "aave-v3",
+      "label": "debt 0x253127",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xdefa4e8a7bcba345f687a2f1456f5edd9ce97202",
+        "transferable": false,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x3432b6a60d23ca0dfca7761b7ab56459d9c964d0",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "asset 0x3432b6",
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x82f9c5ad306bba1ad0de49bb5fa6f01bf61085ef",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aToken 0x82f9c5",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0x3432b6a60d23ca0dfca7761b7ab56459d9c964d0",
+        "transferable": true,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x68e9f0ad4e6f8f5db70f6923d4d6d5b225b83b16",
+      "chain_id": 1,
+      "type": "variable_debt_token",
+      "protocol": "aave-v3",
+      "label": "debt 0x68e9f0",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0x3432b6a60d23ca0dfca7761b7ab56459d9c964d0",
+        "transferable": false,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "asset 0xcd5fe2",
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "address": "0xbdfa7b7893081b35fb54027489e2bc7a38275129",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aToken 0xbdfa7b",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee",
+        "transferable": true,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x77ad9bf13a52517ad698d65913e8d381300c8bf3",
+      "chain_id": 1,
+      "type": "variable_debt_token",
+      "protocol": "aave-v3",
+      "label": "debt 0x77ad9b",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee",
+        "transferable": false,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "asset 0xcbb7c0",
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x5c647ce0ae10658ec44fa4e11a51c96e94efd1dd",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aToken 0x5c647c",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf",
+        "transferable": true,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0xeb284a70557efe3591b9e6d9d720040e02c54a4d",
+      "chain_id": 1,
+      "type": "variable_debt_token",
+      "protocol": "aave-v3",
+      "label": "debt 0xeb284a",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf",
+        "transferable": false,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x8236a87084f8b84306f72007f36f2618a5634494",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "asset 0x8236a8",
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x65906988adee75306021c417a1a3458040239602",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aToken 0x659069",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0x8236a87084f8b84306f72007f36f2618a5634494",
+        "transferable": true,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x68aeb290c7727d899b47c56d1c96aeac475cd0dd",
+      "chain_id": 1,
+      "type": "variable_debt_token",
+      "protocol": "aave-v3",
+      "label": "debt 0x68aeb2",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0x8236a87084f8b84306f72007f36f2618a5634494",
+        "transferable": false,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0xc139190f447e929f090edeb554d95abb8b18ac1c",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "asset 0xc13919",
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "address": "0xec4ef66d4fceeba34abb4de69db391bc5476ccc8",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aToken 0xec4ef6",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xc139190f447e929f090edeb554d95abb8b18ac1c",
+        "transferable": true,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0xea85a065f87fe28aa8fbf0d6c7dec472b106252c",
+      "chain_id": 1,
+      "type": "variable_debt_token",
+      "protocol": "aave-v3",
+      "label": "debt 0xea85a0",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xc139190f447e929f090edeb554d95abb8b18ac1c",
+        "transferable": false,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0xe6a934089bbee34f832060ce98848359883749b3",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "asset 0xe6a934",
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x285866acb0d60105b4ed350a463361c2d9afa0e2",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aToken 0x285866",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xe6a934089bbee34f832060ce98848359883749b3",
+        "transferable": true,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x690df181701c11c53ea33bbf303c25834b66bd14",
+      "chain_id": 1,
+      "type": "variable_debt_token",
+      "protocol": "aave-v3",
+      "label": "debt 0x690df1",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xe6a934089bbee34f832060ce98848359883749b3",
+        "transferable": false,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0xe8483517077afa11a9b07f849cee2552f040d7b2",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "asset 0xe84835",
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "address": "0xbe54767735fb7acca2aa7e2d209a6f705073536d",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aToken 0xbe5476",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xe8483517077afa11a9b07f849cee2552f040d7b2",
+        "transferable": true,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0xa803414f84fcef00e745be7cc2a315908927f15d",
+      "chain_id": 1,
+      "type": "variable_debt_token",
+      "protocol": "aave-v3",
+      "label": "debt 0xa80341",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0xe8483517077afa11a9b07f849cee2552f040d7b2",
+        "transferable": false,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x9bf45ab47747f4b4dd09b3c2c73953484b4eb375",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "asset 0x9bf45a",
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x1241ec22c9bdf16ba1eb636f2a8de7e28a4343cf",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aToken 0x1241ec",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0x9bf45ab47747f4b4dd09b3c2c73953484b4eb375",
+        "transferable": true,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0xacd3d3facea0424984f662827b988f4581a3ce31",
+      "chain_id": 1,
+      "type": "variable_debt_token",
+      "protocol": "aave-v3",
+      "label": "debt 0xacd3d3",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0x9bf45ab47747f4b4dd09b3c2c73953484b4eb375",
+        "transferable": false,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x619d75e3b790ebc21c289f2805bb7177a7d732e2",
+      "chain_id": 1,
+      "type": "underlying_asset",
+      "protocol": "external",
+      "label": "asset 0x619d75",
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "address": "0xa78eba24d89e70a03ddb7ac195a15e53315aa5b4",
+      "chain_id": 1,
+      "type": "a_token",
+      "protocol": "aave-v3",
+      "label": "aToken 0xa78eba",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0x619d75e3b790ebc21c289f2805bb7177a7d732e2",
+        "transferable": true,
+        "discovered": true
+      }
+    },
+    {
+      "address": "0x9ba896531f878ed5f0a4f73e82d63ba7b424f910",
+      "chain_id": 1,
+      "type": "variable_debt_token",
+      "protocol": "aave-v3",
+      "label": "debt 0x9ba896",
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "underlying": "0x619d75e3b790ebc21c289f2805bb7177a7d732e2",
+        "transferable": false,
+        "discovered": true
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "aave-v3-discovered:0x4d5f47fa->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x4d5f47fa6a74757f35c14fd3a6ef8e3c9bc514e8",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x4d5f47fa->0xc02aaa39",
+      "edge_type": "mint_wrapper",
+      "from": "0x4d5f47fa6a74757f35c14fd3a6ef8e3c9bc514e8",
+      "to": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xea51d785->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0xea51d7853eefb32b6ee06b1c12e6dcca88be0ffe",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xea51d785->0xc02aaa39",
+      "edge_type": "mint_wrapper",
+      "from": "0xea51d7853eefb32b6ee06b1c12e6dcca88be0ffe",
+      "to": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x0b925ed1->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x0b925ed163218f6662a35e0f0371ac234f9e9371",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x0b925ed1->0x7f39c581",
+      "edge_type": "mint_wrapper",
+      "from": "0x0b925ed163218f6662a35e0f0371ac234f9e9371",
+      "to": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xc96113ee->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0xc96113eed8cab59cd8a66813bcb0ceb29f06d2e4",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xc96113ee->0x7f39c581",
+      "edge_type": "mint_wrapper",
+      "from": "0xc96113eed8cab59cd8a66813bcb0ceb29f06d2e4",
+      "to": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x5ee5bf7a->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x5ee5bf7ae06d1be5997a1a72006fe6c607ec6de8",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x5ee5bf7a->0x2260fac5",
+      "edge_type": "mint_wrapper",
+      "from": "0x5ee5bf7ae06d1be5997a1a72006fe6c607ec6de8",
+      "to": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x40aabef1->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x40aabef1aa8f0eec637e0e7d92fbffb2f26a8b7b",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x40aabef1->0x2260fac5",
+      "edge_type": "mint_wrapper",
+      "from": "0x40aabef1aa8f0eec637e0e7d92fbffb2f26a8b7b",
+      "to": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x98c23e9d->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x98c23e9d8f34fefb1b7bd6a91b7ff122f4e16f5c",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x98c23e9d->0xa0b86991",
+      "edge_type": "mint_wrapper",
+      "from": "0x98c23e9d8f34fefb1b7bd6a91b7ff122f4e16f5c",
+      "to": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x72e95b89->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x72e95b8931767c79ba4eee721354d6e99a61d004",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x72e95b89->0xa0b86991",
+      "edge_type": "mint_wrapper",
+      "from": "0x72e95b8931767c79ba4eee721354d6e99a61d004",
+      "to": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xa0b86991->0x3f73f03a",
+      "edge_type": "price_dependency",
+      "from": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      "to": "0x3f73f03aa83b2a48ed27e964ed0fdb590332095b",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "edge_id": "chainlink-discovered:0x3f73f03a->provider",
+      "edge_type": "delegation",
+      "from": "0x3f73f03aa83b2a48ed27e964ed0fdb590332095b",
+      "to": "chainlink_provider",
+      "protocol": "chainlink",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true,
+        "layer": "feed_to_provider"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x018008bf->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x018008bfb33d285247a21d44e50697654f754e63",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x018008bf->0x6b175474",
+      "edge_type": "mint_wrapper",
+      "from": "0x018008bfb33d285247a21d44e50697654f754e63",
+      "to": "0x6b175474e89094c44da98b954eedeac495271d0f",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xcf8d0c70->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0xcf8d0c70c850859266f5c338b38f9d663181c314",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xcf8d0c70->0x6b175474",
+      "edge_type": "mint_wrapper",
+      "from": "0xcf8d0c70c850859266f5c338b38f9d663181c314",
+      "to": "0x6b175474e89094c44da98b954eedeac495271d0f",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x6b175474->0x5c66322c",
+      "edge_type": "price_dependency",
+      "from": "0x6b175474e89094c44da98b954eedeac495271d0f",
+      "to": "0x5c66322ca59bb61e867b28195576dbd8da4b08de",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "edge_id": "chainlink-discovered:0x5c66322c->provider",
+      "edge_type": "delegation",
+      "from": "0x5c66322ca59bb61e867b28195576dbd8da4b08de",
+      "to": "chainlink_provider",
+      "protocol": "chainlink",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true,
+        "layer": "feed_to_provider"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x5e8c8a72->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x5e8c8a7243651db1384c0ddfdbe39761e8e7e51a",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x5e8c8a72->0x51491077",
+      "edge_type": "mint_wrapper",
+      "from": "0x5e8c8a7243651db1384c0ddfdbe39761e8e7e51a",
+      "to": "0x514910771af9ca656af840dff83e8264ecf986ca",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x4228f889->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x4228f8895c7dda20227f6a5c6751b8ebf19a6ba8",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x4228f889->0x51491077",
+      "edge_type": "mint_wrapper",
+      "from": "0x4228f8895c7dda20227f6a5c6751b8ebf19a6ba8",
+      "to": "0x514910771af9ca656af840dff83e8264ecf986ca",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x51491077->0xc7e9b623",
+      "edge_type": "price_dependency",
+      "from": "0x514910771af9ca656af840dff83e8264ecf986ca",
+      "to": "0xc7e9b623ed51f033b32ae7f1282b1ad62c28c183",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "edge_id": "chainlink-discovered:0xc7e9b623->provider",
+      "edge_type": "delegation",
+      "from": "0xc7e9b623ed51f033b32ae7f1282b1ad62c28c183",
+      "to": "chainlink_provider",
+      "protocol": "chainlink",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true,
+        "layer": "feed_to_provider"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x977b6fc5->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x977b6fc5de62598b08c85ac8cf2b745874e8b78c",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x977b6fc5->0xbe989514",
+      "edge_type": "mint_wrapper",
+      "from": "0x977b6fc5de62598b08c85ac8cf2b745874e8b78c",
+      "to": "0xbe9895146f7af43049ca1c1ae358b0541ea49704",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x0c91bca9->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x0c91bca95b5fe69164ce583a2ec9429a569798ed",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x0c91bca9->0xbe989514",
+      "edge_type": "mint_wrapper",
+      "from": "0x0c91bca95b5fe69164ce583a2ec9429a569798ed",
+      "to": "0xbe9895146f7af43049ca1c1ae358b0541ea49704",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x23878914->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x23878914efe38d27c4d67ab83ed1b93a74d4086a",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x23878914->0xdac17f95",
+      "edge_type": "mint_wrapper",
+      "from": "0x23878914efe38d27c4d67ab83ed1b93a74d4086a",
+      "to": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x6df1c1e3->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x6df1c1e379bc5a00a7b4c6e67a203333772f45a8",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x6df1c1e3->0xdac17f95",
+      "edge_type": "mint_wrapper",
+      "from": "0x6df1c1e379bc5a00a7b4c6e67a203333772f45a8",
+      "to": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xcc9ee948->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0xcc9ee9483f662091a1de4795249e24ac0ac2630f",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xcc9ee948->0xae78736c",
+      "edge_type": "mint_wrapper",
+      "from": "0xcc9ee9483f662091a1de4795249e24ac0ac2630f",
+      "to": "0xae78736cd615f374d3085123a210448e74fc6393",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xae8593dd->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0xae8593dd575fe29a9745056aa91c4b746eee62c8",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xae8593dd->0xae78736c",
+      "edge_type": "mint_wrapper",
+      "from": "0xae8593dd575fe29a9745056aa91c4b746eee62c8",
+      "to": "0xae78736cd615f374d3085123a210448e74fc6393",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x3fe6a295->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x3fe6a295459fae07df8a0cecc36f37160fe86aa9",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x3fe6a295->0x5f98805a",
+      "edge_type": "mint_wrapper",
+      "from": "0x3fe6a295459fae07df8a0cecc36f37160fe86aa9",
+      "to": "0x5f98805a4e8be255a32880fdec7f6728c6568ba0",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x33652e48->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x33652e48e4b74d18520f11bfe58edd2ed2cec5a2",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x33652e48->0x5f98805a",
+      "edge_type": "mint_wrapper",
+      "from": "0x33652e48e4b74d18520f11bfe58edd2ed2cec5a2",
+      "to": "0x5f98805a4e8be255a32880fdec7f6728c6568ba0",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x2516e7b3->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x2516e7b3f76294e03c42aa4c5b5b4dce9c436fb8",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x2516e7b3->0xba100000",
+      "edge_type": "mint_wrapper",
+      "from": "0x2516e7b3f76294e03c42aa4c5b5b4dce9c436fb8",
+      "to": "0xba100000625a3754423978a60c9317c58a424e3d",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x3d3efceb->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x3d3efceb4ff0966d34d9545d3a2fa2dcdbf451f2",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x3d3efceb->0xba100000",
+      "edge_type": "mint_wrapper",
+      "from": "0x3d3efceb4ff0966d34d9545d3a2fa2dcdbf451f2",
+      "to": "0xba100000625a3754423978a60c9317c58a424e3d",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x9a44fd41->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x9a44fd41566876a39655f74971a3a6ea0a17a454",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x9a44fd41->0x5a98fcbe",
+      "edge_type": "mint_wrapper",
+      "from": "0x9a44fd41566876a39655f74971a3a6ea0a17a454",
+      "to": "0x5a98fcbea516cf06857215779fd812ca3bef1b32",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xc3080870->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0xc30808705c01289a3d306ca9cab081ba9114ec82",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xc3080870->0x5a98fcbe",
+      "edge_type": "mint_wrapper",
+      "from": "0xc30808705c01289a3d306ca9cab081ba9114ec82",
+      "to": "0x5a98fcbea516cf06857215779fd812ca3bef1b32",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x5a98fcbe->0xb01e6c9a",
+      "edge_type": "price_dependency",
+      "from": "0x5a98fcbea516cf06857215779fd812ca3bef1b32",
+      "to": "0xb01e6c9af83879b8e06a092f0dd94309c0d497e4",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true
+      }
+    },
+    {
+      "edge_id": "chainlink-discovered:0xb01e6c9a->provider",
+      "edge_type": "delegation",
+      "from": "0xb01e6c9af83879b8e06a092f0dd94309c0d497e4",
+      "to": "chainlink_provider",
+      "protocol": "chainlink",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true,
+        "layer": "feed_to_provider"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xd4e24584->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0xd4e245848d6e1220dbe62e155d89fa327e43cb06",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xd4e24584->0x853d955a",
+      "edge_type": "mint_wrapper",
+      "from": "0xd4e245848d6e1220dbe62e155d89fa327e43cb06",
+      "to": "0x853d955acef822db058eb8505911ed77f175b99e",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x88b8358f->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x88b8358f5bc87c2d7e116cca5b65a9eeb2c5ea3f",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x88b8358f->0x853d955a",
+      "edge_type": "mint_wrapper",
+      "from": "0x88b8358f5bc87c2d7e116cca5b65a9eeb2c5ea3f",
+      "to": "0x853d955acef822db058eb8505911ed77f175b99e",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x5b502e37->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x5b502e3796385e1e9755d7043b9c945c3accec9c",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x5b502e37->0xdefa4e8a",
+      "edge_type": "mint_wrapper",
+      "from": "0x5b502e3796385e1e9755d7043b9c945c3accec9c",
+      "to": "0xdefa4e8a7bcba345f687a2f1456f5edd9ce97202",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x253127ff->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x253127ffc04981cea8932f406710661c2f2c3fd2",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x253127ff->0xdefa4e8a",
+      "edge_type": "mint_wrapper",
+      "from": "0x253127ffc04981cea8932f406710661c2f2c3fd2",
+      "to": "0xdefa4e8a7bcba345f687a2f1456f5edd9ce97202",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x82f9c5ad->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x82f9c5ad306bba1ad0de49bb5fa6f01bf61085ef",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x82f9c5ad->0x3432b6a6",
+      "edge_type": "mint_wrapper",
+      "from": "0x82f9c5ad306bba1ad0de49bb5fa6f01bf61085ef",
+      "to": "0x3432b6a60d23ca0dfca7761b7ab56459d9c964d0",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x68e9f0ad->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x68e9f0ad4e6f8f5db70f6923d4d6d5b225b83b16",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x68e9f0ad->0x3432b6a6",
+      "edge_type": "mint_wrapper",
+      "from": "0x68e9f0ad4e6f8f5db70f6923d4d6d5b225b83b16",
+      "to": "0x3432b6a60d23ca0dfca7761b7ab56459d9c964d0",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xbdfa7b78->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0xbdfa7b7893081b35fb54027489e2bc7a38275129",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xbdfa7b78->0xcd5fe23c",
+      "edge_type": "mint_wrapper",
+      "from": "0xbdfa7b7893081b35fb54027489e2bc7a38275129",
+      "to": "0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x77ad9bf1->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x77ad9bf13a52517ad698d65913e8d381300c8bf3",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x77ad9bf1->0xcd5fe23c",
+      "edge_type": "mint_wrapper",
+      "from": "0x77ad9bf13a52517ad698d65913e8d381300c8bf3",
+      "to": "0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x5c647ce0->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x5c647ce0ae10658ec44fa4e11a51c96e94efd1dd",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x5c647ce0->0xcbb7c000",
+      "edge_type": "mint_wrapper",
+      "from": "0x5c647ce0ae10658ec44fa4e11a51c96e94efd1dd",
+      "to": "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xeb284a70->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0xeb284a70557efe3591b9e6d9d720040e02c54a4d",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xeb284a70->0xcbb7c000",
+      "edge_type": "mint_wrapper",
+      "from": "0xeb284a70557efe3591b9e6d9d720040e02c54a4d",
+      "to": "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x65906988->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x65906988adee75306021c417a1a3458040239602",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x65906988->0x8236a870",
+      "edge_type": "mint_wrapper",
+      "from": "0x65906988adee75306021c417a1a3458040239602",
+      "to": "0x8236a87084f8b84306f72007f36f2618a5634494",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x68aeb290->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x68aeb290c7727d899b47c56d1c96aeac475cd0dd",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x68aeb290->0x8236a870",
+      "edge_type": "mint_wrapper",
+      "from": "0x68aeb290c7727d899b47c56d1c96aeac475cd0dd",
+      "to": "0x8236a87084f8b84306f72007f36f2618a5634494",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xec4ef66d->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0xec4ef66d4fceeba34abb4de69db391bc5476ccc8",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xec4ef66d->0xc139190f",
+      "edge_type": "mint_wrapper",
+      "from": "0xec4ef66d4fceeba34abb4de69db391bc5476ccc8",
+      "to": "0xc139190f447e929f090edeb554d95abb8b18ac1c",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xea85a065->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0xea85a065f87fe28aa8fbf0d6c7dec472b106252c",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xea85a065->0xc139190f",
+      "edge_type": "mint_wrapper",
+      "from": "0xea85a065f87fe28aa8fbf0d6c7dec472b106252c",
+      "to": "0xc139190f447e929f090edeb554d95abb8b18ac1c",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x285866ac->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x285866acb0d60105b4ed350a463361c2d9afa0e2",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x285866ac->0xe6a93408",
+      "edge_type": "mint_wrapper",
+      "from": "0x285866acb0d60105b4ed350a463361c2d9afa0e2",
+      "to": "0xe6a934089bbee34f832060ce98848359883749b3",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x690df181->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x690df181701c11c53ea33bbf303c25834b66bd14",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x690df181->0xe6a93408",
+      "edge_type": "mint_wrapper",
+      "from": "0x690df181701c11c53ea33bbf303c25834b66bd14",
+      "to": "0xe6a934089bbee34f832060ce98848359883749b3",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xbe547677->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0xbe54767735fb7acca2aa7e2d209a6f705073536d",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xbe547677->0xe8483517",
+      "edge_type": "mint_wrapper",
+      "from": "0xbe54767735fb7acca2aa7e2d209a6f705073536d",
+      "to": "0xe8483517077afa11a9b07f849cee2552f040d7b2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xa803414f->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0xa803414f84fcef00e745be7cc2a315908927f15d",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xa803414f->0xe8483517",
+      "edge_type": "mint_wrapper",
+      "from": "0xa803414f84fcef00e745be7cc2a315908927f15d",
+      "to": "0xe8483517077afa11a9b07f849cee2552f040d7b2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x1241ec22->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x1241ec22c9bdf16ba1eb636f2a8de7e28a4343cf",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x1241ec22->0x9bf45ab4",
+      "edge_type": "mint_wrapper",
+      "from": "0x1241ec22c9bdf16ba1eb636f2a8de7e28a4343cf",
+      "to": "0x9bf45ab47747f4b4dd09b3c2c73953484b4eb375",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xacd3d3fa->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0xacd3d3facea0424984f662827b988f4581a3ce31",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xacd3d3fa->0x9bf45ab4",
+      "edge_type": "mint_wrapper",
+      "from": "0xacd3d3facea0424984f662827b988f4581a3ce31",
+      "to": "0x9bf45ab47747f4b4dd09b3c2c73953484b4eb375",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xa78eba24->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0xa78eba24d89e70a03ddb7ac195a15e53315aa5b4",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0xa78eba24->0x619d75e3",
+      "edge_type": "mint_wrapper",
+      "from": "0xa78eba24d89e70a03ddb7ac195a15e53315aa5b4",
+      "to": "0x619d75e3b790ebc21c289f2805bb7177a7d732e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "atoken_to_underlying"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x9ba89653->aave_pool",
+      "edge_type": "mint_wrapper",
+      "from": "0x9ba896531f878ed5f0a4f73e82d63ba7b424f910",
+      "to": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_pool"
+      }
+    },
+    {
+      "edge_id": "aave-v3-discovered:0x9ba89653->0x619d75e3",
+      "edge_type": "mint_wrapper",
+      "from": "0x9ba896531f878ed5f0a4f73e82d63ba7b424f910",
+      "to": "0x619d75e3b790ebc21c289f2805bb7177a7d732e2",
+      "protocol": "aave-v3",
+      "chain_id": 1,
+      "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+      "metadata": {
+        "discovered": true,
+        "layer": "debt_to_underlying"
+      }
+    }
+  ],
+  "_meta": {
+    "discovered_at": 1780262391.99118,
+    "market_id": "1:0x2f39d218133afab8f2b819b1066c7e434ad94e9e",
+    "reserves": [
+      {
+        "underlying": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+        "a_token": "0x4d5f47fa6a74757f35c14fd3a6ef8e3c9bc514e8",
+        "variable_debt_token": "0xea51d7853eefb32b6ee06b1c12e6dcca88be0ffe",
+        "oracle_source": null,
+        "underlying_symbol": null,
+        "a_token_symbol": null,
+        "variable_debt_token_symbol": null
+      },
+      {
+        "underlying": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+        "a_token": "0x0b925ed163218f6662a35e0f0371ac234f9e9371",
+        "variable_debt_token": "0xc96113eed8cab59cd8a66813bcb0ceb29f06d2e4",
+        "oracle_source": null,
+        "underlying_symbol": null,
+        "a_token_symbol": "aEthwstETH",
+        "variable_debt_token_symbol": null
+      },
+      {
+        "underlying": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+        "a_token": "0x5ee5bf7ae06d1be5997a1a72006fe6c607ec6de8",
+        "variable_debt_token": "0x40aabef1aa8f0eec637e0e7d92fbffb2f26a8b7b",
+        "oracle_source": null,
+        "underlying_symbol": null,
+        "a_token_symbol": null,
+        "variable_debt_token_symbol": null
+      },
+      {
+        "underlying": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "a_token": "0x98c23e9d8f34fefb1b7bd6a91b7ff122f4e16f5c",
+        "variable_debt_token": "0x72e95b8931767c79ba4eee721354d6e99a61d004",
+        "oracle_source": "0x3f73f03aa83b2a48ed27e964ed0fdb590332095b",
+        "underlying_symbol": null,
+        "a_token_symbol": null,
+        "variable_debt_token_symbol": null
+      },
+      {
+        "underlying": "0x6b175474e89094c44da98b954eedeac495271d0f",
+        "a_token": "0x018008bfb33d285247a21d44e50697654f754e63",
+        "variable_debt_token": "0xcf8d0c70c850859266f5c338b38f9d663181c314",
+        "oracle_source": "0x5c66322ca59bb61e867b28195576dbd8da4b08de",
+        "underlying_symbol": null,
+        "a_token_symbol": null,
+        "variable_debt_token_symbol": null
+      },
+      {
+        "underlying": "0x514910771af9ca656af840dff83e8264ecf986ca",
+        "a_token": "0x5e8c8a7243651db1384c0ddfdbe39761e8e7e51a",
+        "variable_debt_token": "0x4228f8895c7dda20227f6a5c6751b8ebf19a6ba8",
+        "oracle_source": "0xc7e9b623ed51f033b32ae7f1282b1ad62c28c183",
+        "underlying_symbol": null,
+        "a_token_symbol": null,
+        "variable_debt_token_symbol": null
+      },
+      {
+        "underlying": "0xbe9895146f7af43049ca1c1ae358b0541ea49704",
+        "a_token": "0x977b6fc5de62598b08c85ac8cf2b745874e8b78c",
+        "variable_debt_token": "0x0c91bca95b5fe69164ce583a2ec9429a569798ed",
+        "oracle_source": null,
+        "underlying_symbol": null,
+        "a_token_symbol": null,
+        "variable_debt_token_symbol": null
+      },
+      {
+        "underlying": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+        "a_token": "0x23878914efe38d27c4d67ab83ed1b93a74d4086a",
+        "variable_debt_token": "0x6df1c1e379bc5a00a7b4c6e67a203333772f45a8",
+        "oracle_source": null,
+        "underlying_symbol": null,
+        "a_token_symbol": null,
+        "variable_debt_token_symbol": null
+      },
+      {
+        "underlying": "0xae78736cd615f374d3085123a210448e74fc6393",
+        "a_token": "0xcc9ee9483f662091a1de4795249e24ac0ac2630f",
+        "variable_debt_token": "0xae8593dd575fe29a9745056aa91c4b746eee62c8",
+        "oracle_source": null,
+        "underlying_symbol": null,
+        "a_token_symbol": null,
+        "variable_debt_token_symbol": null
+      },
+      {
+        "underlying": "0x5f98805a4e8be255a32880fdec7f6728c6568ba0",
+        "a_token": "0x3fe6a295459fae07df8a0cecc36f37160fe86aa9",
+        "variable_debt_token": "0x33652e48e4b74d18520f11bfe58edd2ed2cec5a2",
+        "oracle_source": null,
+        "underlying_symbol": null,
+        "a_token_symbol": null,
+        "variable_debt_token_symbol": null
+      },
+      {
+        "underlying": "0xba100000625a3754423978a60c9317c58a424e3d",
+        "a_token": "0x2516e7b3f76294e03c42aa4c5b5b4dce9c436fb8",
+        "variable_debt_token": "0x3d3efceb4ff0966d34d9545d3a2fa2dcdbf451f2",
+        "oracle_source": null,
+        "underlying_symbol": null,
+        "a_token_symbol": null,
+        "variable_debt_token_symbol": null
+      },
+      {
+        "underlying": "0x5a98fcbea516cf06857215779fd812ca3bef1b32",
+        "a_token": "0x9a44fd41566876a39655f74971a3a6ea0a17a454",
+        "variable_debt_token": "0xc30808705c01289a3d306ca9cab081ba9114ec82",
+        "oracle_source": "0xb01e6c9af83879b8e06a092f0dd94309c0d497e4",
+        "underlying_symbol": null,
+        "a_token_symbol": null,
+        "variable_debt_token_symbol": null
+      },
+      {
+        "underlying": "0x853d955acef822db058eb8505911ed77f175b99e",
+        "a_token": "0xd4e245848d6e1220dbe62e155d89fa327e43cb06",
+        "variable_debt_token": "0x88b8358f5bc87c2d7e116cca5b65a9eeb2c5ea3f",
+        "oracle_source": null,
+        "underlying_symbol": null,
+        "a_token_symbol": null,
+        "variable_debt_token_symbol": null
+      },
+      {
+        "underlying": "0xdefa4e8a7bcba345f687a2f1456f5edd9ce97202",
+        "a_token": "0x5b502e3796385e1e9755d7043b9c945c3accec9c",
+        "variable_debt_token": "0x253127ffc04981cea8932f406710661c2f2c3fd2",
+        "oracle_source": null,
+        "underlying_symbol": null,
+        "a_token_symbol": null,
+        "variable_debt_token_symbol": null
+      },
+      {
+        "underlying": "0x3432b6a60d23ca0dfca7761b7ab56459d9c964d0",
+        "a_token": "0x82f9c5ad306bba1ad0de49bb5fa6f01bf61085ef",
+        "variable_debt_token": "0x68e9f0ad4e6f8f5db70f6923d4d6d5b225b83b16",
+        "oracle_source": null,
+        "underlying_symbol": null,
+        "a_token_symbol": null,
+        "variable_debt_token_symbol": null
+      },
+      {
+        "underlying": "0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee",
+        "a_token": "0xbdfa7b7893081b35fb54027489e2bc7a38275129",
+        "variable_debt_token": "0x77ad9bf13a52517ad698d65913e8d381300c8bf3",
+        "oracle_source": null,
+        "underlying_symbol": null,
+        "a_token_symbol": null,
+        "variable_debt_token_symbol": null
+      },
+      {
+        "underlying": "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf",
+        "a_token": "0x5c647ce0ae10658ec44fa4e11a51c96e94efd1dd",
+        "variable_debt_token": "0xeb284a70557efe3591b9e6d9d720040e02c54a4d",
+        "oracle_source": null,
+        "underlying_symbol": null,
+        "a_token_symbol": null,
+        "variable_debt_token_symbol": null
+      },
+      {
+        "underlying": "0x8236a87084f8b84306f72007f36f2618a5634494",
+        "a_token": "0x65906988adee75306021c417a1a3458040239602",
+        "variable_debt_token": "0x68aeb290c7727d899b47c56d1c96aeac475cd0dd",
+        "oracle_source": null,
+        "underlying_symbol": null,
+        "a_token_symbol": null,
+        "variable_debt_token_symbol": null
+      },
+      {
+        "underlying": "0xc139190f447e929f090edeb554d95abb8b18ac1c",
+        "a_token": "0xec4ef66d4fceeba34abb4de69db391bc5476ccc8",
+        "variable_debt_token": "0xea85a065f87fe28aa8fbf0d6c7dec472b106252c",
+        "oracle_source": null,
+        "underlying_symbol": null,
+        "a_token_symbol": null,
+        "variable_debt_token_symbol": null
+      },
+      {
+        "underlying": "0xe6a934089bbee34f832060ce98848359883749b3",
+        "a_token": "0x285866acb0d60105b4ed350a463361c2d9afa0e2",
+        "variable_debt_token": "0x690df181701c11c53ea33bbf303c25834b66bd14",
+        "oracle_source": null,
+        "underlying_symbol": null,
+        "a_token_symbol": null,
+        "variable_debt_token_symbol": null
+      },
+      {
+        "underlying": "0xe8483517077afa11a9b07f849cee2552f040d7b2",
+        "a_token": "0xbe54767735fb7acca2aa7e2d209a6f705073536d",
+        "variable_debt_token": "0xa803414f84fcef00e745be7cc2a315908927f15d",
+        "oracle_source": null,
+        "underlying_symbol": null,
+        "a_token_symbol": null,
+        "variable_debt_token_symbol": null
+      },
+      {
+        "underlying": "0x9bf45ab47747f4b4dd09b3c2c73953484b4eb375",
+        "a_token": "0x1241ec22c9bdf16ba1eb636f2a8de7e28a4343cf",
+        "variable_debt_token": "0xacd3d3facea0424984f662827b988f4581a3ce31",
+        "oracle_source": null,
+        "underlying_symbol": null,
+        "a_token_symbol": null,
+        "variable_debt_token_symbol": null
+      },
+      {
+        "underlying": "0x619d75e3b790ebc21c289f2805bb7177a7d732e2",
+        "a_token": "0xa78eba24d89e70a03ddb7ac195a15e53315aa5b4",
+        "variable_debt_token": "0x9ba896531f878ed5f0a4f73e82d63ba7b424f910",
+        "oracle_source": null,
+        "underlying_symbol": null,
+        "a_token_symbol": null,
+        "variable_debt_token_symbol": null
+      }
+    ],
+    "count": 23
+  }
+}

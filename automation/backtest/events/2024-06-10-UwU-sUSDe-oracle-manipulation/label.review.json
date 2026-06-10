@@ -1,0 +1,5 @@
+{
+  "verdict": "APPROVE",
+  "summary": "Data-only backfill preserved both judgments (incident ORACLE_FREEZE>=HIGH, control must_not_fire/WARN-0); measured reference 1.0012 keeps incident at 3.08% (>>LST 2% band) and control at 0.02% (<<band); fidelity marks swapped reference measured=true, manipulated answer correctly left asserted.",
+  "draft_sha256": "8ca524c86355b3b2e53cf3cc7ede8e60d09be4829303b2d0b8bf6c53c9d83b14"
+}

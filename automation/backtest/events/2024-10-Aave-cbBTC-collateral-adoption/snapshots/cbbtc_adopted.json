@@ -1,0 +1,87 @@
+{
+  "_invariant": "MEASURED on-chain @ block 21089068 (2024-10-31 23:59:59Z): Aave aEthcbBTC held 7567.35 cbBTC = 71.56% of cbBTC totalSupply (10574.57) \u2014 a single venue holding ~72% of the token's supply ~1.5mo after launch. Extreme structural collateral adoption + concentration. ltv/lt/frozen also measured (aave.getConfiguration).",
+  "meta": {
+    "token": "cbBTC",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2024-10-31T23:59:59Z",
+    "snapshot_block": 21089068,
+    "node_count": 2,
+    "edge_count": 1,
+    "data_source": "on-chain Alchemy archive (MEASURED): cbBTC 0xcbB7\u202633Bf balanceOf(aEthcbBTC 0x5c64\u2026d1dd) / totalSupply + Aave v3 getConfiguration @ block"
+  },
+  "nodes": [
+    {
+      "node_id": "token:cbBTC",
+      "type": "Token",
+      "label": "Coinbase Wrapped BTC",
+      "address": "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "cbBTC",
+        "decimals": 8,
+        "market_cap_usd": 740000000
+      }
+    },
+    {
+      "node_id": "protocol:aave_v3",
+      "type": "DefiProtocol",
+      "label": "Aave V3",
+      "address": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "mono_pool",
+        "core_contract": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "cbBTC-aave_v3-collateral",
+      "source": "token:cbBTC",
+      "target": "protocol:aave_v3",
+      "classification": {
+        "edge_type": "collateral_shared",
+        "venue_type": "shared_pool",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 7567,
+        "amount_usd": 529714676,
+        "pct_of_supply": 0.715618,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "Aave cbBTC/USD (Chainlink)",
+        "oracle_address": null,
+        "depeg_sensitive": false
+      },
+      "lending_risk": {
+        "ltv": 0.73,
+        "lt": 0.78,
+        "liquidation_bonus": null,
+        "supply_cap": 10000,
+        "borrow_cap": null,
+        "reserve_factor": 0.2,
+        "utilization": 0.3,
+        "is_frozen": false,
+        "emode_category": null
+      },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        {
+          "loan_asset": "USDC",
+          "collateral_asset": "cbBTC",
+          "lltv": 0.78,
+          "market_size_usd": 529714676,
+          "oracle_address": null,
+          "utilization": 0.3
+        }
+      ]
+    }
+  ]
+}

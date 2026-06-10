@@ -1,0 +1,61 @@
+{
+  "event": "2025-10-11 USDe (Ethena) Binance $0.65 wick (FP-DISCIPLINE CONTROL) — During the ~2025-10-10/11 ~$19B market-wide liquidation cascade, USDe printed ~$0.62-0.65 ON BINANCE ONLY (Binance had no primary-dealer mint/redeem relationship and its oracle referenced only its own thin order book, self-reinforcing ~$1B of local liquidations). ON-CHAIN / on Curve the peg HELD: deviations < 100 bps, ~$0.997. Redemptions worked (>$2B in 24h), USDe stayed overcollateralized (~$66M surplus, attested by Chaos Labs/Chainlink/Llama Risk/Harris & Trotter), and supply fell CLEANLY ~$14.6B peak -> ~$5.9-6B via honored par redemptions — the system working, NOT a depeg. The monitor ingests the ON-CHAIN price (~$0.997, in band) and MUST STAY QUIET; the off-chain CEX wick is correctly not ingested. See EVENT.md.",
+  "source": "CoinDesk 'No, Ethena's USDe Didn't De-peg During Friday's Crash' (2025-10-13, Curve deviation <100bps, >$2B redeemed/24h, overcollateralized ~$66M, attestors Chaos Labs/Chainlink/Llama Risk/Harris & Trotter, supply $9B->$6B redeemed cleanly); CoinDesk 'Ethena's USDe Briefly Loses Peg During $19B Crypto Liquidation Cascade' (2025-10-11); CCN 'Did USDe Really Depeg?' (Binance had no primary-dealer relationship, oracle referenced only its own order book); BeInCrypto 'Ethena USDe Depeg, What Really Happened?'; Etherscan USDe 0x4c9EDD5852cd905f086C759E8383e09bff1E68B3 (18dp). See EVENT.md.",
+  "closed": true,
+  "cases": [
+    {
+      "id": "usde-onchain-held-cex-wick",
+      "snapshot": "snapshots/usde.json",
+      "now": "2025-10-11T12:00:00Z",
+      "beta": 2.0,
+      "peg_probes": {
+        "USDe-aave_v3-collateral": {
+          "price": 0.997,
+          "peg": 1.0,
+          "asset_class": "stable",
+          "by_design_discount": false,
+          "source": "on-chain/Curve held peg during the Oct-2025 cascade; the $0.65 was Binance-only off-chain"
+        }
+      },
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "USDe-aave_v3-collateral"
+        }
+      ],
+      "max_emitted": {
+        "severity": "WARN",
+        "count": 0
+      },
+      "note": "The price the monitor ingests is the ON-CHAIN ~$0.997 (Curve deviations < 100 bps during the Oct-2025 cascade) — a -0.3% mark, comfortably inside the stable band, so there is no depeg. The scary $0.62-0.65 figure was an OFF-CHAIN, single-venue (Binance) oracle wick: that venue lacked a primary-dealer mint/redeem relationship with Ethena and its oracle referenced only its own thin, stressed order book, self-reinforcing ~$1B of local liquidations. None of that touched the on-chain price the exposure monitor reads, so it is correctly NOT the peg_probe. Meanwhile redemptions worked (>$2B in 24h), USDe stayed overcollateralized (~$66M surplus, independently attested), and the supply drawdown (~$14.6B -> ~$6B) was orderly par redemption — the system WORKING, not a run. The edge is depeg_sensitive=true with a MARKET oracle, so the DEPEG path IS live (non-vacuous): it would fire if a bad off-chain price leaked into the feed. At the true on-chain ~$0.997 the DEPEG must stay silent and the snapshot must raise NO WARN-or-above signal (noise ceiling). This is pure false-positive discipline against ingesting CEX wicks / off-chain noise as a real depeg. INFO housekeeping is tolerable; any WARN/HIGH/CRITICAL page is the exact overnight FP this control guards against."
+    },
+    {
+      "id": "usde-onchain-atpeg-robustness",
+      "snapshot": "snapshots/usde.json",
+      "now": "2025-10-11T12:00:00Z",
+      "beta": 2.0,
+      "peg_probes": {
+        "USDe-aave_v3-collateral": {
+          "price": 1.0,
+          "peg": 1.0,
+          "asset_class": "stable",
+          "by_design_discount": false,
+          "source": "USDe at exact par on-chain — robustness variant of the held-peg control"
+        }
+      },
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "USDe-aave_v3-collateral"
+        }
+      ],
+      "max_emitted": {
+        "severity": "WARN",
+        "count": 0
+      },
+      "note": "Robustness variant at exact par ($1.00). On-chain USDe oscillated minimally around ~$0.99-1.00 throughout the event (Curve < 100 bps deviation), so par is well within the documented band. Same rationale: the off-chain Binance $0.65 wick is excluded from the ingested price; at the true on-chain mark there is no depeg and the snapshot must raise no WARN-or-above signal. Anchors the at-peg end of the band so the control covers the whole healthy on-chain range, not just the -0.3% edge."
+    }
+  ]
+}

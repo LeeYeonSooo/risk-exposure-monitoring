@@ -1,0 +1,90 @@
+{
+  "_invariant": "All edges connect exactly one token node and one protocol node. WETH-aave_v3-reserve models wrapped ETH as a reserve on Aave V3 Ethereum (mono_pool, governance-controlled: a reserve's interest-rate-strategy contract can be swapped via Pool.setReserveInterestRateStrategyAddress). This snapshot records the reserve's IRM = OLD 0x42ec99a020b78c449d17d93bc4c89e0189b5811d (pre-v3.1). Identical to weth_irm_new.json except lending_risk.irm_address.",
+  "meta": {
+    "token": "WETH",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2024-07-27T15:00:00Z",
+    "snapshot_block": 20398673,
+    "node_count": 2,
+    "edge_count": 1,
+    "data_source": "on-chain archive MEASURED: AaveV3 Pool.getReserveData+getConfiguration(WETH) @ block 20398673",
+    "coverage_pct": 1.0
+  },
+  "nodes": [
+    {
+      "node_id": "token:WETH",
+      "type": "Token",
+      "label": "Wrapped Ether",
+      "address": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "WETH",
+        "decimals": 18,
+        "paused": false,
+        "_note": "Canonical wrapped ETH; a core reserve on Aave V3 Ethereum."
+      }
+    },
+    {
+      "node_id": "protocol:aave_v3",
+      "type": "DefiProtocol",
+      "label": "Aave V3",
+      "address": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "mono_pool",
+        "core_contract": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+        "governance": "Aave DAO"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "WETH-aave_v3-reserve",
+      "source": "token:WETH",
+      "target": "protocol:aave_v3",
+      "classification": {
+        "edge_type": "reserve",
+        "venue_type": "market",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": null,
+        "amount_usd": 1500000000,
+        "pct_of_supply": null,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "Aave WETH price feed",
+        "oracle_address": null,
+        "depeg_sensitive": false
+      },
+      "lending_risk": {
+        "irm_address": "0x42ec99a020b78c449d17d93bc4c89e0189b5811d",
+        "ltv": 0.805,
+        "lt": 0.83,
+        "liquidation_bonus": 1.05,
+        "supply_cap": 1800000,
+        "borrow_cap": 1400000,
+        "reserve_factor": 0.15,
+        "utilization": null,
+        "is_frozen": false,
+        "emode_category": null
+      },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": null,
+      "top_pools": null,
+      "meta": {
+        "snapshot_block": 20398673,
+        "snapshot_ts": "2024-07-27T15:06:23Z",
+        "verifiable_onchain": true,
+        "confidence": "HIGH",
+        "data_source": "MEASURED Pool.getReserveData(0xC02a...756Cc2) @ block 20398673: interestRateStrategyAddress -> 0x42ec99a020b78c449d17d93bc4c89e0189b5811d; getConfiguration -> lt=0.83, ltv=0.805, liq_bonus=1.05, reserve_factor=0.15, supply_cap=1800000, borrow_cap=1400000, is_frozen=False"
+      }
+    }
+  ]
+}

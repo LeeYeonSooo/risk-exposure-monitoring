@@ -1,0 +1,5 @@
+{
+  "verdict": "APPROVE",
+  "summary": "Data-only backfill: should_fire/must_not_fire/severities BYTE-IDENTICAL to prior label.json (judgment unchanged). MEASURED on-chain LendingPool(0x7d2768..).paused() flips false@18500000 -> true@18508000, which the snapshot is_frozen=false->true models, preserving the MARKET_FROZEN CRITICAL premise; ~$80M >= $50M systemic line held constant; control reuses active.json (no flip) so silence is correct; ANOMALY (reserve isFrozen bit did not flip) is faithful to EVENT.md (V2 pauses the WHOLE pool, not the reserve bit) and does NOT contradict the label; getConfiguration(USDC) measured ltv=0.80/lt=0.875/rf=0.20 match snapshots; fidelity marks 6/7 inputs measured=true with only the representative exposure correctly degraded (measured=false).",
+  "draft_sha256": "14093eb15b1e9d74c8a8f2b4e61440173824c9fc9c0ff31d50d9b4cdec32d452"
+}

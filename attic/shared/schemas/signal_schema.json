@@ -1,0 +1,100 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://defi-dependency-map/schemas/signal.json",
+  "title": "Signal Schema",
+  "description": "Layer 2 패턴 검출 결과. 여러 엣지/노드를 종합 분석해 도출된 의미 있는 패턴/경고.",
+  "type": "object",
+  "required": ["signal_type", "severity"],
+  "properties": {
+    "signal_type": {
+      "type": "string",
+      "description": "시그널 타입. shared/vocab/signal_types.md 의 표준 어휘.",
+      "enum": [
+        "lst_looping_pattern",
+        "stablecoin_looping_pattern",
+        "isolation_capacity_warning",
+        "bad_debt_realized",
+        "liquidation_cascade",
+        "oracle_manipulation_suspect",
+        "self_liquidation",
+        "flashloan_leverage",
+        "shared_oracle_risk",
+        "lst_depeg_risk",
+        "capo_protected_depeg_exposure",
+        "asymmetric_price_exposure",
+        "gho_depeg_risk",
+        "gho_facilitator_capacity_warning",
+        "gho_dependency_cluster",
+        "risk_parameter_tightening",
+        "asset_paused",
+        "new_asset_listed",
+        "multi_market_user",
+        "shared_asset_risk",
+        "cross_market_parameter_change",
+        "credit_delegation_abuse"
+      ]
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "actor": {
+      "type": ["string", "null"],
+      "description": "주체 (사용자 주소 등). 없으면 null."
+    },
+    "affected_assets": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "영향 받는 자산 주소들"
+    },
+    "affected_users": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "영향 받는 사용자 주소들"
+    },
+    "evidence_edges": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "이 시그널을 도출한 근거 edge_id 목록"
+    },
+    "evidence_nodes": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "이 시그널과 관련된 노드 주소"
+    },
+    "detected_at_block": {
+      "type": ["integer", "null"]
+    },
+    "protocol": {
+      "type": "string",
+      "description": "단일 프로토콜 시그널이면 프로토콜명, cross-protocol 분석이면 'cross-protocol'"
+    },
+    "message": {
+      "type": ["string", "null"],
+      "description": "사용자에게 표시할 메시지"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "examples": [
+    {
+      "signal_type": "lst_looping_pattern",
+      "severity": "medium",
+      "actor": "0xuser...",
+      "affected_assets": ["0xwsteth...", "0xweth..."],
+      "affected_users": ["0xuser..."],
+      "evidence_edges": ["aave-v3:1:0x2f39:supply:0xabc...:128", "aave-v3:1:0x2f39:borrow:0xabc...:130"],
+      "evidence_nodes": ["0xuser..."],
+      "detected_at_block": 19000000,
+      "protocol": "aave-v3",
+      "message": "이 주소는 wstETH 담보 + WETH 차입의 LST 루핑 패턴. 레버리지 약 12배. wstETH 디페그 시 즉시 청산 위험.",
+      "metadata": {
+        "emode_category": 1,
+        "leverage_ratio": 12.5,
+        "estimated_loops": 5
+      }
+    }
+  ]
+}

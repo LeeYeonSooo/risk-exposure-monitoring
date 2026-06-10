@@ -1,0 +1,29 @@
+{
+  "_description": "{프로토콜명} 모듈이 검출하는 Layer 2 패턴 시그널. 선택 사항.",
+  "_protocol": "{프로토콜 식별자}",
+  "_note": "1차 목표(엣지 매핑) 이후 단계. Phase 3 이후 도입.",
+
+  "signals": {
+    "example_signal_name": {
+      "severity": "low | medium | high | critical",
+      "trigger": "어떤 엣지/노드 조합이 발견되면 발생하는지",
+      "evidence_from": ["근거가 되는 이벤트/엣지 타입 목록"],
+      "implication": "이 시그널이 의미하는 위험/패턴",
+      "why_matters": "왜 검출 가치가 있는가"
+    }
+  },
+
+  "_severity_levels": {
+    "critical": ["시스템 전체 위기"],
+    "high": ["주요 영향"],
+    "medium": ["주의 필요"],
+    "low": ["참고 정보"]
+  },
+
+  "_TODO": [
+    "1. shared/vocab/signal_types.md 의 표준 시그널 중 본인 프로토콜에 적용되는 것 선택",
+    "2. 새 시그널 필요하면 팀 채널 제안 + PR",
+    "3. 1차 작업엔 후순위. 시간 남으면.",
+    "4. 실제 예시: modules/aave/signals.json 참고 (22개 시그널)"
+  ]
+}

@@ -1,0 +1,574 @@
+# 설명서 (MANUAL) — 큐레이터 토큰 익스포저 & 리스크 알림 시스템
+
+> **구현된 모든 것 + 처음부터 재현 + 진행 이력**을 담은 단일 종합 문서(설계·이해·재현·결정로그). 사실 기반(코드와 어긋나면 코드가 정답).
+> §2 빠른 시작 = 재현 절차, §3~16 = 상세 레퍼런스, §17 = 진행 이력(결정 로그), §18 = 백로그. (구 BLUEPRINT·ARCHITECTURE·DECISIONS·BACKLOG·threshold-calibration 문서는 이 매뉴얼로 통합됨.)
+> 실행·운영(어떤 서버를 띄우나)은 [README.md](README.md).
+> 경로는 `risk-exposure-monitoring/` 기준.
+
+## 목차
+1. 개요 · 2. 빠른 시작 · 3. 아키텍처 · 4. 데이터 모델 · 5. 자동화 파이프라인 · 6. 탐지기 전체 · 7. 알림 종류 표 · 8. 임계값 레퍼런스 · 9. 브릿지 토폴로지 · 10. 백테스트 · 11. 프론트엔드 · 12. 알림 채널 · 13. 운영 · 14. 스크립트 레퍼런스 · 15. 알고리즘 swap · 16. 한계·후속 · 17. 진행 이력(결정 로그) · 18. 백로그
+
+---
+
+## 1. 개요
+**렌딩 큐레이터가 화이트리스팅해 실제로 쓰는 토큰의 멀티체인 익스포저를 매핑하고, 그 위에서 리스크를 결정론적으로 탐지·알림하는 시스템.** 시뮬레이터가 아니라 *정확한 매핑 + 검증된 알림*이 핵심.
+
+탐지하는 리스크: 디페그 · 무담보 공급(Detector A) · 무담보민팅(Detector B) · 공급 스파이크/무한민팅 · **가치 유출(NAV×supply 드리프트)** · 오라클/IRM/마켓 변경 · **하드코딩 오라클 전환** · 신규마켓/**의심 담보채택** · bad debt · 고래 unwind · 유동성 급감 · 큐레이터 디리스킹.
+
+설계 원칙:
+1. **Zero-cost 기본** — 무료(Alchemy Multicall3 + Morpho GraphQL + DeFiLlama + publicnode) + 로컬 Postgres. 유료(holder/archive)·채널·공개배포는 전부 opt-in.
+2. **DB 가 source of truth** — 프론트가 `/api/*`에서 `pg`로 직독(별도 백엔드 없음).
+3. **임계 기반 즉시 모니터링(검토 게이트 없음)** — discovery는 임계(누적 95% 커버리지 · 최소 $1M) 통과 토큰을 `active=true`로 **바로 등록**(자동 모니터링), 임계 미달 시 자동 해제. 수동 `reason='manual'` pin만 discovery가 안 내림. (구버전은 `active=false` 승인 게이트 설계였으나 코드는 즉시 활성 — 본 문서를 코드에 맞춤.)
+4. **정밀+breadth 2레이어** — verified(실선)/estimated(점선)/opaque(점점선) 신뢰도 1급 노출.
+5. **매직넘버 한 곳** — 모든 임계값은 `src/config/alert-thresholds.ts`.
+6. **알고리즘 swap** — 알림은 `insertAlert({…, source})` 계약으로 detector 교체 추적.
+
+규모: 마이그레이션 13 · lib 모듈 17 · snapshot 모듈 10 · 스크립트 25 · 알림 종류 ~28 · 백테스트 사건 35.
+
+---
+
+## 2. 빠른 시작
+```bash
+# 0) DB (TimescaleDB)
+docker run -d --name wbtc-db -p 5433:5432 -e POSTGRES_DB=wbtc_mapping \
+  -e POSTGRES_PASSWORD=postgres timescale/timescaledb:latest-pg16
+
+# 1) automation
+cd automation && npm install
+cat > .env <<EOF
+DATABASE_URL=postgres://postgres:postgres@localhost:5433/wbtc_mapping
+ALCHEMY_API_KEY=<무료 키>        # 없으면 publicnode 폴백
+EOF
+npm run init-db          # 마이그레이션 적용
+npm run snapshot:all     # 첫 스냅샷(active watchlist 토큰)
+npm run backtest         # 탐지기 회귀 검증 → GREEN 확인
+
+# 2) frontend
+cd ../frontend && npm install
+echo "DATABASE_URL=postgres://postgres:postgres@localhost:5433/wbtc_mapping" > .env.local
+npm run build && npm run start   # http://localhost:3000
+
+# 3) (옵션) 연속 모니터링
+cd ../automation && npm run cron   # 또는 launchd (§13)
+```
+
+---
+
+## 3. 아키텍처 (3-Tier)
+```
+TIER 1 automation/ (Node 22 + tsx, TypeScript)
+  viem + Multicall3 (Alchemy 우선, 없으면 publicnode) · Morpho GraphQL · DeFiLlama · Dune(옵션)
+  cron(scripts/cron.ts) → 8개 루프. getLogs 는 publicnode 전용(Alchemy 무료티어 제한).
+        │ pg INSERT/UPSERT
+TIER 2 Postgres + TimescaleDB (docker wbtc-db, :5433/wbtc_mapping)
+  그래프 nodes/edges(bipartite) · 시계열 hypertable(supply/chain_supply) · alerts · bridge_authorities · mint_burn_ledger …
+        │ pg SELECT (프론트 /api/* 직독)
+TIER 3 frontend/ (Next.js 15 App Router + React Flow)
+  /api/{topology,alerts,dossier,breadth,bridge-authority,…} · 페이지 / · /token/[symbol] · /multi · /explore
+  동심원 그래프 + Tier 0 판결 + bad-debt at-risk 곡선
+```
+- `DATABASE_URL` 은 automation·frontend 동일. 구 Python "contagion simulator" 클러스터는 `attic/`(라이브 무참조, 죽음).
+- **RPC 정책**: 일반 read = Alchemy 우선→publicnode. **로그(getLogs) = 항상 publicnode**(`lib/public-rpc.ts`). 깊은 과거 = `ARCHIVE_RPC_URL`(유료, 옵션).
+
+---
+
+## 4. 데이터 모델 (`src/db/migrations/`)
+| mig | 테이블 | 컬럼 핵심 | 역할 |
+|---|---|---|---|
+| 001~002 | `nodes` · `edges` | node_id·type·label·address·chain·metadata / 모든 엣지 token→protocol | bipartite 그래프. 멀티롤은 `classification.roles[]` 중첩(페어당 1엣지) |
+| 003,006 | `watchlist` | token_address·symbol·**active**·excluded·reason·discovery_metric_usd | discovery가 임계 통과 토큰을 **active=true로 즉시 등록**(게이트 없음, 미달 시 자동 해제) + admin. **reason='manual'은 discovery가 안 내림** |
+| 004,009 | `alerts` | severity·kind·token·protocol_node_id·message·detail(jsonb)·**source** | 알림(§7) |
+| 005 | edges 압축/보존 | — | TimescaleDB 정책 |
+| 007 | `supply_samples` | snapshot_ts·token_node_id·block_number·**total_supply** | 토큰 공급 시계열(hypertable) |
+| 008 | `vault_allocations` | curator·vault_name·chain·collateral·**supply_usd** | 큐레이터/볼트별 담보 배분(depositor 측) |
+| 010 | `loop_findings` | kind·collateral_symbol·loan_symbol·looped_usd·lltv·confidence | 루핑 후보(structural-v1) — ouroboros writer 제거로 현재 미적재 |
+| 011 | `chain_supply_samples` | snapshot_ts·token_node_id·chain·total_supply·**supply_usd** | 체인별 공급+**가치** 시계열 → 가치-드리프트(§6.6) 입력 |
+| 012 | `wallet_tracking` | 추적 지갑 밸류 | 자금 이탈 감시 |
+| 013 | `bridge_authorities` | token·chain·**bridge_addr·auth_type**·mint_limit·note | 검증된 브릿지 mint 권한(§9) |
+| 014 | `mint_burn_ledger`(+`mint_burn_cursor`) | token·chain·tx_hash·kind(mint/burn)·amount·event_ts | Detector B 원장(§6.4) |
+| — | `snapshot_runs` | cron 실행 감사로그 | 매 실행 INSERT |
+
+핵심 불변: **모든 엣지 token→protocol** · discovery는 임계 통과 시 즉시 active=true 스냅샷(승인 게이트 없음) · 무료·배치 우선.
+
+---
+
+## 5. 자동화 파이프라인 (`scripts/cron.ts`)
+즉시 1회 + 주기. 기본 **OFF**(비용 안전). 켜기 = `npm run cron` 또는 launchd(§13).
+
+| 루프 | 주기 | 스크립트 | 산출 |
+|---|---|---|---|
+| `loop`(스냅샷) | 20분 스태거(체인별) | snapshot-chain | nodes/edges + **diff 알림** |
+| `discoveryLoop` | 1일 | discover | watchlist(임계 통과 → active=true 즉시 등록) + Discord 요약 |
+| `curatorLoop` | 30분 | snapshot-curators | vault_allocations |
+| `chainSupplyLoop` | 1시간 | snapshot-chain-supply | chain_supply_samples(가치 시계열) |
+| `walletLoop` | 2시간 | snapshot-wallets | wallet_tracking(자금 이탈) |
+| `bridgeAuthLoop` | 6시간 | snapshot-bridge-authority | bridge_authorities(§9) |
+| `backingLoop`(Detector A) | 1시간 | snapshot-backing | unbacked_supply 알림 |
+| `mintburnLoop`(Detector B) | 1시간 | snapshot-mintburn | mint_burn_ledger + unmatched_mint |
+| `valueDriftLoop` | 1시간 | snapshot-value-drift | **value_drift 알림(P2-6)** |
+| `reflexivityLoop` | 1시간 | snapshot-reflexivity | **사기 루핑 grade**(loop_findings reflexivity-v1) → dossier.loops → 프론트 Tier0·상세그래프 |
+
+---
+
+## 6. 탐지기 전체 레퍼런스
+모든 임계값은 `src/config/alert-thresholds.ts:RECOMMENDED_THRESHOLDS`. `classifyAsset(symbol)`이 자산클래스로 분기. **백테스트(§10)로 보정**.
+
+### 6.1 자산 클래스 (`classifyAsset`)
+`major`(ETH/WBTC) · `stable`(USDC/USDT/DAI 하드페그, 타이트) · `stable_soft`(GHO/mkUSD/crvUSD/USD0++ 소프트·CDP, 넓음) · `pendle_pt`(만기전 할인 PT) · `lst`(stETH/weETH/…) · `rwa`(USYC/OUSG/…) · `altcoin`(long-tail/미분류).
+
+### 6.2 디페그 (`depegSeverity`, `diff.ts:checkDepeg`) — kind `depeg`
+- 입력 `belowPegFraction=(1-price)`: **양수=peg 아래**(catastrophic 가능), **음수=peg 위**(프리미엄/수익누적 → WARN 상한).
+- 규칙: `|dev|<band/2`→무알림 · `≥band/2`→info · `≥band`→warning · (아래∧`≥catastrophic 0.085`)→**critical**.
+- band(분수): major 0.0075 · stable 0.005 · **stable_soft 0.05** · **pendle_pt 0.08** · lst/rwa 0.02 · altcoin 0.05.
+
+### 6.3 무담보 공급 — Detector A (`snapshot/supply-backing.ts`, `snapshot-backing.ts`) — kind `unbacked_supply` · source `backing-v1`
+- 불변식 **Σremote(+home if burn&mint) ≤ backing + slack**. **무담보 방향만** 알림(정상 인플라이트는 over-backed → FP 0).
+- backing 자동 watch: `bridge_authorities`의 xERC20 lockbox(ERC20() canonical) + `nodes`의 모든 체인 Σtotal_supply. 멀티체인 집계 내장.
+- severity: stale=info · overageBps≥`criticalBps(100)`→critical · 그 외 warning. tolerance 50bps·settlement 30분·2폴 지속.
+- 백테스트 검증: Wormhole(2022)·xUSD(2025) 무담보 사건 GREEN. ⚠️ 라이브 활성은 lock&mint(xERC20 lockbox) 토큰 필요.
+
+### 6.4 무담보민팅 — Detector B (`snapshot/mint-burn-recon.ts`, `snapshot-mintburn.ts`) — kind `unmatched_mint` · source `mintburn-v1`
+- 크로스체인 **mint↔burn을 금액+시간창(30분)** 매칭. 창 지나도 미정합 mint = 무담보민팅 의심(Kelp rsETH류).
+- 입력: publicnode getLogs(Transfer from/to 0x0) + 증분 커서 + 7일 보존.
+- FP 컷: ① 구조적 가드(일시 미정합 무시 — 2×window 지속 또는 backing 동반일 때만) ② **allowlist**(정적 + **동적 시드**: `verifiedMintersFor`가 검증된 `bridge_authorities` 주소 제외).
+- backing 불일치(Detector A) 동반 시 **critical 승격**.
+
+### 6.5 공급 스파이크 / 단일 민트 (`diff.ts`) — kind `supply_spike`·`supply_single_mint`·`chain_supply_spike` · source `builtin-v1`
+- `supply_spike`: curr vs prev %Δ → perSnapshotPct{info 1%·warn 3%·crit 10%}. elastic whitelist(USDC 등 11종) ×2. **리베이스 억제**(`|Δ|≤rebaseSaneMax 50% ∧ 이산 mint 0`).
+- `supply_single_mint`: 비-home·무권한 수신자 단일 mint ≥5%(singleTxPctBps) → 크기 무관 critical(provenance 우선). authorized 발행 무시.
+
+### 6.6 가치-드리프트 — 자금 유출 (`snapshot/value-drift.ts`, `snapshot-value-drift.ts`) — kind `value_drift` · source `valuedrift-v1`
+- **총가치 = NAV(price)×supply**(전문가 §3.2). 데이터 = `chain_supply_samples.supply_usd`(체인 가치 시계열).
+- `computeValueDrift`(순수): 토큰별 Σchain 가치 시계열에서 **최근 24h 윈도우 peak 대비 낙폭**. dropPct 10/25/40% + **minAbsUsd $10M 절대게이트**(소형 노이즈 컷).
+- 노이즈/소형/상승 무발화(합성검증 4/4). deUSD 리뎀션런류(40%↓→critical) 포착.
+
+### 6.7 오라클 / IRM / 마켓 변경 (`diff.ts:checkOracleChange`·`checkIrmChange`) — source `builtin-v1`
+- `oracle_changed`(주소 변경, critical) · `oracle_paused_suspect`(MARKET→NONE, critical) · `oracle_depeg_flag_flip`(depeg-sensitive 플래그) · **`oracle_hardcoded_switch`(라이브 피드 MARKET/EXCHANGE_RATE → 하드코딩 ORACLE_FREE, **critical** — 가격 동결로 청산 미발화→bad debt 누적, P1-4)**.
+- **RWA 의도적 디스카운트 예외(P2-8)**: RWA(국채/펀드형, mF-ONE·OUSG·USTB·USYC 등)는 NAV 대비 보수적 디스카운트 고정이 **정상 설계** → `isIntentionalDiscountOracle`(classifyAsset rwa ∧ NAV/ORACLE_FREE/fixed)면 oracle_hardcoded_switch 를 **critical→warning 다운그레이드**. 비-RWA 의 고정 오라클은 여전히 critical.
+- `irm_changed`(IRM 컨트랙트 swap, critical) · `irm_base_rate_jump`(baseRate Δ → info 1%/warn 3%/crit 8%).
+- `reserve_frozen` · `high_lltv_market`. (동일패밀리 재담보 ouroboros 신호는 약한 추정 휴리스틱이라 **전면 제거됨**.)
+
+### 6.8 신규마켓 / 담보채택 (`diff.ts:checkNewMarket`·`checkCollateralAdoption`) — source `builtin-v1`
+- `new_market`: 신규 마켓(>minMarketSizeUsd $100k). LLTV≥0.945→critical / ≥0.90→warning.
+- `collateral_adoption`: MAJOR 렌딩 프로토콜(Aave/Morpho 등 6종) 채택→critical. **minor 렌딩 + long-tail(altcoin) 담보→critical 승격**(쓰레기담보 마켓 의심, UwU/MEV류, P1-5). minor+블루칩→warning.
+- `unverified_large_exposure`: 미검증 대형 노출.
+
+### 6.9 유동성 / 고래 / 큐레이터 (`diff.ts`, `scan-curator-derisk.ts`) — source `builtin-v1`
+- `utilization_jump`(≥12pp 점프+≥70% 안착) · `high_utilization`(0.93/0.95/0.98) · `liquidity_drop_lending`·`liquidity_drop_dex`(0.10/0.30/0.50) · `whale_unwind`(top20 EOA 30%/50% 또는 $10M/$50M 인출) · `curator_derisk`(큐레이터 배분 축소) · `bad_debt_threshold`(§6.10) · `wallet_value_drop`(추적 지갑 밸류 급락).
+  - **브릿지 in-flight FP 가드(P2-7)**: 급감 직전 윈도우(3일)의 아웃고잉 목적지가 **known 브릿지**(canonical OP-stack 예약주소·ArbSys·L1 게이트웨이 + 검증된 `bridge_authorities`)면 Optimistic 7일 인출 등 in-flight/settling 로 보고 **info 다운그레이드**(페이지 억제, 기록 유지). `lib/wallet-bridge-guard.ts` + alchemy `getAssetTransfers`. ALCHEMY 키 없으면 가드 미작동(원래대로 발화).
+
+### 6.10 bad debt — kind `bad_debt_threshold` · source `baddebt-v1`
+마켓 deficit ≥`actionableUsd($1M)`→HIGH · ≥`highUsd($50M)`→CRITICAL. 프론트 at-risk(p) 곡선과 연계.
+
+### 6.11 알림 dedup + 채널 (`db/upsert.ts:insertAlert`, `lib/notify.ts`)
+- **dedup**: 동일 (kind,token,protocol)이 **severity별 쿨다운** 내면 skip — critical 1h / warning 12h / info 24h(`cooldownBySeverity`).
+- **채널 발송**(§12): 적재 후 `dispatchAlert`가 env 설정 채널(Discord/Telegram/webhook)로 warning·critical만. info는 DB만.
+
+### 6.12 Tier 0 판결 (프론트 `page.tsx` + `concentric-layout.ts`)
+4신호 합성 → **위험/주의/안전 + 한 줄 사유**: 집중(HHI≥0.4) · 디페그 · 무담보민팅 · **하드코딩 오라클** + critical 알림 수. 복합조건(하드코딩 오라클 ∧ 디페그)·critical·무담보민팅이 "위험" 승격. (재담보 루프 신호는 제거됨.)
+**RWA 예외(P2-8)**: 페이지 토큰이 RWA 면 NAV/fixed 오라클을 위험 하드코딩에서 제외 → `rwaDiscount`(오라클 칩 "RWA NAV(정상)"), 판결 위험 미승격.
+
+---
+
+## 7. 알림 종류(kind) 전체 표
+| kind | severity 로직 | source | 카테고리(프론트) |
+|---|---|---|---|
+| `depeg` | band/catastrophic, 부호인식 | builtin-v1 | 디페깅 |
+| `unbacked_supply` | overage≥100bps crit | backing-v1 | 민팅/공급 |
+| `unmatched_mint` | 구조가드 후 | mintburn-v1 | 민팅/공급 |
+| `supply_spike` | 1/3/10% | builtin-v1 | 민팅/공급 |
+| `supply_single_mint` | 무권한 5%+ crit | builtin-v1 | 민팅/공급 |
+| `chain_supply_spike` | 체인 공급 급증 | builtin-v1 | 민팅/공급 |
+| `value_drift` | 24h 25/40% + $10M | valuedrift-v1 | 유동성 |
+| `oracle_changed` | critical | builtin-v1 | 컨트랙트 |
+| `oracle_hardcoded_switch` | **critical** | builtin-v1 | 컨트랙트 |
+| `oracle_paused_suspect` | critical | builtin-v1 | 컨트랙트 |
+| `oracle_depeg_flag_flip` | warning | builtin-v1 | 컨트랙트 |
+| `irm_changed` | critical | builtin-v1 | 컨트랙트 |
+| `irm_base_rate_jump` | 1/3/8% | builtin-v1 | 컨트랙트 |
+| `new_market` | LLTV/마켓크기 | builtin-v1 | 컨트랙트 |
+| `collateral_adoption` | major/minor+long-tail crit | builtin-v1 | 컨트랙트 |
+| `high_lltv_market` · `reserve_frozen` · `unverified_large_exposure` | — | builtin-v1 | 컨트랙트 |
+| `utilization_jump`·`high_utilization`·`liquidity_drop_lending`·`liquidity_drop_dex`·`whale_unwind`·`curator_derisk` | 각 임계 | builtin-v1 | 유동성 |
+| `bad_debt_threshold` | $1M/$50M | baddebt-v1 | 디페깅 |
+| `wallet_value_drop` | 지갑 밸류 급락 | structural-v1 | 유동성 |
+
+---
+
+## 8. 임계값 레퍼런스 (`alert-thresholds.ts` 전체)
+```
+depeg.bandByClass     major .0075 · stable .005 · stable_soft .05 · pendle_pt .08 · lst .02 · rwa .02 · altcoin .05
+depeg.catastrophic    0.085 (USD0++ 실측 9.02% 보정)
+totalSupply           perSnapshotPct {info .01 warn .03 crit .10} · singleTxPctBps 500 · largeSingleMintBps 1000
+                      rebaseSaneMax .5 · autoMintWhitelist 11종(USDC/USDT/DAI/USDS/PYUSD/USDE/RLUSD/FRAX/GHO/USDP/TUSD)
+unbacked              toleranceBps 50 · criticalBps 100 · settlementSeconds 1800 · persistencePolls 2
+mintBurn              matchWindowSeconds 1800
+valueDrift            dropPct {info .10 warn .25 crit .40} · minAbsUsd 10_000_000 · windowHours 24 · minSamples 3
+badDebt               actionableUsd 1_000_000 · highUsd 50_000_000
+newMarket             minMarketSizeUsd 100_000 · highLltvWarning .90 · highLltvCritical .945 · fastGrowthUsd 5_000_000
+collateralAdoption    materialUsd 10_000_000 · dustUsd 1_000_000 · majorProtocols(aave_v3·compound_v3·spark·maker·morpho_blue·fluid)
+oracle                heartbeatByClass(major/stable 1h · lst/rwa/pendle 24h · altcoin 4h) · deviationByClass · stalenessFactor 1.75
+                      addressChange critical · depegFlagFlip warning
+whaleUnwind           perSnapshotDropPct {.10/.30/.50} · absDropUsd {1M/10M/50M} · trackTopN 20
+utilizationLiquidity  utilizationJumpPct {.05/.15/.30} · utilizationAbsolute {.93/.95/.98} · jumpActionable .12 · jumpMinLevel .70
+irmChange             addressChange critical · baseRateDelta {.01/.03/.08}
+cooldownBySeverity    critical 3600s(1h) · warning 43200s(12h) · info 86400s(24h)
+```
+재튜닝: 값 변경 → `npm run backtest`로 회귀 확인(detector 코드 아닌 config만).
+
+### 8.1 보정 근거 (왜 이 값인가 — 구 threshold-calibration.md 통합)
+이 값들은 `backtest/events/`의 라벨된 35사건으로 **결정론적 백테스트 GREEN까지 튜닝**된 결과(구 `risk_rules_test_agent` 산출물 이식). 핵심 근거:
+| 값 | 근거 |
+|---|---|
+| **디페그 catastrophic 0.085** | USD0++ 실측 on-chain trough 9.02%(deepest 9.07%). asserted 0.10이 사건 *위*에 앉아 못 잡던 것을 measured-data로 0.085 재보정(8.5~10%에 다른 사건·컨트롤 없음). |
+| 디페그 band 클래스별 | 정상 트레이딩 노이즈 vs 디페그 분리(band=WARN, catastrophic=CRIT). stable 0.5% 타이트 vs stable_soft 5% 넓음(소프트 할인 정상) · pendle_pt 8%(만기 전 할인). |
+| supply spike 1/3/10% + elastic ×2 | 자연 대량 mint/burn 토큰(USDC 등 11종) 페이지 방지. |
+| 단일 mint 5%→flag · 10%→crit | provenance 우선(무권한 수신자), flat-MAD z-폭발 차단, rebase 50% 억제. |
+| 무담보 critical 100bps | finality skew(50bps tolerance) 무시 + 지속 시 승격. |
+| 쿨다운 crit 1h / warn 12h / info 24h | critical 더 responsive(구 26h flat 대체). |
+
+부호 인식 depeg: peg **위**(수익누적/프리미엄)는 WARN 상한(critical 안 됨). oracle heartbeat: stable·major 1h / lst·rwa·pendle 24h / altcoin 4h · staleness ×1.75. util: level co-gate 0.95 + velocity 12pp 점프·≥70% 안착.
+
+---
+
+## 9. 브릿지 토폴로지 탐지 (`lib/bridge-*.ts`)
+`readBridgeAuthority(token, chain)`이 온체인 순차 탐지 → `bridge_authorities` 적재. `auth_type` 자유텍스트(마이그레이션 없이 흐름):
+1. **xERC20** — `BridgeLimitsSet` 로그(publicnode)로 브릿지 enumerate + `lockbox()` 백킹.
+2. **MINTER_ROLE** — AccessControlEnumerable role member.
+3. **OFT peers(LayerZero)** — `endpoint()` → eid별 `peers(eid)` → **원격 peer 주소**(0x+slice(-40)) + 체인.
+4. **CCIP(Method B/C)** — `TokenAdminRegistry.getPool` → `resolveCcipTopology`: selector별 **`getRemotePools`/`getRemotePool`(원격 풀)** + **`getRemoteToken`(원격 토큰)** 디코드 → `ccip_pool`+`ccip_remote`. (라이브 검증: LINK→28 원격 체인 실주소.)
+5. **Method C 8표준** — Hyperlane·OP·Arbitrum/zkSync canonical·Axelar ITS·Circle CCTP·Polygon PoS·Wormhole NTT·xERC20 lockbox.
+6. **Method E(fallback)** — view-probe 전부 실패 시 mint 로그(Transfer from 0x0) `tx.to` 최빈값으로 **추정**(`mint_event` 타입 = 프론트 "✓검증" 제외).
+- 프론트 `lib/concentric-layout.ts` `AUTH_MAP`/`AUTH_ORDER`가 auth_type → 메커니즘(burn_mint/lock_mint)·프로토콜·태그 분류, 최강 권한이 그 체인 브릿지를 "추정→검증" 승격.
+- **이중 용도**: bridge_authorities 검증 주소는 Detector B allowlist 동적 시드로 재사용(§6.4).
+
+---
+
+## 10. 백테스트 하니스 (`scripts/backtest.ts` — `npm run backtest`)
+**라벨된 과거 사건을 production 알림 함수에 결정론적 replay**(LLM 아님).
+- 사건 라이브러리: `backtest/events/` — 35사건/81case. 각 `<날짜-이름>/`=`EVENT.md`+`label.json`+`snapshots/*.json`.
+- `label.json`=detector-agnostic 계약: case마다 `{snapshot, prev?, now, peg_probes|polls[], should_fire[], must_not_fire[]}`.
+- 구동 신호: `DEPEG`(부호인식) · `LARGE_SINGLE_MINT`(provenance) · `TOTAL_SUPPLY_SPIKE`(리베이스 억제) · `UNMATCHED_MINT`(Detector B) · `UNBACKED_SUPPLY`(Detector A evaluateBacking).
+- dedup 재생: `polls[]`는 DEPEG를 `cooldownBySeverity`로 재생 후 마지막 폴 채점. 공급/backing은 point-in-time.
+- 부분 커버리지: 미구동 신호(ORACLE/UTIL/WHALE/BAD_DEBT/SUPPLY_DELTA 등 — 스냅샷 입력 없음)는 정직하게 채점 제외.
+- **현재: 구동채점 67 case → recall 100% · FP 0% · 🟢 GREEN.** 임계값 변경 시 여기서 회귀가 잡힘.
+
+---
+
+## 11. 프론트엔드 (`frontend/`)
+- **페이지**: `/`(전체) · `/token/[symbol]`(동심원+Tier0 판결+bad-debt at-risk 곡선+알림 패널) · `/multi`(다중) · `/explore`(depgraph).
+- **API 라우트**(`app/api/`, pg 직독): `topology` · `alerts` · `dossier`(토큰별 알림/공급24h/loop/curator 합산) · `breadth`(DeFiLlama) · `bridge-authority` · `curators` · `tokens` · `portfolio` · `wallets` · `graph`.
+- **동심원 그래프**(`lib/concentric-layout.ts` + React Flow): 체인별 원 — 토큰→프로토콜→마켓/풀→큐레이터. verified=실선 / breadth=점선 / opaque=점점선.
+- 토큰 페이지 폼 토글: **동심원 · 리스트** (체인맵 제거됨).
+- `components/graph/AlertPanel.tsx`: 알림을 카테고리(민팅/공급·디페깅·컨트랙트·유동성)로 필터.
+
+---
+
+## 12. 알림 채널 (`lib/notify.ts`, `lib/discord-alert.ts`)
+- `insertAlert`가 DB 적재 후 `dispatchAlert` 호출 — **env 설정 채널로만** warning·critical 발송(info는 DB만), fire-and-forget.
+- 채널: **Discord**(웹훅 `{content}`) · **Telegram**(bot sendMessage) · **범용 webhook**(JSON POST).
+- `discord-alert.ts:postDiscord`(embed) — discover watchlist 요약·미지 컨트랙트 큐 등 운영 알림.
+- 미설정 시 no-op(zero-cost). cron 기동 로그에 활성 채널 표시.
+
+---
+
+## 13. 운영 (`ops/`, 실행·배포·채널 절차는 [README.md](README.md))
+**환경변수**(`automation/.env`):
+```
+DATABASE_URL=…              (필수)
+ALCHEMY_API_KEY=…           (권장 — 없으면 publicnode 폴백)
+ETHERSCAN_API_KEY=          (선택, 라벨 보강)
+DISCORD_WEBHOOK_URL=        (선택, 알림 채널 — Discord 채널>연동>웹후크)
+TELEGRAM_BOT_TOKEN= / TELEGRAM_CHAT_ID=   (선택, 텔레그램)
+ALERT_WEBHOOK_URL=          (선택, 자체 수신기)
+ARCHIVE_RPC_URL=            (선택, 유료 archive — deep getLogs full-history)
+```
+**launchd 상시구동**(`ops/*.plist` → `~/Library/LaunchAgents/`, `launchctl load`):
+- `com.exposure.frontend.plist` — 단일 링크 유지(무비용, KeepAlive).
+- `com.exposure.cron.plist` — 연속 모니터링(OPT-IN, 무료티어 RPC 소모).
+**deep history(D#12)**: `ARCHIVE_RPC_URL` 설정 시 `scanLogsRecent(deep=true)` 한 콜 fromBlock:0.
+**공개 배포(D#10)**: 로컬(기본) · `cloudflared tunnel`(무료) · Vercel+Neon(계정/연결문자열은 운영자).
+
+---
+
+## 14. 스크립트 레퍼런스 (`npm run <X>`)
+| 스크립트 | 역할 |
+|---|---|
+| `init-db` | 마이그레이션 적용 |
+| `snapshot:all` / `:one <addr>` / `:chain` | watchlist 전체 / 단일 토큰 / 체인별 스냅샷 (+diff 알림) |
+| `snapshot:chainsupply` | 체인별 공급+가치 시계열(가치-드리프트 입력) |
+| `snapshot:bridgeauth` | 온체인 브릿지 권한 검증(§9) |
+| `snapshot:backing` | Detector A 무담보 공급(§6.3) |
+| `snapshot:mintburn` | Detector B 무담보민팅(§6.4) |
+| `snapshot:valuedrift` | 가치-드리프트(§6.6) |
+| `snapshot:reflexivity` | 사기 루핑 grade(Morpho 오라클 introspect + 차입자 집중도) → loop_findings(reflexivity-v1) |
+| `snapshot:wallets` / `discover:wallets` | 추적 지갑 밸류 / 큐레이터 지갑 발굴 |
+| `snapshot:curators` | 큐레이터 배분 |
+| `discover` / `discover:dry` | 신규 토큰 발굴(임계 통과 → active=true 즉시 등록, 미달 시 자동 해제) |
+| `seed:risk` | **위험 토큰 watchlist 핀**(온체인 symbol() 검증, §16) |
+| `watchlist -- pin/exclude/unpin <addr>` | watchlist 수동 관리 |
+| `backtest` | 탐지기 회귀 검증(§10) |
+| `scan:risks` / `scan:derisk` / `review` / `prune` / `validate` | 현재 리스크 스캔 / 디리스킹 / 검토 큐 / 스냅샷 정리 / 정확도 |
+| `cron` | 연속 파이프라인(§5) |
+
+---
+
+## 15. 알고리즘 swap 지점 (2개)
+- **(A) 리스크 알림 detector** — 모든 알림은 `insertAlert({…, source})`. source(builtin-v1 / backing-v1 / mintburn-v1 / valuedrift-v1 / baddebt-v1 / structural-v1)로 어느 알고리즘이 냈는지 추적. 외부 detector 교체 시 같은 `alerts` 스키마+source만 맞추면 프론트/백테스트가 그대로 동작.
+- **(B) 자금 추적** — `wallet_tracking` + `snapshot-wallets.ts`. 동일 테이블 계약으로 교체 가능.
+
+---
+
+## 16. 한계 + 후속 백로그 (상세 §18)
+**한계**
+- full-history getLogs는 무료 RPC 불가(bounded 스캔) → 깊은 과거는 `ARCHIVE_RPC_URL`(유료).
+- Detector A 라이브 **활성됨** — wstETH lock&mint(Lido 공식 L2 브릿지: L1 잠긴 wstETH ≥ Σ L2 공급) `BACKING_WATCHES` 추가(2026-06, arb/op/base over-backed 온체인 검증). 추가로 xERC20 lockbox 토큰은 `autoWatches` 로 자동 watch. 현 위험 토큰(USD0++/crvUSD/sUSDe 등)은 네이티브/CDP/burn&mint라 Detector B+디페그+가치드리프트가 커버.
+- 그래프-스테이트 타임라인 스크럽 미구현(공급/알림 시계열은 있음 — 그래프 영속화 선행).
+- 시뮬레이션(전염 추정)은 범위 밖(WON'T) — 구 Python은 `attic/`.
+- 계정 생성·토큰 입력(Vercel/Neon/Discord 웹훅)은 운영자 단계.
+
+**완료된 백로그**: P0-1(위험 토큰 10종 핀+스냅샷) · P0-2(Detector A 라이브 판정) · P1-4(하드코딩 오라클 전환 critical) · P1-5(저신뢰 담보채택 승격) · P2-6(가치-드리프트).
+**후속**: P2-7(지갑 7일 브릿지 in-flight FP 가드) · P2-8(RWA 의도적 디스카운트 라벨) · P1-3(IRM 곡선, 낮은 가치) · P3(타임라인·학습메모리, deferred).
+
+---
+
+## 17. 진행 이력 (결정 로그)
+
+> 비자명한 선택을 한 줄씩 누적. 최신이 위로. (구 DECISIONS.md 통합 — 변경의 "왜".)
+
+### 2026-06-10 — 전 체인 커버리지 확장 (Alchemy 전수 활용) + 운영 사고 2건 복구
+
+- **사고① 구버전 cron**: 6/9 08:31에 뜬 cron 프로세스가 21:06에 추가된 루프(extraChain·nonevm·reflexivity)를 모름 → polygon/bsc/gnosis/scroll/worldchain/metis 스냅샷 0회. `start.sh` 재기동으로 해결(로그도 `/dev/null`→`.run/cron.log`). 교훈: cron.ts 수정 시 반드시 재기동(자식 스크립트는 spawn이라 핫리로드되지만 루프 셋은 아님).
+- **사고② 워치리스트 붕괴 + 안전가드**: 6/9 23:31 discovery 사이클에서 소스 일시 실패 → `deactivateDiscoveredExcept`가 자동발굴 전원 해제(60→10, 그래프 287→33엣지). `discover` 재실행으로 복구(61 active) + **가드 추가**: 3소스 중 하나라도 0건이면 비활성화 sync 스킵(활성화만 반영).
+- **EVM 정밀 그래프 12→17체인**: `snapshot-chain.ts CHAINS`에 linea·zksync·sonic·celo·soneium 추가(pap = bgd aave-address-book 값을 Alchemy RPC `getPoolDataProvider→getAllReservesTokens`로 전수 검증: 9/8/4/6/3 reserve). cron `EXTRA_CHAINS` 9→14(체인당 ~4.7h 주기). `rpc.ts`에 unichain·worldchain 등 7체인 등록(viem 내장 체인 객체 — zksync는 multicall3 특수주소라 내장 필수) + 미등록 chainId 메인넷 폴백 시 **경고 출력**(조용한 잘못된-체인 호출 방지).
+- **breadth 멀티체인 supply 22→31 EVM + 비-EVM 6**: `ALCHEMY_SLUG`에 metis·celo·sei·fraxtal·polygonzkevm·monad·rootstock·opbnb·abstract 추가(전부 실키 eth_chainId 프로브 검증). **Starknet supply 리더**(starknet_call, sn_keccak 셀렉터 라이브 검증) + Aptos를 Alchemy `/v1/view` 우선으로. TON 은 Alchemy 미지원(대시보드 전수 확인)이라 리더 미탑재 — 익스포저는 DeFiLlama 풀 매핑으로만 표시.
+- **decimals 버그 수정(중요)**: EVM supply 환산이 "레퍼런스(이더리움) decimals" 가정 → opBNB/Rootstock USDT(18dec)가 $58조로 폭발. llama 메타 없으면 **온체인 `decimals()` 직독** 후 레퍼런스 폴백으로 변경.
+- **Sui/Tron supply 샘플 0 수리**: ① 주소 resolve 2차 패스(underlyingTokens 1개면 exposure 표기 없어도 인정 — 비-EVM 풀 메타 부실 대응) ② 검증된 오버라이드(USDT@tron `TR7NH…` $89.3B·USDT/USDC/USDe@solana·USDC@sui — 전부 해당 체인 RPC로 totalSupply 직독 검증) ③ `snapshot-chain-supply` 토큰 선정을 알파벳순→**규모(엣지 USD 합)순**(USDT/USDC가 톱12에서 잘리던 구멍). 결과: chain_supply_samples 19→**34체인**.
+- **Starknet 렌딩 = Vesu 직접 어댑터**: DeFiLlama lendBorrow에 Starknet 0건(전수 확인) → `vesu-starknet.ts`(api.vesu.xyz 공개 REST, 86 reserve·$29M, isDeprecated 풀 스킵, LTV는 페어 단위라 util-only). nonevm 러너 11어댑터: Solana 4 · Sui 3 · Starknet 1(Vesu) · Tron/Aptos/Starknet(DeFiLlama lendBorrow).
+
+### 2026-06-09 — 백엔드 보완 4종 (게이트 문서화 · dead config · Detector A 활성 · reflexivity 라이브)
+
+- **discovery 승인 게이트 = 문서를 코드에 맞춤** — MANUAL은 "active=false 제안 후 승인"이었으나 `discover.ts`는 임계(누적 95% 커버리지·최소 $1M) 통과 시 `active=true` 즉시 등록(승인 게이트 없음, 미달 시 자동 해제). 코드 유지 + §1.3·§4·§5·§14·§18 문서 정정.
+- **dead config 5종 제거 + 리베이스 억제 배선** — `oracle.{stalenessBlocks,deviationByClass}` · `totalSupply.perBlockPct` · `depeg.{nearLtDistance,deviationBps}` 전수 grep 후 미사용 확인 → 제거. `rebaseSaneMax`(백테스트 전용이던 것)를 `diff.ts:checkTotalSupply` 통계 스파이크 경로에 배선(1스냅샷 |Δ|≤50% ∧ 단일-블록 이산 mint 0 → 설계 리베이스로 억제, provenance/critical 경로 무영향 → 진짜 무한민팅은 계속 잡힘). 검증: tsc 0 · 백테스트 67 GREEN.
+- **Detector A 라이브 활성(P0-2 갱신)** — `BACKING_WATCHES`에 wstETH lock&mint(Lido L2 브릿지) 추가. L1 잠긴 wstETH(Σ 3 브릿지) ≥ Σ L2 공급(arb/op/base). 온체인 검증 arb 1.041·op 1.006·base 1.003 over-backed → `snapshot:backing` "balanced ✓"(건강 → 무알림이 정상). 브릿지 메시지층 침해로 L2 무담보 mint 시 critical(백테스트 Wormhole/xUSD GREEN 경로). xERC20 lockbox() 노출 토큰이 드물어 manual watch가 가장 확실.
+- **kuromi reflexivity 라이브화 + Tier0 통합** — 정적 `public/fraud/reflexivity.json` 수동복사 → 라이브 파이프라인. `snapshot/reflexivity.ts`(`computeReflexivity`: Morpho 담보 마켓 오라클 introspect[introspect.ts 재사용] + 차입자 집중도/self-deal → kuromi grade) + `scripts/snapshot-reflexivity.ts` + cron 1h + `loop_findings(source=reflexivity-v1, 토큰당 1행, detail jsonb)` 적재. dossier.loops가 서빙 → 프론트 Tier0 판결 + 상세그래프가 **라이브 소비**(정적 fetch 제거). 라이브 62토큰 적재: muBOND CRITICAL(sole·$11.5M) · deUSD/USD0++/stcUSD/msY HIGH(bespoke/NAV·self-deal). deUSD worst-market 오라클(0x2D94…)이 정적 kuromi와 일치(충실 포팅). Tier0 verdict에 `reflexive` 팩터(HIGH+∧bespoke/NAV∧비-RWA → hardOracle 승격) 통합 — 정적 regex 보강. 검증: automation tsc 0 · frontend build 0 · dossier API 라이브 · UI "사기 루핑 의심(kuromi HIGH)" 판결 렌더 · 콘솔 0.
+- **UI 탭 정리 + 상세그래프 강화(별건)** — 토큰 페이지 보기 탭 5→2(관계맵·상세그래프 유지, 분포/나선상세/xUSD사례 + 컴포넌트 3종 삭제). 상세그래프에 오라클 위험분류 색(oracle.ts: 하드코딩/NAV=⚠빨강, 엣지에서 경고) + reflexivity 사기판정 뱃지 통합(멘토 피드백: "자산–Morpho 엣지에서 오라클 조작 경고"). 한자 제거(高→높음·有→있음, 메모리 UI 순수한글 규칙).
+
+### 2026-06-08 — D04b 오라클 freeze/staleness 검출기 구현 (dead config heartbeat/stalenessFactor 배선)
+
+- **목표**: 오라클 피드가 멈추면(updatedAt 노후) 디페그가 온체인에 안 잡혀 청산 미발화 → silent bad debt(팀원 risk_rules D04b).
+- **데이터 소스 발견(프로브)**: Aave `getSourceOfAsset` 어댑터는 `latestAnswer`(가격)만 노출, `latestRoundData`·`latestTimestamp` 는 revert(USDC·rsETH 확인) → timestamp 없어 staleness 불가. **정답 = Chainlink Feed Registry**(`0x47Fb…`) `latestRoundData(token, USD)` 로 정식 USD 피드 updatedAt. (WETH→ETH 키, 미등록 LST/exotic→revert→skip.)
+- **구현**: `snapshot-token.ts` 가 토큰레벨 1회 FeedRegistry 읽어 `token.metadata.oracleFeed{updatedAt,answer,roundStale}` 저장 → `diff.ts:checkOracleStaleness`(토큰레벨, checkDepeg 옆) 가 answer≤0 / roundStale / age>heartbeat×stalenessFactor → `oracle_stale` critical. `heartbeatByClass`·`stalenessFactor` 이제 라이브. (per-edge Aave 시도는 dead 라 제거.)
+- **calibration 정정(라이브 측정)**: USDC 평시 feed age 3.4h(실제 Chainlink stable heartbeat 24h)인데 구 config stable=1h → 1.75h 임계로 상시 오탐이었음. 실측 재보정: stable/soft/altcoin→24h, major→2h. → USDC 발화 안 함(검증), oracle_stale 0건.
+- **커버리지/후속**: FeedRegistry 등록 major/stable(silent-bad-debt 핵심 시나리오). LST/exotic 미등록(교환비 오라클, freeze 의미 다름). `deviationByClass`(오라클-시장 괴리)는 두 가격 단위정규화 필요 — 미사용. 검증: tsc 0 · 백테스트 67 GREEN · USDC oracleFeed 캡처 + 오탐 0.
+
+### 2026-06-08 — dead config 전수조사 → production diff.ts 배선 (팀원 risk_rules 이식 갭 메움)
+
+- **발견(팀원 audit + 기계적 grep 검증)**: `alert-thresholds.ts:RECOMMENDED_THRESHOLDS` 필드 중 **17 dead + 3 backtest-only** 가 production(`diff.ts`) 미연결 — 값표는 이식됐으나 발화 코드가 안 읽음. (config 파일 제외 재귀 grep.)
+- **이번 배선(11필드 → 라이브, 기존 스냅샷 데이터만, 새 데이터/스키마 불요)**:
+  - `largeSingleMintBps`(10%→critical) · `minRelDelta`(flat-MAD z-폭발 가드) → `checkTotalSupply`
+  - `jumpMinLevel`+`jumpActionable`(util 점프 레벨 co-gate — idle 5→20% 오탐 차단, ≥70% 안착만 + ≥12pp run) → `checkUtilizationLiquidity`
+  - `whaleUnwind.absDropUsd.info`($1M dust floor — $100k 50% 인출이 critical 되던 % 우회 차단) → `checkWhaleUnwind`
+  - `collateralAdoption.dustUsd`/`materialUsd`(먼지 게이트 + materiality 플래그) → `checkCollateralAdoption`
+  - `newMarket.fastGrowthUsd`($5M 급유입) → `checkNewMarkets`(신규 kind `market_fast_growth`)
+  - `badDebt.actionableUsd`/`highUsd`(마켓 deficit=borrow>collateral, deficit-$ 기준) → 신규 `checkBadDebt`(scan-current-risks LLTV-거리와 상보)
+  - `mintBurn.matchWindowSeconds` → `snapshot-mintburn.ts` 가 env 대신 config 기본값 소비
+- **audit 정정 1건**: D11 mint/burn 은 false-negative 아님 — `snapshot-mintburn.ts` cron 이 프로덕션에서 `reconcile` 발화 중(env-param). config 필드만 dead 였음 → 이제 config 소비.
+- **검증**: automation tsc 0 · 백테스트 67 GREEN(회귀 0) · 라이브 `snapshot:one rsETH` EXIT 0 · DB 464마켓 deficit 파싱(현재 underwater 0=정상 과담보).
+- **남은 갭**: ✅ D04b 오라클 staleness(완료 — 위 항목) · unbacked 지속성(`settlementSeconds`/`persistencePolls` — 크로스스냅샷 상태저장) · 7d slow-bleed(value-drift 2번째 윈도우) · depeg venue/`nearLtDistance` · `deviationByClass`(오라클-시장 괴리, 단위정규화) · HIGH 4단계(severity enum 스키마). `perBlockPct`·`stalenessBlocks` 의도적 제외(v1).
+
+### 2026-06-08 — L2 래핑 변형(wrsETH) 별칭 + dust 컷오프 ↓ → rsETH Base/OP 노출
+
+- **증상**: rsETH 페이지에 ETH/Arb 2체인만 표시. **원인 2개**: ① Base/OP 의 rsETH 는 **wrsETH(WRSETH)** 로 배포(주소 0xEDfa…/0x87eE…) → breadth 의 정확-심볼 파트 매칭("RSETH")이 "WRSETH"를 못 잡음. ② TVL(Base $137k·OP $21k)이 `CHAIN_TVL_MIN=$250k` dust 컷 아래(이게 1차 진단이었으나 ① 이 더 근본).
+- **수정**(`frontend/app/api/breadth/[symbol]/route.ts`): ① `WRAP_ALIASES`(RSETH→[WRSETH]) 명시 별칭으로 symMatch 확장 — W-prefix 일괄 매칭은 stETH↔wstETH 혼동 유발이라 **금지**, 명시 맵만. ② `CHAIN_TVL_MIN` 250k→20k(OP $21k 통과, 노이즈는 MAX_CHAINS=12 로 제한). 검증: breadth 4체인(eth/arb/base/op) · 그래프 4 체인 원 + base/op 캐노니컬 락&민트 브릿지 렌더.
+
+### 2026-06-08 — LST/LRT 오라클 = 교환비(NAV)로 표시 분류 (rsETH "시장가" 오표기 정정)
+
+- **함정(사용자 지적)**: rsETH 등 LST/LRT 는 2차 시장가가 아니라 기초 ETH 대비 **교환비(exchange-rate/NAV)**로 가격됨(Aave CAPO 등) → 시장 디페그가 오라클에 안 잡힘. 그런데 UI 엔 "시장가"로 표기됐음.
+- **근본 원인**: automation 어댑터(aave-v3-family·compound-v3·fluid·morpho-blue·aave-v2)가 자산 구분 없이 `oracle.type="MARKET"` 하드코딩. aave-v3 `provider="Chainlink composite (with CAPO)"` 도 어댑터 상수라 USDe·rsETH 동일. `EXCHANGE_RATE` 타입은 스키마에 있으나 미사용.
+- **수정(표시 계층)**: `frontend/lib/oracle.ts` 신설 — `isRateBasedAsset`(classifyAsset lst 미러: rsETH/weETH/*ETH)·`oracleClassOf`(MARKET ∧ LST → "환율(LST)")·`oracleNote`(클래스별 디페그민감·한 줄 해석). dossier **오라클 분포**·**엣지 클릭 패널**·**상단 판결 바** 3곳 공유. "디페그 민감"도 클래스에서 파생(환율=아니오/교환비 추종 · 시장가=예). 검증: rsETH 3곳 모두 환율(LST) · tsc 0.
+- **정공법(적용 완료)**: 어댑터 6종(aave-v3-family[=aave_v3+spark]·compound-v3·fluid·morpho-blue·aave-v2·generic-balance)이 `AdapterContext.tokenSymbol` 을 받아 collateral 의 classifyAsset='lst' 면 `EXCHANGE_RATE` 적재(`oracleTypeForCollateral` 헬퍼). snapshot-token·snapshot-chain 이 심볼 전달. **rsETH 재스냅샷 검증**: Aave/Compound/Fluid/Spark/Morpho=EXCHANGE_RATE · DEX=NONE · USD 정상($772M). 전체 `snapshot:all` 로 DB 정정. 프론트 표시 보정(MARKET∧LST→환율)은 미재스냅샷 데이터용 폴백으로 유지.
+
+### 2026-06-08 — RWA 의도적 디스카운트 오라클 정상-라벨 (P2-8)
+
+- **함정(전문가 §3.3, mF-ONE)**: RWA(국채/펀드형)는 NAV 1.1 인데 오라클을 일부러 0.98 로 **디스카운트 고정**(청산 방지·보수평가) — 정상 설계. 그런데 하드코딩 오라클 detector(P1-4 + Tier0 hardOracle)가 이걸 "위험 가격동결"로 오탐.
+- **수정**: `classifyAsset` 에 RWA 토큰(mF-ONE/JTRSY/USDY 등) 보강 + `isIntentionalDiscountOracle(symbol, oracleType)` = (rwa ∧ NAV/ORACLE_FREE/fixed) 신설. **비-RWA 의 고정 오라클은 여전히 위험**(이게 핵심 구분).
+- **배선**: `diff.ts` oracle_hardcoded_switch — RWA 의도적이면 critical→warning + "RWA NAV 보수평가일 수 있음" 메시지. 프론트 Tier0 — 페이지 토큰이 RWA 면 NAV/fixed 오라클을 `rwaDiscount`(정상)로 분기해 위험 hardOracle 에서 제외, 오라클 칩 "RWA NAV(정상)". 검증: classifyAsset(mF-ONE/OUSG/USTB/USYC)=rwa · 헬퍼 정확 · tsc 0 · 백테스트 GREEN.
+
+### 2026-06-08 — 지갑 7일 브릿지 in-flight FP 가드 (P2-7)
+
+- **함정(전문가 §3.2)**: 추적 지갑이 Optimistic 롤업 L2→L1 인출(7일 챌린지) 시 자금이 브릿지에 묶여 포트폴리오가 "비어 보임" → `wallet_value_drop` 오탐.
+- **가드**: 급감 발화 시 급감 윈도우(3일) 아웃고잉 목적지를 주요 5체인에서 확인 → known 브릿지면 in-flight/settling 로 **info 다운그레이드**(페이지 억제, 기록 유지). 삭제/완전억제 아닌 다운그레이드라 실드레인 오억제 위험 제한.
+- **known 브릿지**: ① 검증된 `bridge_authorities`(토큰별) ② canonical(OP-stack 0x42…0010/0016/0007 예약주소·ArbSys 0x…64·L1 게이트웨이 — 결정론적/문서화 안전주소만).
+- **구현**: `lib/alchemy.ts:getOutgoingTransfers`(alchemy_getAssetTransfers, enhanced API·무료티어 OK, 체인 파라미터화) + `lib/wallet-bridge-guard.ts`(detectBridgeOutflow·loadVerifiedBridgeAddrs) + `snapshot-wallets.ts` 배선. ALCHEMY 키 없으면 가드 미작동(원래대로 발화). 검증: tsc 0·백테스트 GREEN·라이브 getAssetTransfers 동작·매칭/null-safe.
+
+### 2026-06-08 — 문서 통합 (중복/stale 정리)
+
+- **루트 .md 7→3개로 통합.** `ARCHITECTURE.md`(stale 06-05, "7개 리스크팩터"=구버전) + `BLUEPRINT.md`(MANUAL이 상위집합) → **`MANUAL.md` 단일 종합 문서**로 통합 후 삭제. `DEPLOY.md`(체인맵·Slack stale) → **`ops/OPS.md`** 에 프로세스·포트·ENV 표 병합 후 삭제. `TOKEN-ADDRESSES.md`(`dump-token-addresses.ts` 로 재생성 가능한 stale 덤프) 삭제.
+- **남은 문서**: MANUAL(운영·이해·재현 종합) · DECISIONS(왜 로그) · BACKLOG(todo) · ops/OPS(운영절차) · docs/threshold-calibration(임계값 근거). 상호참조 링크 갱신(BACKLOG/MANUAL 의 BLUEPRINT 링크 제거).
+- **원칙**: "어떻게 동작하나" 문서를 **하나(MANUAL)로 단일화** — 셋(ARCHITECTURE/BLUEPRINT/MANUAL) 분산은 동기화 누락(직전 ouroboros stale)을 부른다. 상태 스냅샷 문서는 최소로.
+
+### 2026-06-08 — 동일패밀리 재담보(ouroboros) 신호 전면 제거
+
+- **왜**: "담보·대출이 같은 계열이면 단일마켓 레버리지 루프 가능"은 **실 레버리지 미검증 추정 휴리스틱**(`isOuroborosPair`/`sameFamily` = 단순 자산패밀리 매칭). 약한 신호라 노이즈만 키움 → 전면 제외.
+- **소스 2곳 무력화**: `morpho-blue.ts:isOuroborosPair`(+ 자산패밀리 Set) · `frontend breadth route:sameFamily` 제거 → `ouroborosRisk`/`ouroboros` 항상 false.
+- **위험 로직 제거**: `diff.ts` new_market ouroboros 승격 + `scan-current-risks.ts` `ouroboros_market` 알림·structural-v1 loop_finding + `alert-thresholds.ts:newMarket.flagOuroboros`.
+- **UI 제거**: Tier 0 판결 '재담보 루프' 팩터·Stat 칩 · 토큰 상세패널 🔁 주석 · 동심원 그래프 노드 빨강 하이라이트 · explore/SidePanel/HoverTooltip/TokenDashboard 마커 · 알림 라벨(app/page.tsx)·카테고리(AlertPanel).
+- **옛 데이터 정리**: DB `alerts(kind=ouroboros_market)` 14행 + `loop_findings(kind=ouroboros)` 10행 삭제.
+- **잔여(무해)**: `ouroborosRisk`/`ouroboros` 타입 필드는 인터페이스에 남되 항상 false. 검증: tsc 0(양쪽) · 백테스트 67 GREEN · UI .js 청크 0 매치.
+
+### 2026-06-08 — 백로그 P0/P1/P2: watchlist 재조준 + 오라클 하드코딩 + 담보채택 + 가치-드리프트
+
+- **P2-6 NAV×supply 가치-드리프트 detector** — 전문가 §3.2 핵심 자금추적 방법론(총가치=NAV×supply, 빠지면 "유출"). 데이터는 이미 있음: **`chain_supply_samples.supply_usd`**(체인별 가치 시계열, 210행). `snapshot/value-drift.ts`(순수 `computeValueDrift`: 윈도우 내 peak 대비 낙폭) + `scripts/snapshot-value-drift.ts`(러너, source=valuedrift-v1) + cron 1h + config `valueDrift`(dropPct 10/25/40% · **minAbsUsd $10M 절대게이트**(소형 노이즈 컷) · window 24h) + AlertPanel "유동성" 분류. 합성검증: $1B→$600M(40%)→critical · 노이즈±3%→null · 소형<$10M→null · 상승→null. 실데이터(잠잠) 0 오탐. (지갑묶음 연계는 P2-7 후속.)
+
+- **루트 `.env.example` 삭제** — 옛 new-simulator(attic) 유물. "mock 모드 데모 데이터" 문구가 가짜데이터 오해 유발. mock 생성기(AaveCollector)는 전부 `attic/backend/`(죽음, :8000 down, 라이브 0 참조) 확인. 라이브 데이터는 실온체인(검증).
+- **BACKLOG.md 신설 — 평가서를 실제 코드와 대조 정정**: P1-3(IRM)·P1-4(오라클)·P1-5(담보채택) detector 는 **이미 구현돼 있었음**(평가서 "추가"는 부정확). 실제 갭은 보완뿐.
+- **P0-1 위험 토큰 재조준** — `scripts/seed-risk-watchlist.ts`: USD0++·crvUSD·sUSDe·USDe·ENA·mkUSD·USR·syrupUSDC·alUSD·deUSD 를 **온체인 symbol() 검증 후 pin**(manual → discovery 안 내림). 잘못된 주소 자동 탈락. 10개 스냅샷 → **35건 실제 알림 생성**(USDe critical new_market+ouroboros, sUSDe bad_debt_threshold·ouroboros, crvUSD/syrupUSDC critical collateral_adoption). 제품이 "실제 위험"을 보기 시작.
+- **P0-2 정직한 발견** — 위험 토큰 9/9 **xERC20 lockbox 없음**(네이티브/CDP/burn&mint) → **Detector A 활성 안 됨**(엔진/백테스트는 검증됨). 이들은 Detector B+디페그+공급이 올바른 커버리지. Detector A 라이브엔 진짜 lock&mint(xERC20) 토큰 필요.
+- **P1-4 오라클 하드코딩 전환 critical** — `diff.ts:checkOracleChange` 에 정상 라이브 피드(MARKET/EXCHANGE_RATE) → ORACLE_FREE(하드코딩) 전이 = critical(`oracle_hardcoded_switch`). 가격 동결 → 청산 미발화 → bad debt 누적(§6.7). Tier0 `crit`+`hardOracle` 팩터로 자동 연계, AlertPanel 분류.
+- **P1-5 저신뢰 담보채택 critical 승격** — `checkCollateralAdoption`: minor 렌딩 프로토콜이 **long-tail(classifyAsset=altcoin) 담보** 채택 시 warning→critical(쓰레기담보 마켓 의심, UwU/MEV류 선행 시그널). 블루칩(stable/major/lst)은 warning 유지(FP 억제).
+- 검증: automation/frontend tsc 0, 백테스트 67 case GREEN 유지, 위험 토큰 라이브 페이지 200(DB 직독 — 재빌드 없이 노출).
+
+### 2026-06-08 — 운영(D): 알림 채널 + launchd + archive RPC 옵션 + 배포 문서
+
+- **알림 채널(D#9)** — `src/lib/notify.ts` `dispatchAlert`: insertAlert 가 DB 적재 후 호출, **env 설정 채널로만** warning/critical 발송(**Discord webhook** · Telegram bot · 범용 webhook). info 는 DB만. fire-and-forget(메인 비차단). 미설정 시 no-op(기본 zero-cost). cron 기동 로그에 활성 채널 표시. (토큰/계정은 운영자가 .env 에 — 자동화가 대신 못 함.)
+  - **2026-06-08 후속: Slack→Discord 전환.** 구 `slack-alert.ts`(`postSlack`, blocks 형식) → `discord-alert.ts`(`postDiscord`, embed 형식) 로 교체. notify.ts 채널도 Discord(`{content}`). `diff.ts` 가 insertAlert 직후 직접 postSlack 하던 **중복 발송 제거**(insertAlert→dispatchAlert 가 쿨다운 적용해 유일 경로). discover.ts watchlist 요약은 postDiscord 로. `SLACK_WEBHOOK_URL`→`DISCORD_WEBHOOK_URL`.
+- **launchd 상시구동(D#11)** — `ops/com.exposure.frontend.plist`(무비용, 단일 링크 유지) + `ops/com.exposure.cron.plist`(OPT-IN, 무료티어 RPC 연속 소모). KeepAlive 자동 복구 + RunAtLoad. cron 은 비용 안전상 기본 OFF 유지.
+- **archive RPC 옵션(D#12)** — `ARCHIVE_RPC_URL` 설정 시 `scanLogsRecent(deep=true)` 가 한 콜 fromBlock:0 full-history. 미설정이면 publicnode bounded(비용 0). `archiveClientFor`/`hasArchiveRpc` 신설, bridge-authority·mint-burn-recon 이 우선 사용.
+- **배포(D#10)는 문서로** — `ops/OPS.md`: 로컬(기본)·cloudflared 터널·Vercel+Neon 경로. 계정 생성/연결문자열은 운영자 단계(자동화 불가, 프로히비티드).
+- **타임라인 스크럽(D#8)은 부분** — 공급/알림 **시계열은 존재**(dossier supplyHistory 24h + alerts 타임스탬프)하나, 전체 **그래프 상태 스냅샷은 비영속**(JSON 덤프 게이트 off — 저장 절감) → 그래프-스테이트 스크럽은 영속화 추가가 선행. 정직하게 deferred.
+
+### 2026-06-08 — 데이터 폭(C): Detector A 멀티체인 backing 백테스트 검증 + #6/#5 현황 정직화
+
+- **Detector A(멀티체인 backing) 백테스트 구동(C#7)** — 하니스가 `evaluateBacking` 을 라벨된 무담보 사건으로 검증: backing + `remote_supply{chain:supply}` 입력 → Σremote vs backing 불변식. **Wormhole(2022, backing 21 vs Σremote 93,769 → critical) · xUSD(2025, 2.0e14 vs backing 1.7e14 → critical, persist→CRITICAL, balanced 1.68e14<1.7e14 → 침묵) 전부 PASS.** 구동채점 64→67, 여전히 recall 100%·FP 0%·GREEN. (dedup 은 DEPEG 에만 적용 — 공급/backing 은 persistence 확정 자체가 신호라 point-in-time.)
+- **Detector A 러너 정확도** — autoWatches 가 하드코딩 `decimals:18` 대신 canonical 토큰에서 실제 decimals 읽기, `tolBps` 도 config(`unbacked.toleranceBps`) 기반. 엔진은 이미 멀티체인(`nodes` 의 모든 체인 ΣtotalSupply vs lockbox 잔액). ⚠️ 현재 라이브 watch 0 — 추적 토큰(GHO/USDC/LBTC/LINK)이 전부 burn&mint(CCIP/OFT, 담보 backing 없음 → Detector B 영역)이고 xERC20 lockbox 가 DB에 없어서. lock&mint 토큰이 들어오면 bridge-authority 스냅샷이 lockbox 적재 → 자동 활성.
+- **#6 L2 depeg/oracle = 설계상 충족** — `checkDepeg`/oracle staleness 는 스냅샷의 오라클 가격에 작용하는 **체인 불문** detector. L2 마켓 스냅샷이 있으면 동일 코드가 거기서도 평가. 별도 "L2 전용" 코드 불필요(추가하면 중복).
+- **#5 depositor+LTV = 데이터 이미 수집·노출** — dossier API 가 `vault_allocations`(큐레이터/볼트별 supply_usd) + `loop_findings`(lltv·looped_usd) 반환, 토큰 페이지가 소비. 중첩 인터랙티브 트리는 UI 폴리시(데이터 폭은 이미 확보).
+
+### 2026-06-08 — 브릿지 토폴로지 완성(B): CCIP 원격 주소 + Detector B allowlist 동적 시드
+
+- **CCIP 원격 토폴로지 1급화(B#2)** — `resolveCcipTopology` 신설: getSupportedChains selector 별 `getRemotePools`(멀티풀, 구버전 `getRemotePool` 폴백) + `getRemoteToken` → 원격 **풀/토큰 주소** 디코드(bytes 마지막 20B). 기존엔 체인 *목록*만. `bridge-authority.ts` 가 `ccip_remote` authority 로 적재(AuthType + 프론트 AUTH_MAP/ORDER 확장, order 12 = ccip_pool 대표성 유지). **라이브 검증: LINK@ethereum 풀 → 28 원격 체인의 실제 풀+토큰 주소 해석**(예 @base pool=0x0a99… token=0x88fb…). LZ OFT peer 원격 주소는 이미 추출 중이었음(`0x+slice(-40)`).
+- **Detector B allowlist 동적 시드(B#4)** — 하드코딩 주소 추측(틀리면 실제 공격 침묵=FP보다 위험) 대신, `verifiedMintersFor(sym)` 가 **온체인 검증된 `bridge_authorities` 주소**(xERC20·MINTER_ROLE·OFT peer·CCIP 풀/원격)를 동적 allowlist 로 주입 → 검증 인프라로의 mint 는 정합 대상 제외(FP↓), 공격자 자기주소 민팅은 여전히 포착. 정적 config(GLOBAL/BY_TOKEN)는 수동 override 로 남김. DB에 GHO/USDC/LBTC/LINK ccip_pool 존재 → 실데이터 동작.
+- **bridgeFlows 실주입(B#3)은 obsolete** — 체인맵 뷰 제거로 소비처 소멸(동심원·리스트만 유지). 크로스체인 flow 시각화는 현 UI 범위 밖.
+
+### 2026-06-08 — TS 백테스트 하니스 구현(A) + detector 충실화로 36사건 GREEN
+
+- **`scripts/backtest.ts` 신설(설계 §7.3)** — `backtest/events/` 라벨된 사건을 **production 알림 함수**(depegSeverity·reconcile·severityForValue·cooldownSecondsFor)에 결정론적 replay → precision/recall 스코어보드. `npm run backtest`. **35사건/81case 중 구동채점 64 → recall 100% · FP 0% · GREEN.** 미구동 17(oracle/util/whale/bad-debt/unbacked — 스냅샷에 입력 없음), 부분커버 4(구동 신호만 채점, 미구동은 정직하게 제외).
+- **하니스가 드러낸 5개 detector 격차를 production 에서 수정**(임계값 오버핏 아니라 로직 개선):
+  1. **자산클래스 세분화** — `classifyAsset` 에 `stable_soft`(GHO·mkUSD·crvUSD·USD0++ 등 설계상 할인 거래, band 5%)·`pendle_pt`(만기 전 할인, band 8%) 추가. 기존 `stable`(USDC/USDT 하드페그)은 0.5% 유지. → GHO 3.5%·PT 0.6%·mkUSD 0.8% 소프트 할인 FP 제거하면서 USDC 12%(catastrophic)·mkUSD 7% 는 정상 발화.
+  2. **부호 인식 depeg** — `depegSeverity(belowPegFraction)`: 양수=peg 아래(catastrophic 가능), 음수=peg 위(수익누적/프리미엄 → **WARN 상한**, critical 안 됨). diff.ts `(1-price)` 규약 보존. → USYC(NAV 누적으로 $1.088) above-peg review-nudge.
+  3. **무권한 민트 provenance 승격** — 비-home·비-authorized 수신자 단일 mint 가 supply 5%+ 면 크기 무관 critical. → PAID 정확히 10%(float 999.99bps 경계) HIGH 확보, authorized 발행은 무시(FP 0).
+  4. **리베이스 억제** — `|Δsupply|≤rebaseSaneMax(50%) ∧ 이산 mint 0` = 설계 리베이스 → TOTAL_SUPPLY_SPIKE 억제. → AMPL +14.42% rebase quiet, 단 AMPL 합성 무권한 mint 는 LARGE_SINGLE_MINT 로 발화.
+  5. **severity별 dedup 재생** — polls[] 멀티폴 케이스를 `cooldownBySeverity` 로 재생 후 마지막 폴 채점. → USDC SVB worsens(WARN→CRIT 재페이지) vs steady(동일 WARN 쿨다운 내 억제) 구분.
+
+### 2026-06-08 — 백테스트 보정 임계값 이식 + 자산클래스 + 사건 라이브러리 보존
+
+- **`risk_rules_test_agent`(QA 튜닝 에이전트) 산출물 → alert-thresholds.ts 이식 후 폴더 삭제.** 빌드타임 에이전트가 라벨된 36개 사건으로 GREEN 튜닝한 임계값을 TS config 로. 헤드라인: **depeg catastrophic 0.085**(USD0++ 실측 9.02% 보정, asserted 0.10 이 못 잡던 것). + 자산클래스(major/stable/lst/rwa/altcoin) per-class depeg/oracle band, supply elastic whitelist 11종, large-single-mint 10%→critical, 무담보 critical 100bps, per-severity 쿨다운(crit 1h/warn 12h/info 24h).
+- **배선**: diff.ts depeg → `depegSeverity`(클래스 band + catastrophic) · Detector A → criticalBps 100 · insertAlert 쿨다운 → per-severity(make_interval). 검증: classifyAsset/depeg/쿨다운 SQL 라이브 OK, tsc 0.
+- **사건 라이브러리(§7.3) 보존**: `automation/backtest/events/`(36개 라벨된 사건+스냅샷) — 미래 TS 백테스트 하니스용. calibration 근거는 `docs/threshold-calibration.md`.
+- **`new-simulator` 재삭제**(events.db 1개, 라이브 무참조).
+
+### 2026-06-08 — Detector B(mint/burn 정합) + getLogs publicnode 우회 + output 정리
+
+- **Detector B(mint_burn_recon) 이식** — alarm-totalsupply 포팅. 크로스체인 mint↔burn 을 **금액+시간창(기본 30분)** 으로 매칭, 창 지나도 미정합 mint = 무담보민팅 의심(Kelp 직접 시그니처). `snapshot/mint-burn-recon.ts`(수집+순수 reconcile) + `scripts/snapshot-mintburn.ts`(러너, ledger/cursor) + migration 014 + cron 1h + 7일 보존. backing 불일치(Detector A) 동반 시 **critical 승격**. `source=mintburn-v1`. **Method E의 mint 로그 위에** 구축. (authorized-minter allowlist 는 v1 생략 — L2 비-브릿지 발행 FP 가능, 추후 보강.)
+- **getLogs 는 publicnode 로(item1).** Alchemy **무료티어가 eth_getLogs 를 10블록으로 제한**(viem 버그 아님). `lib/public-rpc.ts` 공용 모듈 신설 → bridge-authority block#1(xERC20 BridgeLimitsSet)·Method E·Detector B 모두 publicnode. ⚠️ full-history 는 무료 RPC 불가(publicnode 도 ~200k/콜) → **bounded 최근 스캔**. 깊은 과거가 필요하면 paid archive RPC.
+- **output 23M 정리(item3).** 스냅샷 디버그 JSON 덤프 비우고, snapshot-all 의 writeFile 을 `SNAPSHOT_JSON_DUMP=1` 일 때만(기본 off → 재증식 방지). DB가 source of truth.
+- **새 알림 UI 1급화 + Detector B FP 컷.** unbacked_supply·unmatched_mint 를 AlertPanel **"민팅/공급" 카테고리 신설**로 분류 + Tier 0 verdict 에 **"무담보민팅" factor·칩** 추가(critical 이면 위험 승격). Detector B 에 authorized-수신자 allowlist(전역+토큰별, 기본 빈 config — issuer/treasury 추가 시 FP↓) + **구조적 FP 가드**(일시적 미정합은 알림 X — 2×window 지속 또는 backing 동반일 때만 발화).
+
+### 2026-06-08 — 브릿지 mint-이벤트 발견(Method E) + 루트 정리
+
+- **`get_token_bridge_address` 이벤트 확장(Method E, `events.py`) → automation 이식 후 폴더 삭제.** mint(Transfer from 0x0) 로그의 `tx.to` 빈도로 브릿지 발견(view-probe가 다 실패할 때 fallback) → `lib/bridge-mint-events.ts`. `readBridgeAuthority`가 bridges 0건일 때만 호출, 상위 후보를 `mint_event`(추정)로 적재. frontend `verifiedFor`는 mint_event를 "검증"에서 제외(추정이라 ✓검증 오표기 방지). 검증: weETH(eth)→EtherFi 발행자, weETH(base)→브릿지 OFT 발행자 최빈 1위로 잡힘.
+- **Method E 로그 스캔은 publicnode 사용.** ⚠️ Alchemy가 viem `eth_getLogs` 를 "JSON is not a valid request object"로 거부(getBlockNumber 등은 정상) → publicnode는 정상. 같은 이유로 bridge-authority의 xERC20 `BridgeLimitsSet` getLogs(block #1)도 Alchemy에서 조용히 실패 가능(단 `probeXerc20Lockbox` eth_call 은 정상이라 lockbox/Detector A 입력은 잡힘). 추후 그 getLogs도 publicnode로 옮기면 됨.
+- **루트 정리**: `get_token_bridge_address`·`new-simulator`(events.db 1개, 코드 0) **삭제**. `automation/dep-engine`(구 crawl→`.sim.json` 생성기, 라이브 TS 무참조) → **`attic/`**. `/explore` depgraph 는 `frontend/public/depgraph/*.sim.json`(정적 사본)을 읽어 **여전히 동작** — 데이터 재생성만 attic 에서 꺼내야 가능.
+
+### 2026-06-07 — 브릿지 표준 감지 확장 + 무담보 공급 detector 이식 (외부 폴더 정리)
+
+- **외부 `get_token_bridge_address`(Python) → automation TS 이식 후 폴더 삭제.** Method C(추가 8표준: Hyperlane·OP·Arbitrum/zkSync canonical·Axelar ITS·CCTP·Polygon PoS·Wormhole NTT·xERC20 lockbox) + Method B(CCIP `getSupportedChains` 원격 토폴로지)를 `lib/bridge-standards.ts`로. `readBridgeAuthority`가 호출, `bridge_authorities`(auth_type 자유텍스트)에 **마이그레이션 없이** 흐름. frontend AUTH_MAP/ORDER 2곳 확장. (기존 TS는 xERC20-limits/MINTER/OFT/CCIP-pool만.) Method D(catch-all)는 노이즈 위험으로 미이식. CCIP 원격 *주소*(getRemotePools)·LZ peer 주소는 이벤트 확장 시(지금은 연결 *체인 목록*까지).
+- **외부 `alarm-totalsupply`(Kelp rsETH 무담보민팅 탐지) → Detector A 이식 후 폴더 삭제.** automation은 Detector C(supply-spike)만 흡수했었고, Detector A(Σremote≤backing)는 `diff.ts:344`가 "멀티체인 필요, 스코프 밖"이라 자인 → 멀티체인 도입됐으니 이식. `snapshot/supply-backing.ts`(불변식 엔진 — **무담보 방향만** 알림: 정상 브릿징은 항상 over-backed라 FP 0) + `scripts/snapshot-backing.ts`(러너). backing 자동 watch는 `bridge_authorities`의 xERC20 lockbox에서(위 브릿지 작업이 입력 제공). cron 1급 스텝(1h)으로 편입. `source=backing-v1`(알고리즘 swap 계약).
+- **Detector B(mint_burn_recon)는 이벤트(Transfer 로그) 기반이라 이번엔 미이식** — 사용자 계획상 "이벤트 기반 확장"은 추후 단계에서.
+
+### 2026-06-07 — 산발 코드 triage + 포지셔닝 정렬
+
+- **라이브 제품 = `automation`(TS) + `frontend`(Next) + Postgres 한 곳.** 프론트가 자체 `/api/*`에서 `pg`로 DB 직독(정적 폴백 없음), automation cron이 같은 DB에 적재. 둘의 `DATABASE_URL`이 동일(`…@localhost:5433/wbtc_mapping`)임을 확인 → 이 경로만 keep.
+- **`backend`(Python 시뮬), `modules`, `shared`, `integration` → `attic/`로 격리.** 구 "contagion simulator" 클러스터(modules→integration→`simulator_graph.json`→backend `/api/contagion*`). 프론트가 `:8000` 프록시를 제거(`next.config.ts`)해 라이브와 단절돼 있었고, 라이브 빌드가 이들을 import 0건이라 이동 안전. 설계 WON'T(W1 시뮬레이션)에 해당.
+- **`.github/workflows/fly-deploy.yml` → `attic/fly-deploy.yml.disabled`.** 격리한 Python backend를 Fly.io에 배포하던 CI라 같이 비활성.
+- **포지셔닝: "contagion simulator" 문구 제거 → "Exposure Intelligence".** 제품 핵심은 *시뮬이 아니라 정확한 매핑+알림*(설계 §1.4). `layout.tsx` 메타데이터·`DEPLOY.md` 재작성.
+- **`snapshot_runs` 감사로그를 cron 실행마다 채움.** 테이블은 있었으나 INSERT가 없어 비어 있었음 → `recordSnapshotRun()`을 `snapshot-all`/`snapshot-chain` 끝에 배선. 나중 받을 백테스트가 cron 건강도/시점을 쓸 데이터.
+
+### 2026-06-07 — Tier 0 판결 + at-risk 곡선 + opaque 라벨
+
+- **Tier 0 판결 = 4신호 합성(집중 HHI · 디페그 · 재담보 루프 · 하드코딩 오라클) → 위험/주의/안전 + 한 줄 사유.** 데이터(HHI·alerts·ouroboros·oracle type)는 이미 있어 *합성·문장화*만. critical 알림 또는 (하드코딩 오라클 ∧ 디페그) 같은 복합조건이 "위험"으로 승격(설계 §7.2).
+- **하드코딩/고정 오라클을 1급 리스크로.** 가격이 온체인에서 안 움직이면 디페그 시 청산이 안 걸려 bad debt가 조용히 쌓임(설계 §1.4 통찰) → 판결·at-risk의 "청산가능" 컬럼에 반영.
+- **bad-debt at-risk(p) 곡선 = 정적 계산**(담보 −p% → 누적 위험$). 백테스트와 무관. 마켓이 underwater 되는 임계 drop(=1−aggLTV)을 누적합.
+- **데이터 출처 3단계 = verified(실선)/estimated(점선)/opaque(점점선).** breadth(DeFiLlama)=estimated, UNKNOWN/이름없는 큐레이터·볼트=opaque(DD 불가). 정직성=차별점이라 UI에 1급으로 노출.
+
+### (이전 결정 — ARCHITECTURE.md §6 불변식에서 이관)
+
+- **Bipartite 불변**: 모든 엣지는 `token:* → protocol:*`. 멀티롤은 `classification.roles[]`에 중첩(페어당 1엣지).
+- **즉시 모니터링(게이트 없음)**: discovery는 임계(누적 95% 커버리지·최소 $1M) 통과 토큰을 `active=true`로 바로 등록·스냅샷, 임계 미달 시 자동 해제. 수동 pin(`reason='manual'`)만 discovery가 안 내림. (구 `active=false` 승인 게이트 설계는 미사용 — 코드 기준.)
+- **무료·배치 우선**: 핵심 그래프는 Alchemy Multicall3 + Morpho GraphQL(무료). 유료 holder API 미사용.
+- **정밀(DB) + breadth(DeFiLlama) 2레이어**: 온체인 검증 엣지는 실선, breadth는 점선으로 신뢰도 구분.
+
+---
+
+## 18. 백로그 / 진행 현황
+
+> 평가서 P0~P3 항목을 실제 코드와 대조한 정직 버전. `[GAP]`미구현 · `[PARTIAL]`일부 · `[DONE]`구현완료 · `[WONT]`의도적 비구현. (구 BACKLOG.md 통합.)
+
+### ⚠️ 평가서 정정 (실제 코드 확인 결과)
+- **P1-3 IRM 변경 detector = 이미 있음** — `diff.ts:checkIrmChange` 가 `irm_changed`(주소 swap) + `irm_base_rate_jump`(baseRate) 발화. *평가서의 "추가"는 틀림.* 갭은 target utilization/곡선 파라미터까지 확장하는 **보완**뿐.
+- **P1-4 오라클 변경 detector = 이미 있음** — `diff.ts:checkOracleChange` 가 `oracle_changed`(주소) + `oracle_paused_suspect` + `oracle_depeg_flag_flip` 발화. 갭은 **OracleType 변경(MARKET→ORACLE_FREE=하드코딩) critical 승격**(필드는 이미 존재: `OracleType`).
+- **P1-5 신규마켓/담보채택 = 이미 있음** — `new_market` + `collateral_adoption` alert kind 존재(라이브에 cbBTC/WBTC collateral_adoption critical 적재 확인). 갭은 "저신뢰 dApp + 의외 자산" 승격 **보완**.
+- **mF-ONE/OUSG/USDat/USTB/USCC(RWA), PT-* = 이미 watchlist active.** 평가서가 안전축만 본다고 한 건 부정확 — RWA·PT 는 이미 추적 중. 빠진 건 아래 P0-1 의 *특정 위험군*.
+
+---
+
+### P0 — 제품이 "실제 위험"을 보게 (최대 레버리지)
+
+#### 1. Watchlist 위험 토큰 재조준 `[DONE]` ✅ (10종 핀+스냅샷 → 35건 실알림)
+현 watchlist 12개에 RWA·PT 는 있으나 평가서 지목 **특정 위험군이 빠짐**: xUSD·USDf·USR·USD0++·sUSDe·USDe·ENA·crvUSD·mkUSD·syrupUSDC·alUSD·deUSD.
+→ `scripts/seed-risk-watchlist.ts`(신규): 큐레이트 주소를 **온체인 symbol() 검증 후** `pin`(active=true, reason=manual:risk). 잘못된 주소는 검증에서 자동 탈락(가짜 토큰 추적 방지).
+경로: `scripts/seed-risk-watchlist.ts`, `db/upsert.ts:pinWatchlist`, watchlist(mig 003/006).
+
+#### 2. Detector A 라이브 활성화 `[DONE-판정]` — 위험토큰 9/9 lockbox 없음(burn&mint) → 활성 안 됨, Detector B/디페그가 커버. 진짜 lock&mint 들어오면 자동활성.
+P0-1 의 직접 귀결. lock&mint(xERC20 lockbox) 토큰(USD0++/crvUSD 등)이 watchlist 에 들어오면 `bridgeAuthLoop` 이 lockbox 적재 → `backingLoop` 이 자동 watch. 엔진/백테스트는 검증됨(Wormhole·xUSD GREEN). 활성 후 실데이터 FP 0% 모니터.
+경로: `scripts/snapshot-bridge-authority.ts` → `scripts/snapshot-backing.ts`, `supply-backing.ts`.
+
+### P1 — 명시 시그널 보완
+
+#### 3. IRM target-utilization/곡선까지 `[PARTIAL]`
+`checkIrmChange` 는 주소+baseRate 만. 곡선의 변곡점(target utilization) 변경도 알람으로. → `edge-schema.ts:IrmInfo` 에 `targetUtil` 추가, 스냅샷 채집(`snapshot-token.ts`), `diff.ts:checkIrmChange` 비교 + `alert-thresholds.ts:irmChange`.
+
+#### 4. 오라클 OracleType 변경 critical `[DONE]` ✅ (oracle_hardcoded_switch: MARKET/EXCHANGE_RATE→ORACLE_FREE critical)
+정상 피드(MARKET/EXCHANGE_RATE) → 하드코딩(ORACLE_FREE/고정) 전환을 critical 로. 필드(`OracleType`)는 이미 있음. → `diff.ts:checkOracleChange` 에 type 전이 규칙 + Tier 0(§6.7) 연계.
+
+#### 5. 저신뢰 dApp + 의외 담보채택 1급 `[DONE]` ✅ (minor 렌딩 + long-tail(altcoin) 담보 → critical 승격)
+`collateral_adoption` 은 있으나 "비주류 렌더가 갑자기 이상 자산 담보 채택"(Dolomite→alUSD 류) 승격이 약함. → `diff.ts` 신규 엣지 알람 + `alert-thresholds.ts:collateralAdoption.majorProtocols` 밖 + dApp 신뢰도 신호 결합.
+
+### P2 — 자금추적 깊이 `[GAP]`
+
+#### 6. NAV×supply 가치-드리프트 detector `[DONE]` ✅
+전문가 핵심 방법론(NAV×supply=총밸류 → 급락=유출). **구현 완료**: `snapshot/value-drift.ts`(순수 computeValueDrift) + `scripts/snapshot-value-drift.ts`(`npm run snapshot:valuedrift`) + cron 1h + config `valueDrift`. 데이터=`chain_supply_samples.supply_usd`(체인 가치 시계열). 윈도우 peak 대비 25%/40% 낙폭 + $10M 절대게이트 → value_drift 알람(유동성 카테고리). 합성검증 4/4. (지갑묶음 "비었다" 연계는 P2-7 후속.)
+
+#### 7. 지갑 이탈 7일 브릿지 in-flight FP 가드 `[DONE]` ✅
+`wallet_value_drop` 발화 시 급감 윈도우(3일) 아웃고잉 목적지가 known 브릿지(canonical OP-stack·ArbSys·L1 게이트웨이 + 검증 `bridge_authorities`)면 in-flight/settling 로 **info 다운그레이드**(페이지 억제, 기록 유지). `lib/wallet-bridge-guard.ts`(detectBridgeOutflow) + alchemy `getAssetTransfers` + `scripts/snapshot-wallets.ts`. 검증: API 동작·매칭·null-safe.
+
+#### 8. RWA 의도적 디스카운트 정상-라벨 `[DONE]` ✅
+mF-ONE 류(NAV 1.1, 오라클 0.98 의도적 디스카운트=청산방지)를 위험 하드코딩에서 제외. `classifyAsset` 에 RWA(mF-ONE 등) + `isIntentionalDiscountOracle`(rwa ∧ NAV/ORACLE_FREE/fixed) 헬퍼 → `diff.ts` oracle_hardcoded_switch critical→warning 다운그레이드 + 프론트 Tier0 RWA 면 `rwaDiscount`(오라클 칩 "RWA NAV(정상)", 위험 미승격). 비-RWA 고정 오라클은 여전히 critical.
+
+### P3 — 관측·성숙도 (후순위)
+- **9. 그래프-스테이트 타임라인 스크럽 `[GAP/deferred]`** — 전체 그래프 비영속. 공급/알림 시계열은 있음. 영속화 선행(저장비용 트레이드오프). `SNAPSHOT_JSON_DUMP` 게이트.
+- **10. 알람 학습 메모리 `[GAP/deferred]`** — v1 은 결정론 유지가 맞음. swap 지점 A(detector 계약)로 추후 에이전트형. `db/upsert.ts` source 계약.
+- **11. 실전 채널 전환 `[DONE-code/운영]`** — Discord/Telegram 코드 완료(D#9). `.env` 토큰 입력 + cron OPT-IN 은 운영자 단계.
+
+### 의도적 비구현 `[WONT]` (스코프 크립 방지)
+- 정량적 전염 시뮬레이션 — `attic/` 격리 유지(전문가 §4 "freeze 시대엔 무의미").
+- 컨트랙트 오디트 자동화 — 딜레이 커서 ROI 낮음.
+- 실시간 인덱서 — 1시간 배치 스냅샷으로 충분.
+- 유료 holder/archive 상시화 — 무료 RPC+Multicall3 충분, 유료는 옵션 유지.
+
+---
+**진행 현황**: ✅ 완료 — P0-1·P0-2·P1-4·P1-5·P2-6·P2-7·P2-8 (+ ouroboros 신호 제거). 🔜 남음 — P1-3(IRM 곡선, 낮은 가치) · P3(deferred).
+
+---
+*이 설명서는 사실 기반. 코드와 어긋나면 코드가 정답이고 이 문서를 고친다. 변경 "왜"는 §17 진행 이력.*

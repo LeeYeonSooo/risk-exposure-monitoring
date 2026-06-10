@@ -1,0 +1,18 @@
+{
+  "inputs": [
+    {
+      "input": "peg_probe:sUSD-curve-collateral@22295741",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:curve 0xA5407eAE9Ba41422680e2e00537571bcC53efBfD get_dy(3,1) @ethereum:22295741",
+      "price": 0.8331881
+    },
+    {
+      "input": "peg_probe:sUSD-curve-collateral@23582953",
+      "detector": "d08",
+      "measured": false,
+      "source": "asserted (no on-chain source given)",
+      "price": 0.998
+    }
+  ]
+}

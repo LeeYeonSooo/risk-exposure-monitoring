@@ -1,0 +1,71 @@
+{
+  "_invariant": "Real Morpho exposure graph for ezETH (Renzo LRT) at the 2024-04-24 depeg. ezETH supply REAL on-chain (1,044,370 @ block 19722430, 2024-04-24T03:02:11Z, 18dp, Alchemy archive). One Morpho Blue ezETH/WETH collateral edge with a MARKET-PRICE ezETH/ETH oracle (depeg_sensitive=true — averaged feed, which is why leveraged loops crossed the 86% LLTV and liquidated, realizing ~11 WETH bad debt). ezETH is pegged to ETH, not USD: the per-case peg_probe price is the ezETH/ETH ratio (peg=1.0 = 1 ETH-equiv). Depeg price injected per-case; the thin-pool ~0.27 Uniswap flash print is NOT used (the oracle registered the sustained ~0.80-0.85, not the flash).",
+  "meta": {
+    "token": "ezETH",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2024-04-24",
+    "snapshot_block": 19722430,
+    "node_count": 2,
+    "edge_count": 1,
+    "data_source": "on-chain Alchemy archive (ezETH 0xbf54…2110 @ block 19722430, supply 1.044M, 18dp) + Morpho ezETH/WETH market from the Gauntlet LRT Core Vault post-mortem (LLTV 0.86, ~7.6k WETH, market-price oracle)",
+    "coverage_pct": 0.7
+  },
+  "nodes": [
+    {
+      "node_id": "token:ezETH",
+      "type": "Token",
+      "label": "Renzo Restaked ETH (ezETH, LRT)",
+      "address": "0xbf5495Efe5DB9ce00f80364C8B423567e58d2110",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "ezETH",
+        "decimals": 18,
+        "total_supply": 1044370,
+        "holders": null,
+        "market_cap_usd": 3200000000,
+        "paused": false,
+        "_note": "Liquid restaking token pegged to ETH (Renzo restaked-ETH exchange rate). No native withdrawals at the time → only exit was a thin DEX pool. REZ-airdrop backlash (2024-04-24) triggered a loop-unwind cascade; ezETH fell to ~0.80-0.85 of ETH backing on a market-price oracle and liquidated leveraged loops. No backing failure of Renzo.",
+        "bridges": {}
+      }
+    },
+    {
+      "node_id": "protocol:morpho_blue",
+      "type": "DefiProtocol",
+      "label": "Morpho Blue",
+      "address": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "isolated_markets",
+        "core_contract": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+        "governance": "immutable",
+        "_note": "ezETH/WETH loop market funded largely by the Gauntlet LRT Core Vault; ~11 WETH bad debt realized, ~7 WETH socialized."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "ezETH-morpho_blue-collateral_isolated",
+      "source": "token:ezETH",
+      "target": "protocol:morpho_blue",
+      "classification": { "edge_type": "collateral_isolated", "venue_type": "isolated_market", "protocol_class": "lending" },
+      "core_weight": { "amount_token": 7400, "amount_usd": 23000000, "pct_of_supply": 0.0071, "pct_of_protocol_tvl": null },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "Market-price ezETH/ETH (averaged Chainlink/RedStone) — tracks the real DEX discount, NOT a hardcoded exchange rate",
+        "oracle_address": null,
+        "depeg_sensitive": true
+      },
+      "lending_risk": { "ltv": null, "lt": 0.86, "liquidation_bonus": null, "supply_cap": null, "borrow_cap": null, "reserve_factor": null, "utilization": 0.92, "is_frozen": false, "emode_category": null },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        { "loan_asset": "WETH", "collateral_asset": "ezETH", "lltv": 0.86, "market_size_usd": 23000000, "oracle_address": null, "utilization": 0.92, "ouroboros_risk": true, "vault_funded": true, "vault_funded_share_of_supply": null, "funding_vaults": [] }
+      ],
+      "top_pools": null,
+      "meta": { "snapshot_block": 19722430, "snapshot_ts": "2024-04-24", "verifiable_onchain": true, "confidence": "HIGH", "data_source": "Morpho ezETH/WETH, LLTV 0.86, market-price oracle — the regime where the depeg crossed the liquidation line and realized bad debt." }
+    }
+  ]
+}

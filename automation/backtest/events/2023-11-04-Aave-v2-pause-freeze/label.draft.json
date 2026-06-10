@@ -1,0 +1,43 @@
+{
+  "event": "Aave V2 Ethereum PAUSE / market freeze (2023-11-04) — Guardian paused the Aave V2 Ethereum pool in response to a white-hat-reported critical vulnerability; ALL interactions incl. WITHDRAWALS were blocked, so a fund's ~$80M USDC supplied to Aave V2 was STRANDED (could not withdraw) for ~9 days until governance restored it on 2023-11-13. No price event, no exploit of the asset, no supply/backing move — funds simply could not be withdrawn. Modeled by lending_risk.is_frozen flipping false -> true on the supply edge.",
+  "source": "Aave governance '[Aave v2/v3 security incident 04/11/2023]' (governance.aave.com/t/.../15335) + DeFiTeller bug-bounty report writeup + The Block / CryptoSlate / Unchained coverage. Aave V2 pause-vs-freeze semantics (paused pool blocks ALL interactions incl. withdrawals; frozen reserve still allows withdrawals) per Aave V2 LendingPool docs. is_frozen is host-fed from the reserve config / pool paused() flag; the ~$80M exposure is a representative fund position. See EVENT.md.",
+  "closed": false,
+  "measured": "MEASURED on-chain @ event blocks (Aave V2 LendingPool 0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9, USDC, Ethereum). The decisive freeze input — pool-level LendingPool.paused() — was READ, not asserted, and flips FALSE @block 18500000 (prev/active) -> TRUE @block 18508000 (curr/frozen), confirming the labelled active->paused transition on real chain state. getConfiguration(USDC) measured at BOTH blocks: ltv=0.80, lt=0.875 (8750 bps), reserve_factor=0.20, is_active=true. USDC totalSupply measured: 22.548B (prev) / 22.615B (curr). measured_pct=85.7% (6/7 inputs measured; only the representative $80M fund exposure stays asserted). ANOMALY (does NOT change the judgment): the per-reserve isFrozen BIT did NOT flip (false on both sides) — in Aave V2 the withdrawal-block is the WHOLE-POOL paused() flag, not the reserve frozen bit; the host-fed is_frozen flag in the snapshot correctly models that pool pause (matching EVENT.md's 'paused = LendingPool.paused()==true' semantics). MODELLED->MEASURED corrections written into snapshots: lt 0.85->0.875, ltv 0.0->0.80, reserve_factor 0.1->0.20, top_markets.lltv 0.85->0.875. The label judgment is UNCHANGED. See snapshots/fidelity.json.",
+  "cases": [
+    {
+      "id": "aave-v2-pause-funds-frozen",
+      "snapshot": "snapshots/frozen.json",
+      "prev": "snapshots/active.json",
+      "now": "2023-11-04T18:00:00Z",
+      "should_fire": [
+        {
+          "signal_type": "MARKET_FROZEN",
+          "edge_id": "USDC-aave_v2-supply",
+          "min_severity": "CRITICAL"
+        }
+      ],
+      "must_not_fire": [],
+      "beta": 2.0,
+      "note": "INCIDENT (active -> paused, funds stranded). prev=active.json (Aave V2 USDC supply, lending_risk.is_frozen=false, withdrawable, ~$80M exposure, 2023-11-03) -> snapshot=frozen.json (SAME market, is_frozen=true, 2023-11-04, Guardian PAUSED the V2 Ethereum pool). The ONLY field that changed is is_frozen false -> true; price, supply, oracle, utilization, exposure are all held constant, isolating the freeze mechanism. The monitor MUST emit MARKET_FROZEN on edge USDC-aave_v2-supply because a market that was active/withdrawable became frozen/paused — the fund's ~$80M USDC can no longer be withdrawn (it is stranded). Severity = CRITICAL: per the data contract MARKET_FROZEN is HIGH on a flip, escalating to CRITICAL when a systemic amount (>= $50M) is stranded; ~$80M of stranded supply clears the $50M systemic line, so CRITICAL is required (HIGH would under-rate a systemic freeze). This is a DISTINCT mechanism from depeg/exploit/supply events: no price moved, the asset was not exploited, no supply/backing change — funds simply cannot be withdrawn. In Aave V2 the V2 Ethereum market was PAUSED (LendingPool.paused()=true), which blocks ALL interactions including withdrawals — strictly more severe than a mere frozen reserve (which still allows withdrawals); is_frozen=true faithfully models the withdrawal-blocked stranded state. must_not_fire is empty: no price/oracle/supply signal is expected on a pure freeze, and the only correct alarm is MARKET_FROZEN itself. MEASURED ANCHOR: LendingPool(0x7d2768..).paused() was READ on-chain = false @block 18500000 (prev) -> true @block 18508000 (curr); this real false->true flip is exactly what the host-fed is_frozen=false->true models. (The per-reserve isFrozen bit measured false on both sides — V2 pauses the whole pool, not the reserve, as EVENT.md states; the pool pause is the withdrawal-blocking event.) getConfiguration(USDC) measured ltv=0.80 lt=0.875 reserve_factor=0.20 is_active=true at both blocks (snapshots corrected accordingly). The CRITICAL judgment is unchanged by the measurement."
+    },
+    {
+      "id": "aave-v2-active-no-freeze",
+      "snapshot": "snapshots/active.json",
+      "prev": "snapshots/active.json",
+      "now": "2023-11-03T12:00:00Z",
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "MARKET_FROZEN",
+          "edge_id": "USDC-aave_v2-supply"
+        }
+      ],
+      "max_emitted": {
+        "severity": "WARN",
+        "count": 0
+      },
+      "beta": 2.0,
+      "note": "CONTROL (active -> active, NO flip). prev and snapshot are the SAME file (active.json: Aave V2 USDC supply, lending_risk.is_frozen=false on BOTH sides) on 2023-11-03, before the pause. The market is active and fully withdrawable, so NO alarm may fire: MARKET_FROZEN must_not_fire, and there must be NO WARN-or-above signal at all (max_emitted WARN/0). This proves MARKET_FROZEN keys on an ACTUAL false -> true FLIP of is_frozen (a prev->curr delta), not on the market merely existing, nor on re-observing a healthy active market. A monitor that pages every time it re-reads an unchanged, withdrawable market is uselessly noisy. This is the negative control that makes the INCIDENT GREEN trustworthy: the same market, only the flip distinguishes alarm from silence. MEASURED: this control reuses active.json on both sides, whose is_frozen=false is anchored to the MEASURED LendingPool.paused()=false @block 18500000 (pre-pause); no flip exists on-chain, so no alarm is correct."
+    }
+  ]
+}

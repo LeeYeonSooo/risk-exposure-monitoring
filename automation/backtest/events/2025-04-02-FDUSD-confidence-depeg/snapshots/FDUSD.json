@@ -1,0 +1,96 @@
+{
+  "meta": {
+    "token": "FDUSD",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2025-04-02"
+  },
+  "nodes": [
+    {
+      "node_id": "token:FDUSD",
+      "type": "Token",
+      "address": "0xc5f0f7b66764F6ec8C8Dff7BA683102295E16409",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "total_supply": 2341751540,
+        "circulating": "home",
+        "market_cap_usd": 2200000000.0,
+        "symbol": "FDUSD",
+        "decimals": 18,
+        "paused": false,
+        "_note": "Centralized fiat-backed stablecoin (US T-bills via First Digital Trust). Apr-2-2025 confidence run on an insolvency allegation; secondary price dipped to ~0.87 then recovered. No on-chain backing failure: total supply stayed ~2.34B across the event.",
+        "snapshot_block": 22181387
+      },
+      "label": "First Digital USD (FDUSD)"
+    },
+    {
+      "node_id": "protocol:lender",
+      "type": "DefiProtocol",
+      "label": "Isolated lending market (FDUSD collateral)",
+      "address": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "isolated_markets",
+        "governance": "immutable",
+        "_note": "Representative isolated FDUSD/USDC collateral market (LT 0.91, market-price FDUSD/USD oracle). A fund lending against FDUSD would liquidate once the secondary price falls below the LT. Modeled as a MEDIUM-confidence exposure edge: the dominant FDUSD risk was secondary-market price, but any FDUSD-collateralized loan is liquidated at 0.87."
+      }
+    },
+    {
+      "node_id": "protocol:dex",
+      "type": "DefiProtocol",
+      "label": "DEX liquidity (FDUSD pairs)",
+      "address": "0x0000000000000000000000000000000000000002",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "amm",
+        "_note": "FDUSD secondary-market DEX liquidity. No liquidation path (no LT) → a price wobble is a real but non-catastrophic DEPEG (WARN), not an imminent-liquidation CRITICAL."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "FDUSD-lend-collateral_isolated",
+      "source": "token:FDUSD",
+      "target": "protocol:lender",
+      "classification": { "edge_type": "collateral_isolated", "venue_type": "isolated_market", "protocol_class": "lending" },
+      "core_weight": { "amount_token": 12000000, "amount_usd": 12000000, "pct_of_supply": 0.005, "pct_of_protocol_tvl": null },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "FDUSD/USD market-price oracle (tracks the real secondary discount, NOT a hardcoded 1.0)",
+        "oracle_address": null,
+        "depeg_sensitive": true
+      },
+      "lending_risk": { "ltv": null, "lt": 0.91, "liquidation_bonus": null, "supply_cap": null, "borrow_cap": null, "reserve_factor": null, "utilization": 0.6, "is_frozen": false, "emode_category": null },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        { "loan_asset": "USDC", "collateral_asset": "FDUSD", "lltv": 0.91, "market_size_usd": 12000000, "oracle_address": null, "utilization": 0.6, "ouroboros_risk": false, "vault_funded": false, "vault_funded_share_of_supply": null, "funding_vaults": [] }
+      ],
+      "top_pools": null,
+      "meta": { "snapshot_block": 22181387, "snapshot_ts": "2025-04-02", "verifiable_onchain": true, "confidence": "MEDIUM", "data_source": "Representative FDUSD/USDC isolated collateral market, LT 0.91, market-price FDUSD/USD oracle — the regime where a fund's FDUSD-collateralized loan liquidates once secondary price < LT." }
+    },
+    {
+      "edge_id": "FDUSD-dex-liquidity",
+      "source": "token:FDUSD",
+      "target": "protocol:dex",
+      "classification": { "edge_type": "dex_liquidity", "venue_type": "amm", "protocol_class": "dex" },
+      "core_weight": { "amount_token": 40000000, "amount_usd": 40000000, "pct_of_supply": 0.017, "pct_of_protocol_tvl": null },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "DEX spot (secondary FDUSD price)",
+        "oracle_address": null,
+        "depeg_sensitive": true
+      },
+      "lending_risk": { "ltv": null, "lt": null, "liquidation_bonus": null, "supply_cap": null, "borrow_cap": null, "reserve_factor": null, "utilization": null, "is_frozen": false, "emode_category": null },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": null,
+      "top_pools": null,
+      "meta": { "snapshot_block": 22181387, "snapshot_ts": "2025-04-02", "verifiable_onchain": true, "confidence": "MEDIUM", "data_source": "FDUSD secondary DEX liquidity, no liquidation path — a price wobble is a real WARN-grade exposure event, not a CRITICAL liquidation." }
+    }
+  ],
+  "_invariant": "FDUSD (First Digital USD) real on-chain supply 2341751540 @ block 22181387 (2025-04-02T12:59:59Z, 18dp, Alchemy archive). Confidence-run depeg: Justin Sun alleged First Digital Trust insolvency on Apr 2 2025; FDUSD fell to ~0.87 on secondary markets within hours, then recovered to ~0.99 by Apr 3. Backing (US T-bills) was CONTESTED publicly but NEVER impaired on-chain \u2014 supply moved <1% over the surrounding 2 days, so NO unbacked/supply detector should fire; only the price DEPEG is real. peg=1.0 USD; depeg price injected per-case."
+}

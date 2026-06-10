@@ -1,0 +1,82 @@
+{
+  "event": "PAID Network infinite-mint exploit 2021-03-05 (PAID V1, Ethereum mainnet). The REAL exploited contract is V1 0x8c8687fc965593dfb2f0b4eaefd55e9d8df348df (18 dp); the current 0x1614\u2026d787 is the POST-HACK V2 relaunch that did not exist in 2021. An attacker controlling the owner/minter key (legit owner() = 0x53bc21d38281d6acdfe0b92e0b534a19c90344cc) executed a BURN-THEN-REMINT: at 18:01:19Z (block 11979832, tx 0x3a48\u20264b9b) burned 59,471,745.571 PAID from 0xd500aa2c\u2026 to 0x0, then 110s later at 18:03:09Z (block 11979840, tx 0x4bb1\u202655a0) minted the IDENTICAL 59,471,745.571 PAID from 0x0 to NON-authorized exploiter 0x18738290af1aaf96f0acfa945c9c31ab21cd65be. totalSupply path: 594,717,455.710 -> 535,245,710.139 -> 594,717,455.710, so NET supply over the window is FLAT (zero change) and the mint is MATCHED by the equal burn \u2014 both net-supply and reconciliation monitoring are EVADED. The mint is exactly 10.00% of supply (1000 bps). The ONLY factual signal is a single-tx %-of-supply unauthorized mint. Off-chain price ~-85% ($2.86->$0.32) \u2014 PAID is a UTILITY token (no peg), so NOT a depeg. See EVENT.md.",
+  "source": "On-chain Alchemy ETH archive on PAID V1 0x8c8687fc965593dfb2f0b4eaefd55e9d8df348df (RE-CAPTURED & VERIFIED 2026-06-07): totalSupply @ blocks 11979831/11979832/11979840 = 594717455710e18 / 535245710139e18 / 594717455710e18; mint tx 0x4bb10927ea7afc2336033574b74ebd6f73ef35ac0db1bb96229627c9d77555a0 (0x0 -> 0x18738290\u2026, 59471745571e18, ts 1614967389); burn tx 0x3a483dd881d98541ebbd51e9a64daa700546bae9c2b33a30c2192f9981334b9b (0xd500aa2c\u2026 -> 0x0, 59471745571e18, ts 1614967279, 110s before mint); owner() 0x53bc21d38281d6acdfe0b92e0b534a19c90344cc; decimals() 18; calm windows 11948959 & 11961985 both 594717455710e18 with 0 mints/0 burns in \u00b11000 blk. Off-chain price context (NOT load-bearing, no peg): CoinGecko/Uniswap. See EVENT.md and snapshots/fidelity.json (90.9% measured).",
+  "closed": true,
+  "fidelity": "snapshots/fidelity.json \u2014 10/11 inputs MEASURED on-chain (90.9%); only the off-chain price (no peg, drives no signal) stays asserted. Every decisive supply/mint/burn/owner/decimals value re-read at the event blocks; all match the prior modelled numbers exactly (NO premise contradiction).",
+  "cases": [
+    {
+      "id": "unauthorized-infinite-mint-via-burn-remint",
+      "snapshot": "snapshots/PAID_mint.json",
+      "prev": "snapshots/PAID_pre.json",
+      "now": "2021-03-05T19:00:00Z",
+      "peg_probes": {},
+      "oracle_probes": {},
+      "should_fire": [
+        {
+          "signal_type": "LARGE_SINGLE_MINT",
+          "node_id": "token:PAID",
+          "min_severity": "HIGH",
+          "why": "A SINGLE Transfer from 0x0 (tx 0x4bb1\u202655a0) mints 59,471,745.571 PAID = EXACTLY 10.00% of supply (1000 bps) to 0x18738290\u2026cd65be, which is NOT the authorized owner/minter (owner() = 0x53bc\u202644cc) and not a home/allowlisted issuer. This single unauthorized 10%-of-supply mint is the attack's standalone on-chain fingerprint and the ONLY signal with a factual basis here \u2014 the burn-then-remint deliberately evades net-supply and reconciliation monitoring. Floor HIGH: an unauthorized 10%-of-supply mint is a near-certain real incident and urgent, but it is a single UNCORROBORATED signal (TOTAL_SUPPLY_SPIKE and UNMATCHED_MINT are factually evaded, so nothing corroborates it across signals) and 10% of supply is short of the near-total-supply / multi-signal-corroborated catastrophe that the CRITICAL ceiling is reserved for. HIGH admits a HIGH or CRITICAL emission as a pass."
+        }
+      ],
+      "must_not_fire": [
+        {
+          "signal_type": "TOTAL_SUPPLY_SPIKE",
+          "node_id": "token:PAID",
+          "why": "Net totalSupply over the window is FLAT: 594,717,455.710 (prev/pre-burn) -> 594,717,455.710 (curr/post-mint), zero change. The equal 110s-earlier burn (535,245,710.139 trough) exactly cancels the mint, so a change-in-total-supply / spike-over-baseline signal has factually NOTHING to spike on. This silence is the POINT: the burn-then-remint evades net-supply monitoring, leaving only the single-tx mint check."
+        },
+        {
+          "signal_type": "UNMATCHED_MINT",
+          "node_id": "token:PAID",
+          "why": "The 59,471,745.571 PAID mint is MATCHED by an EQUAL 59,471,745.571 PAID burn (0xd500aa2c\u2026 -> 0x0) just 110 seconds earlier \u2014 well within any minutes-scale reconciliation window. An equal-amount mint/burn pair within a short window reconciles to a matched pair (the way a legit cross-chain bridge rebalance looks), so an 'unmatched-mint' condition factually does NOT hold. This silence documents that the burn-remint evades reconciliation monitoring; only the single-tx %-of-supply mint catches the attack."
+        },
+        {
+          "signal_type": "DEPEG",
+          "node_id": "token:PAID",
+          "why": "PAID is a UTILITY token with NO $1 (or any) peg; peg_probes is intentionally empty. The ~-85% off-chain price crash ($2.86->$0.32) is supply-inflation market collapse, not a depeg from a reference peg. DEPEG must stay SILENT \u2014 firing it on a non-pegged token would be a false signal."
+        }
+      ],
+      "max_emitted": null,
+      "beta": 2.0,
+      "note": "INCIDENT case. snapshot PAID_mint.json (curr @ block 11979840, post-mint), prev PAID_pre.json (@ block 11979831, pre-burn \u2014 IDENTICAL 594,717,455.710 supply, so curr-vs-prev is flat), now 2021-03-05T19:00:00Z (~1h after, past short-window settle). Real exploited token is V1 0x8c86\u20268df. The single LARGE_SINGLE_MINT is the load-bearing expectation; TOTAL_SUPPLY_SPIKE + UNMATCHED_MINT are the EVASION FP-traps (net-flat supply, matched burn) and DEPEG is the no-peg FP-trap. MEASURED RE-CAPTURE 2026-06-07: totalSupply 594717455710e18 (prev @ 11979831) and 594717455710e18 (curr @ 11979840) read on-chain; mint Transfer(0x0->0x18738290\u2026, 59471745571e18, tx 0x4bb1\u202655a0, ts 1614967389) and burn Transfer(0xd500aa2c\u2026->0x0, 59471745571e18, tx 0x3a48\u20264b9b, ts 1614967279, gap 110s) read on-chain; owner()=0x53bc\u202644cc and decimals()=18 read on-chain. All match the prior modelled values exactly \u2014 no premise contradiction; the net-flat / matched-burn evasion is an on-chain fact."
+    },
+    {
+      "id": "calm-pre-exploit-fp-trap",
+      "snapshot": "snapshots/PAID_calm.json",
+      "prev": "snapshots/PAID_calm_prev.json",
+      "now": "2021-03-03T12:00:00Z",
+      "peg_probes": {},
+      "oracle_probes": {},
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "LARGE_SINGLE_MINT",
+          "node_id": "token:PAID",
+          "why": "Calm same-token baseline (~2021-03-03, days before the exploit): no mint events at all (mint_events empty). No single large mint occurs, so the single-tx %-of-supply mint check must stay SILENT. Guards against the mint detector firing on PAID's ordinary supply life."
+        },
+        {
+          "signal_type": "TOTAL_SUPPLY_SPIKE",
+          "node_id": "token:PAID",
+          "why": "Stable totalSupply across the calm window: prev (block 11948959) and curr (block 11961985) are both 594,717,455.710 PAID \u2014 flat, no upward excursion. Must stay SILENT; verifies the spike detector does not fire on flat pre-exploit supply."
+        },
+        {
+          "signal_type": "UNMATCHED_MINT",
+          "node_id": "token:PAID",
+          "why": "No mint or burn events in the calm window (both empty); there is no issuance to reconcile, authorized or otherwise. Must stay SILENT."
+        },
+        {
+          "signal_type": "DEPEG",
+          "node_id": "token:PAID",
+          "why": "No peg defined; price is normal market trading. peg_probes empty. Must stay SILENT."
+        }
+      ],
+      "max_emitted": {
+        "severity": "WARN",
+        "count": 0
+      },
+      "beta": 2.0,
+      "note": "NORMAL-PERIOD CONTROL on the SAME V1 token (0x8c86\u20268df), days before the exploit: flat supply (594,717,455.710 prev and curr), empty mint_events/burn_events, authorized_minters = legit owner 0x53bc\u202644cc. Asserts the noise ceiling: ZERO WARN-or-above signals (INFO housekeeping tolerable). Same-token calm baseline proving the mint-side signals are specific to the exploit, not to PAID-the-token. MEASURED RE-CAPTURE 2026-06-07: totalSupply @ 11948959 and @ 11961985 both 594717455710e18 read on-chain; eth_getLogs Transfer over \u00b11000 blocks at BOTH calm blocks returned 0 mints and 0 burns \u2014 the empty mint_events/burn_events premise is an on-chain fact, no contradiction."
+    }
+  ],
+  "ratified": "auto(reviewer)"
+}

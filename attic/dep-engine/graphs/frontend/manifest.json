@@ -1,0 +1,46 @@
+{
+  "tokens": [
+    {
+      "symbol": "stETH",
+      "file": "stETH.sim.json",
+      "block": 25242078,
+      "nodes": 47,
+      "edges": 50
+    },
+    {
+      "symbol": "wstETH",
+      "file": "wstETH.sim.json",
+      "block": 25242078,
+      "nodes": 32,
+      "edges": 32
+    },
+    {
+      "symbol": "rsETH",
+      "file": "rsETH.sim.json",
+      "block": 25242078,
+      "nodes": 14,
+      "edges": 15
+    },
+    {
+      "symbol": "weETH",
+      "file": "weETH.sim.json",
+      "block": 25249738,
+      "nodes": 47,
+      "edges": 47
+    },
+    {
+      "symbol": "WBTC",
+      "file": "WBTC.sim.json",
+      "block": 25249738,
+      "nodes": 39,
+      "edges": 38
+    },
+    {
+      "symbol": "USDe",
+      "file": "USDe.sim.json",
+      "block": 25249738,
+      "nodes": 46,
+      "edges": 47
+    }
+  ]
+}

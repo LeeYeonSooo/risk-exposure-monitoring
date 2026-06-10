@@ -1,0 +1,106 @@
+{
+  "_invariant": "LUNA oracle-freeze exposure graph (Venus $11.2M bad debt, 2022-05-13). Token node anchored to a REAL on-chain archive read of Wormhole LUNA on Ethereum (0xbd31ea82..06fa3d, decimals 6, totalSupply 1,441,854,478.623179 LUNA at block 14770000 / ts 1652480014 / 2022-05-13T22:13:34Z). One isolated lending-market edge with a Chainlink MARKET oracle. The frozen Chainlink round (updatedAt pinned, answer floored at $0.107 vs market ~$0.01) is injected per-case via oracle_probes, NOT stored on the edge (round history is not capturable via view calls). The real exploit was on BSC; capture.py cannot reach BSC, so the Ethereum twin token anchors the snapshot and the lending edge is modeled on isolated-market architecture.",
+  "meta": {
+    "token": "LUNA",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2022-05-13T22:13:34Z",
+    "snapshot_block": 14770000,
+    "node_count": 2,
+    "edge_count": 1,
+    "data_source": "on-chain Alchemy archive (Wormhole LUNA 0xbd31ea82..06fa3d @ block 14770000, decimals 6, totalSupply 1441854478.623179) + Venus/LUNA oracle-freeze post-mortems (BeInCrypto/Cointelegraph/Halborn/The Record/Venus statement)",
+    "coverage_pct": 0.5
+  },
+  "nodes": [
+    {
+      "node_id": "token:LUNA",
+      "type": "Token",
+      "label": "Terra LUNA (Wormhole)",
+      "address": "0xbd31ea8212119f94a611fa969881cba3ea06fa3d",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "LUNA",
+        "decimals": 6,
+        "total_supply": 1441854478,
+        "holders": null,
+        "market_cap_usd": 144000000,
+        "paused": false,
+        "_note": "Real on-chain totalSupply at block 14770000 (1,441,854,478.62 LUNA). During the 2022-05 collapse Chainlink LUNA/USD froze at its minAnswer floor ~$0.107 while market price crashed to ~$0.01; lending venues pricing off the frozen feed accrued bad debt (Venus ~$11.2M)."
+      }
+    },
+    {
+      "node_id": "protocol:isolated_lender",
+      "type": "DefiProtocol",
+      "label": "Isolated money market (Venus-class, modeled on isolated_markets architecture)",
+      "address": "0x0000000000000000000000000000000000000000",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "isolated_markets",
+        "core_contract": "0x0000000000000000000000000000000000000000",
+        "governance": "immutable",
+        "_note": "LUNA was an accepted lending collateral priced off a Chainlink LUNA/USD feed. Modeled as one isolated market so the engine reasons on architecture, not symbol."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "LUNA-isolated-collateral",
+      "source": "token:LUNA",
+      "target": "protocol:isolated_lender",
+      "classification": {
+        "edge_type": "collateral_isolated",
+        "venue_type": "isolated_market",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 230000000,
+        "amount_usd": 24000000,
+        "pct_of_supply": 0.1595,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "Chainlink LUNA/USD aggregator (underlying feed, no wrapper staleness check)",
+        "oracle_address": "0xea0c70019a3a015db8f0f6f7c8b21e2c64e7b9f5",
+        "depeg_sensitive": true
+      },
+      "lending_risk": {
+        "ltv": null,
+        "lt": 0.55,
+        "liquidation_bonus": 0.1,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": null,
+        "utilization": 0.85,
+        "is_frozen": false,
+        "emode_category": null
+      },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        {
+          "loan_asset": "USDC",
+          "collateral_asset": "LUNA",
+          "lltv": 0.55,
+          "market_size_usd": 24000000,
+          "oracle_address": "0xea0c70019a3a015dbf0f6f7c8b21e2c64e7b9f5",
+          "utilization": 0.85,
+          "ouroboros_risk": false,
+          "vault_funded": false,
+          "vault_funded_share_of_supply": null,
+          "funding_vaults": []
+        }
+      ],
+      "top_pools": null,
+      "meta": {
+        "snapshot_block": 14770000,
+        "snapshot_ts": "2022-05-13T22:13:34Z",
+        "verifiable_onchain": true,
+        "confidence": "MEDIUM",
+        "data_source": "LUNA accepted as lending collateral priced off Chainlink LUNA/USD; ~230M LUNA deposited at the frozen $0.107 (~$24M nominal), ~$13.5M borrowed -> ~$11.2M bad debt when feed froze."
+      }
+    }
+  ]
+}

@@ -1,0 +1,460 @@
+{
+  "_description": "Aave V3에서 감지할 모든 이벤트. 각 이벤트의 출처/시그니처/발생 시점/만드는 엣지를 정리.",
+  "_naming": "event_id는 'Contract.EventName' 형식",
+
+  "events": [
+    {
+      "event_id": "Pool.Supply",
+      "source_contract": "Pool",
+      "signature": "Supply(address indexed reserve, address user, address indexed onBehalfOf, uint256 amount, uint16 indexed referralCode)",
+      "triggered_by": "사용자가 Pool.supply() 또는 supplyWithPermit() 호출",
+      "description": "사용자가 자산 예치. underlying이 Pool로 이동하고 onBehalfOf에게 aToken mint.",
+      "produces_edges": [
+        {
+          "edge_type": "supply",
+          "from": "user (msg.sender)",
+          "to": "Pool",
+          "asset": "reserve",
+          "amount": "amount"
+        },
+        {
+          "edge_type": "supply_on_behalf",
+          "when": "user != onBehalfOf",
+          "from": "user",
+          "to": "onBehalfOf",
+          "asset": "reserve",
+          "amount": "amount",
+          "note": "위임 케이스에서만 추가 생성"
+        }
+      ],
+      "related_side_events": ["aToken.Transfer(0x0 → onBehalfOf)", "aToken.Mint", "Pool.ReserveDataUpdated"]
+    },
+
+    {
+      "event_id": "Pool.Withdraw",
+      "source_contract": "Pool",
+      "signature": "Withdraw(address indexed reserve, address indexed user, address indexed to, uint256 amount)",
+      "triggered_by": "사용자가 Pool.withdraw() 호출 (amount=uint256.max면 전액)",
+      "description": "사용자의 aToken을 burn하고 Pool에서 underlying을 to에게 전송.",
+      "produces_edges": [
+        {
+          "edge_type": "withdraw",
+          "from": "Pool",
+          "to": "to",
+          "asset": "reserve",
+          "amount": "amount"
+        }
+      ],
+      "related_side_events": ["aToken.Transfer(user → 0x0)", "aToken.Burn", "Pool.ReserveDataUpdated"]
+    },
+
+    {
+      "event_id": "Pool.Borrow",
+      "source_contract": "Pool",
+      "signature": "Borrow(address indexed reserve, address user, address indexed onBehalfOf, uint256 amount, InterestRateMode interestRateMode, uint256 borrowRate, uint16 indexed referralCode)",
+      "triggered_by": "사용자가 Pool.borrow() 호출. interestRateMode=2(Variable)만 유효.",
+      "description": "onBehalfOf에게 variableDebtToken mint, msg.sender가 underlying 수령. user≠onBehalfOf면 credit delegation.",
+      "produces_edges": [
+        {
+          "edge_type": "borrow",
+          "from": "Pool",
+          "to": "user (msg.sender, 돈 받는 사람)",
+          "asset": "reserve",
+          "amount": "amount",
+          "metadata": "borrowRate, rateMode"
+        },
+        {
+          "edge_type": "debt_to",
+          "when": "user != onBehalfOf (credit delegation)",
+          "from": "user",
+          "to": "onBehalfOf (빚 떠안는 사람)",
+          "asset": "reserve",
+          "amount": "amount",
+          "note": "강한 신뢰 의존성"
+        }
+      ],
+      "related_side_events": ["variableDebtToken.Transfer(0x0 → onBehalfOf)", "variableDebtToken.Mint", "Pool.ReserveDataUpdated"]
+    },
+
+    {
+      "event_id": "Pool.Repay",
+      "source_contract": "Pool",
+      "signature": "Repay(address indexed reserve, address indexed user, address indexed repayer, uint256 amount, bool useATokens)",
+      "triggered_by": "Pool.repay() 또는 repayWithATokens() 호출",
+      "description": "repayer가 underlying(또는 aToken)을 내고 user의 빚 감소. useATokens=true면 aToken으로 갚음.",
+      "produces_edges": [
+        {
+          "edge_type": "repay",
+          "from": "repayer",
+          "to": "Pool",
+          "asset": "reserve",
+          "amount": "amount",
+          "metadata": "useATokens"
+        },
+        {
+          "edge_type": "debt_reduced_for",
+          "when": "repayer != user (대신 갚기)",
+          "from": "repayer",
+          "to": "user",
+          "asset": "reserve",
+          "amount": "amount"
+        }
+      ],
+      "related_side_events": ["variableDebtToken.Transfer(user → 0x0)", "variableDebtToken.Burn", "Pool.ReserveDataUpdated"]
+    },
+
+    {
+      "event_id": "Pool.LiquidationCall",
+      "source_contract": "Pool",
+      "signature": "LiquidationCall(address indexed collateralAsset, address indexed debtAsset, address indexed user, uint256 debtToCover, uint256 liquidatedCollateralAmount, address liquidator, bool receiveAToken)",
+      "triggered_by": "HF<1인 user에 대해 누구든 Pool.liquidationCall() 호출",
+      "description": "liquidator가 user의 빚을 대신 갚고 user의 담보를 보너스 포함해 가져감. 가장 강한 엣지.",
+      "produces_edges": [
+        {
+          "edge_type": "liquidation",
+          "from": "liquidator",
+          "to": "user (borrower)",
+          "asset": null,
+          "amount": null,
+          "metadata": "collateralAsset, debtAsset, debtToCover, liquidatedCollateralAmount, receiveAToken",
+          "note": "관계 엣지 — 가장 강함"
+        },
+        {
+          "edge_type": "repay_via_liquidation",
+          "from": "liquidator",
+          "to": "Pool",
+          "asset": "debtAsset",
+          "amount": "debtToCover",
+          "metadata": "borrower"
+        },
+        {
+          "edge_type": "collateral_seized",
+          "when": "receiveAToken == false",
+          "from": "Pool",
+          "to": "liquidator",
+          "asset": "collateralAsset",
+          "amount": "liquidatedCollateralAmount"
+        },
+        {
+          "edge_type": "atoken_transfer",
+          "when": "receiveAToken == true",
+          "from": "borrower",
+          "to": "liquidator",
+          "asset": "collateralAsset",
+          "amount": "liquidatedCollateralAmount",
+          "metadata": "trigger=liquidation"
+        }
+      ],
+      "close_factor": "일반: 50% / HF<0.95: 100% / dust: 100%",
+      "bonus": "담보 자산의 LB 적용"
+    },
+
+    {
+      "event_id": "Pool.FlashLoan",
+      "source_contract": "Pool",
+      "signature": "FlashLoan(address indexed target, address initiator, address indexed asset, uint256 amount, InterestRateMode interestRateMode, uint256 premium, uint16 indexed referralCode)",
+      "triggered_by": "Pool.flashLoan() 또는 flashLoanSimple() 호출",
+      "description": "한 트랜잭션 안에서 receiver가 자산을 빌렸다 갚음. mode=2면 안 갚고 borrow로 전환 가능.",
+      "produces_edges": [
+        {
+          "edge_type": "flashloan",
+          "when": "interestRateMode == 0 (일반)",
+          "from": "Pool",
+          "to": "target (receiver)",
+          "asset": "asset",
+          "amount": "amount",
+          "metadata": "initiator, premium, atomic=true"
+        },
+        {
+          "edge_type": "borrow",
+          "when": "interestRateMode == 2 (안 갚고 빚으로 전환)",
+          "from": "Pool",
+          "to": "initiator",
+          "asset": "asset",
+          "amount": "amount",
+          "metadata": "triggered_by_flashloan=true"
+        }
+      ],
+      "premium": "0.05% (5 bps), 전액 Treasury로",
+      "note": "다중 자산 호출 시 자산별 1개씩 발생"
+    },
+
+    {
+      "event_id": "Pool.ReserveUsedAsCollateralEnabled",
+      "source_contract": "Pool",
+      "signature": "ReserveUsedAsCollateralEnabled(address indexed reserve, address indexed user)",
+      "triggered_by": "setUserUseReserveAsCollateral(asset, true)",
+      "description": "사용자가 특정 자산을 담보로 사용하도록 토글",
+      "produces_edges": [],
+      "node_update": "user 노드의 metadata.collateral_enabled_assets에 reserve 추가"
+    },
+
+    {
+      "event_id": "Pool.ReserveUsedAsCollateralDisabled",
+      "source_contract": "Pool",
+      "signature": "ReserveUsedAsCollateralDisabled(address indexed reserve, address indexed user)",
+      "triggered_by": "setUserUseReserveAsCollateral(asset, false)",
+      "description": "담보 해제",
+      "produces_edges": [],
+      "node_update": "user 노드의 metadata.collateral_enabled_assets에서 reserve 제거"
+    },
+
+    {
+      "event_id": "Pool.UserEModeSet",
+      "source_contract": "Pool",
+      "signature": "UserEModeSet(address indexed user, uint8 categoryId)",
+      "triggered_by": "setUserEMode(categoryId). 0이면 해제",
+      "description": "사용자의 eMode 카테고리 설정. LST 루핑 검출의 핵심 신호.",
+      "produces_edges": [],
+      "node_update": "user 노드의 metadata.emode_category 업데이트"
+    },
+
+    {
+      "event_id": "Pool.IsolationModeTotalDebtUpdated",
+      "source_contract": "Pool",
+      "signature": "IsolationModeTotalDebtUpdated(address indexed asset, uint256 totalDebt)",
+      "triggered_by": "isolation 자산을 통한 borrow/repay/liquidation 시",
+      "description": "isolation 자산의 시스템 전체 차입금 추적. debt ceiling 임박 시 시그널.",
+      "produces_edges": [],
+      "node_update": "asset 노드의 metadata.current_isolation_debt 업데이트"
+    },
+
+    {
+      "event_id": "Pool.MintedToTreasury",
+      "source_contract": "Pool",
+      "signature": "MintedToTreasury(address indexed reserve, uint256 amountMinted)",
+      "triggered_by": "mintToTreasury(asset) 호출 시 누적 이자를 Collector에 발행",
+      "description": "Reserve Factor로 누적된 이자가 Treasury로 흐름",
+      "produces_edges": [
+        {
+          "edge_type": "treasury_accrual",
+          "from": "reserve (a_token 컨트랙트)",
+          "to": "Collector (treasury)",
+          "asset": "underlying",
+          "amount": "amountMinted"
+        }
+      ]
+    },
+
+    {
+      "event_id": "Pool.DeficitCreated",
+      "source_contract": "Pool",
+      "signature": "DeficitCreated(address indexed user, address indexed debtAsset, uint256 amountCreated)",
+      "triggered_by": "청산 후에도 회수 불가능한 부채 발생 시",
+      "description": "Bad debt가 시스템에 인식되는 시점. 위기 신호.",
+      "produces_edges": [],
+      "produces_signals": ["bad_debt_realized"]
+    },
+
+    {
+      "event_id": "Pool.DeficitCovered",
+      "source_contract": "Pool",
+      "signature": "DeficitCovered(address indexed reserve, address caller, uint256 amountCovered)",
+      "triggered_by": "eliminateReserveDeficit() 호출 (거버넌스/Umbrella)",
+      "description": "Bad debt가 보충되는 시점",
+      "produces_edges": [],
+      "node_update": "reserve 노드의 deficit 차감"
+    },
+
+    {
+      "event_id": "Pool.PositionManagerApproved",
+      "source_contract": "Pool",
+      "signature": "PositionManagerApproved(address indexed user, address indexed positionManager)",
+      "triggered_by": "사용자가 자기 포지션 관리 권한을 다른 주소에 위임",
+      "description": "신뢰 의존성 엣지. 자동화 봇/dApp이 사용자 대신 담보 ON/OFF, eMode 변경 가능.",
+      "produces_edges": [
+        {
+          "edge_type": "position_delegation",
+          "from": "user",
+          "to": "positionManager",
+          "metadata": "action=approved"
+        }
+      ]
+    },
+
+    {
+      "event_id": "Pool.PositionManagerRevoked",
+      "source_contract": "Pool",
+      "signature": "PositionManagerRevoked(address indexed user, address indexed positionManager)",
+      "triggered_by": "권한 위임 해제",
+      "description": "위임 관계 종료",
+      "produces_edges": [
+        {
+          "edge_type": "position_delegation",
+          "from": "user",
+          "to": "positionManager",
+          "metadata": "action=revoked"
+        }
+      ]
+    },
+
+    {
+      "event_id": "aToken.Transfer",
+      "source_contract": "각 aToken (aUSDC, aWETH 등)",
+      "signature": "Transfer(address indexed from, address indexed to, uint256 value)",
+      "triggered_by": "ERC-20 전송. mint(from=0x0), burn(to=0x0), 일반 전송 3가지 패턴.",
+      "description": "사용자 간 직접 aToken 전송이 핵심. Pool 이벤트만 보면 놓치는 '숨은 엣지'.",
+      "produces_edges": [
+        {
+          "edge_type": "atoken_transfer",
+          "when": "from != 0x0 AND to != 0x0 (일반 전송만)",
+          "from": "from",
+          "to": "to",
+          "asset": "underlying (aToken이 아니라 기초 자산)",
+          "amount": "value (underlying 단위)",
+          "note": "mint/burn은 Pool.Supply/Withdraw 이벤트에 묶여 처리되므로 별도 엣지 X"
+        }
+      ],
+      "important": "분석 모듈은 from/to가 0x0인지 반드시 체크해서 분류"
+    },
+
+    {
+      "event_id": "variableDebtToken.BorrowAllowanceDelegated",
+      "source_contract": "각 variableDebtToken",
+      "signature": "BorrowAllowanceDelegated(address indexed fromUser, address indexed toUser, address asset, uint256 amount)",
+      "triggered_by": "사용자가 자기 차입 권한을 다른 주소에 위임 (approveDelegation)",
+      "description": "Credit Delegation의 직접 증거. delegatee가 delegator를 onBehalfOf로 borrow 가능.",
+      "produces_edges": [
+        {
+          "edge_type": "credit_delegation",
+          "from": "fromUser (delegator)",
+          "to": "toUser (delegatee)",
+          "asset": "asset",
+          "amount": "amount (허용 한도)"
+        }
+      ]
+    },
+
+    {
+      "event_id": "PoolConfigurator.CollateralConfigurationChanged",
+      "source_contract": "PoolConfigurator",
+      "signature": "CollateralConfigurationChanged(address indexed asset, uint256 ltv, uint256 liquidationThreshold, uint256 liquidationBonus)",
+      "triggered_by": "거버넌스가 자산의 LTV/LT/LB 변경",
+      "description": "리스크 파라미터 변경. 기존 차입자의 HF가 즉시 영향받음.",
+      "produces_edges": [],
+      "node_update": "asset 노드의 ltv/lt/lb 업데이트, config_history에 변경 이력 추가",
+      "produces_signals": ["risk_parameter_tightening (낮춤 시)"]
+    },
+
+    {
+      "event_id": "PoolConfigurator.ReservePaused",
+      "source_contract": "PoolConfigurator",
+      "signature": "ReservePaused(address indexed asset, bool paused)",
+      "triggered_by": "긴급 상황 시 자산 일시정지",
+      "description": "해당 자산의 모든 행위 차단. 강한 위기 신호.",
+      "produces_edges": [],
+      "node_update": "asset 노드의 paused 플래그",
+      "produces_signals": ["asset_paused"]
+    },
+
+    {
+      "event_id": "PoolConfigurator.ReserveInitialized",
+      "source_contract": "PoolConfigurator",
+      "signature": "ReserveInitialized(address indexed asset, address indexed aToken, address stableDebtToken, address indexed variableDebtToken, address interestRateStrategyAddress)",
+      "triggered_by": "거버넌스가 새 자산을 Aave에 등록",
+      "description": "새 자산이 추가되면 분석 모듈도 새 aToken/debtToken을 모니터링 시작",
+      "produces_edges": [],
+      "node_update": "새 자산 노드 + a_token 노드 + variable_debt_token 노드 생성",
+      "produces_signals": ["new_asset_listed"]
+    },
+
+    {
+      "event_id": "PoolConfigurator.DebtCeilingChanged",
+      "source_contract": "PoolConfigurator",
+      "signature": "DebtCeilingChanged(address indexed asset, uint256 oldDebtCeiling, uint256 newDebtCeiling)",
+      "triggered_by": "isolation 자산의 시스템 전체 차입 한도 변경",
+      "description": "Isolation 자산의 최대 잠재 손실액 결정 요소",
+      "produces_edges": [],
+      "node_update": "asset 노드의 debt_ceiling"
+    },
+
+    {
+      "event_id": "PoolConfigurator.EModeCategoryAdded",
+      "source_contract": "PoolConfigurator",
+      "signature": "EModeCategoryAdded(uint8 indexed categoryId, uint16 ltv, uint16 lt, uint16 lb, address oracle, string label)",
+      "triggered_by": "거버넌스가 새 eMode 카테고리 추가/변경",
+      "description": "예: 'ETH correlated' 카테고리. LTV 93% 같은 상향 적용.",
+      "produces_edges": [],
+      "node_update": "market 노드의 emode_categories에 추가/업데이트"
+    },
+
+    {
+      "event_id": "AaveOracle.AssetSourceUpdated",
+      "source_contract": "AaveOracle",
+      "signature": "AssetSourceUpdated(address indexed asset, address indexed source)",
+      "triggered_by": "거버넌스가 자산의 가격 소스 변경",
+      "description": "오라클 의존성 변경. 드물지만 매우 중요한 사건.",
+      "produces_edges": [
+        {
+          "edge_type": "price_dependency",
+          "action": "기존 엣지 제거 + 새 엣지 생성",
+          "from": "asset",
+          "to": "source (새 price_feed 또는 price_adapter)"
+        }
+      ]
+    },
+
+    {
+      "event_id": "GHO.FacilitatorBucketLevelUpdated",
+      "source_contract": "GHO 토큰 컨트랙트",
+      "signature": "FacilitatorBucketLevelUpdated(address indexed facilitator, uint256 oldLevel, uint256 newLevel)",
+      "triggered_by": "facilitator가 GHO mint 또는 burn 할 때",
+      "description": "GHO 발행/소각 추적. newLevel > oldLevel이면 mint, 아니면 burn.",
+      "produces_edges": [
+        {
+          "edge_type": "gho_facilitator_mint",
+          "when": "newLevel > oldLevel",
+          "from": "facilitator",
+          "to": "GHO",
+          "amount": "newLevel - oldLevel",
+          "metadata": "bucket_used=newLevel"
+        },
+        {
+          "edge_type": "gho_facilitator_burn",
+          "when": "newLevel < oldLevel",
+          "from": "facilitator",
+          "to": "GHO",
+          "amount": "oldLevel - newLevel"
+        }
+      ]
+    },
+
+    {
+      "event_id": "GSM.SellAsset",
+      "source_contract": "GSM (GHO Stability Module)",
+      "signature": "SellAsset(address indexed originator, address indexed receiver, uint256 underlyingAmount, uint256 ghoAmount, uint256 fee)",
+      "triggered_by": "사용자가 USDC를 GSM에 주고 GHO 받음 (= GHO 가격 > $1 시 차익거래)",
+      "description": "GHO 페그 안정화 메커니즘. 시장 GHO 공급 증가 → 가격 하락",
+      "produces_edges": [
+        {
+          "edge_type": "gsm_swap",
+          "from": "originator (user)",
+          "to": "GSM",
+          "asset_in": "USDC",
+          "asset_out": "GHO",
+          "amount": "underlyingAmount",
+          "metadata": "fee, direction=usdc_to_gho"
+        }
+      ]
+    },
+
+    {
+      "event_id": "GSM.BuyAsset",
+      "source_contract": "GSM",
+      "signature": "BuyAsset(address indexed originator, address indexed receiver, uint256 underlyingAmount, uint256 ghoAmount, uint256 fee)",
+      "triggered_by": "사용자가 GHO를 GSM에 주고 USDC 받음 (= GHO 가격 < $1 시 차익거래)",
+      "description": "GHO 공급 감소 → 가격 상승",
+      "produces_edges": [
+        {
+          "edge_type": "gsm_swap",
+          "from": "originator",
+          "to": "GSM",
+          "asset_in": "GHO",
+          "asset_out": "USDC",
+          "amount": "ghoAmount",
+          "metadata": "fee, direction=gho_to_usdc"
+        }
+      ]
+    }
+  ]
+}

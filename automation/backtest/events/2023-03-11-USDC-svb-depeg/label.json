@@ -1,0 +1,76 @@
+{
+  "event": "USDC depeg 2023-03-11 \u2014 Silicon Valley Bank reserve scare; ~$3.3B of Circle reserves stranded at failed SVB, USDC fell to ~$0.87 before the US backstop restored peg by 2023-03-13. Largest regulated stablecoin collateral in DeFi (~$39B supply).",
+  "source": "Circle blog, Reuters, CoinDesk, The Block, Curve 3pool on-chain skew, US Joint Statement 2023-03-12 \u2014 see EVENT.md. Peg prices MEASURED on-chain via the venue's actual oracle, Chainlink USDC/USD feed 0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6.",
+  "closed": true,
+  "cases": [
+    {
+      "id": "depeg-market-oracle-sighted-venue",
+      "snapshot": "snapshots/USDC.json",
+      "now": "2023-03-11T09:00:11Z",
+      "peg_probes": {
+        "USDC-lender-collateral_market_oracle": {
+          "price": 0.8833,
+          "peg": 1.0,
+          "asset_class": "stable",
+          "source": "onchain:chainlink 0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6 @ethereum:16803515"
+        }
+      },
+      "should_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "USDC-lender-collateral_market_oracle",
+          "min_severity": "CRITICAL"
+        }
+      ],
+      "must_not_fire": [],
+      "beta": 2.0,
+      "note": "A ~11.7% depeg of USDC (price 0.8833 vs peg 1.0) on a SIGHTED market-oracle lending venue. A stablecoin tolerance band is essentially zero (this is >10x past any benign band), and \u226510% on a liquidation venue is catastrophic: leveraged/looped USDC-collateral positions liquidate above the 1x LT line and the impairment accrues as realized loss. The largest stablecoin in DeFi losing ~12% of its value is the canonical page-now event. DEPEG must fire CRITICAL. (peg price MEASURED on-chain via Chainlink @block 16803515 \u2014 was asserted)"
+    },
+    {
+      "id": "depeg-hardcoded-oracle-blind-venue",
+      "snapshot": "snapshots/USDC.json",
+      "now": "2023-03-11T09:00:11Z",
+      "peg_probes": {
+        "USDC-lender-collateral_hardcoded_oracle": {
+          "price": 0.8833,
+          "peg": 1.0,
+          "asset_class": "stable",
+          "source": "onchain:chainlink 0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6 @ethereum:16803515"
+        }
+      },
+      "should_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "USDC-lender-collateral_hardcoded_oracle",
+          "min_severity": "HIGH"
+        }
+      ],
+      "must_not_fire": [],
+      "beta": 2.0,
+      "note": "Same ~11.7% USDC impairment, but the venue hardcodes USDC at $1.00 (the typical blue-chip config). On-chain LT is never breached so liquidations are muted \u2014 but the impairment is REAL latent bad debt the monitor must surface. A blind oracle on a liquidation venue with a catastrophic (\u226510%) impairment is exactly the failure mode where silence is most dangerous (the venue pretends the collateral is whole). One notch below the sighted venue \u2192 HIGH. (peg price MEASURED on-chain via Chainlink @block 16803515 \u2014 was asserted)"
+    },
+    {
+      "id": "depeg-recovered-fp-trap",
+      "snapshot": "snapshots/USDC.json",
+      "now": "2023-03-13T16:00:00Z",
+      "peg_probes": {
+        "USDC-lender-collateral_market_oracle": {
+          "price": 0.9983,
+          "peg": 1.0,
+          "asset_class": "stable",
+          "source": "onchain:chainlink 0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6 @ethereum:16820114"
+        }
+      },
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "USDC-lender-collateral_market_oracle"
+        }
+      ],
+      "beta": 2.0,
+      "note": "FP-trap: after the US backstop USDC recovered to ~$0.9983 by 2023-03-13 (a 0.17% residual wobble, well within normal stablecoin secondary-market noise and inside the stable band). A recovered peg must NOT raise a DEPEG. Guards against a hair-trigger that keeps paging after the event resolves. (peg price MEASURED on-chain via Chainlink @block 16820114 \u2014 was asserted)"
+    }
+  ],
+  "ratified": "auto(reviewer)"
+}

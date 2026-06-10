@@ -1,0 +1,5 @@
+{
+  "verdict": "APPROVE",
+  "summary": "Data-only re-capture: both cases (SUPPLY_DELTA_ANOMALY>=HIGH + DEPEG CRITICAL incident; calm FP-trap) byte-identical in logic vs prior label.json; measured on-chain totalSupply still supports the premise (baseline 144.21M->trough 92.00M = -36.20% contraction, calm flat +0.0175%, depeg -98.5%); fidelity marks all on-chain supply reads measured=true and off-chain depeg/par/exposure measured=false; edge/node keys exist in every snapshot.",
+  "draft_sha256": "ba596039c3f748de25a72159a8fbed659cff156ba100119fd307d11af16187f1"
+}

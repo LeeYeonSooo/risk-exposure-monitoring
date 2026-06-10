@@ -1,0 +1,43 @@
+# Auto-deploy the backend to Fly.io whenever code in backend/ changes on main.
+#
+# One-time setup (done by repo admin):
+#   1. Create a Fly.io account at https://fly.io (free tier).
+#   2. From the repo root: `flyctl auth login && flyctl launch --no-deploy --copy-config --name chainspiral-simulator-backend`
+#      (this writes a fly.toml app entry — should match the one already in backend/fly.toml)
+#   3. Add the Alchemy API key as a Fly secret:
+#        flyctl secrets set ALCHEMY_API_KEY=<key> --app chainspiral-simulator-backend
+#   4. Generate a Fly deploy token:
+#        flyctl tokens create deploy --app chainspiral-simulator-backend
+#   5. Add it to GitHub Actions secrets as FLY_API_TOKEN
+#      (Settings → Secrets and variables → Actions → New repository secret)
+#
+# Once those are in place, every push to main that touches backend/ triggers
+# this workflow and ships a new image to Fly.io.
+
+name: Deploy backend to Fly.io
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/fly-deploy.yml"
+  workflow_dispatch:    # also runnable manually from the Actions tab
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: fly-backend
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy
+        working-directory: backend
+        run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

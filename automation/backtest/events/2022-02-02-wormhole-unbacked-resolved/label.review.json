@@ -1,0 +1,10 @@
+{
+  "verdict": "APPROVE",
+  "summary": "Verified from EVENT.md+snapshots: breach backing 21<<93,769 whETH (UNBACKED HIGH single-poll), 2-poll breach->resolved with backing 113,433>93,769 (UNBACKED_RESOLVED INFO), over-backed calm control silent; off-chain Solana supply disclosed MEDIUM and breach/resolve robust to supply error; node_id token:whETH consistent.",
+  "per_case": {
+    "wormhole-unbacked-at-drain": "FAITHFUL — breach snapshot has backing 21 WETH (on-chain MEASURED) vs remote_supply 93,769 whETH; ratio 0.022% is a genuine catastrophic Sigma-supply>>backing detectable from one poll. should_fire UNBACKED_SUPPLY >= HIGH on token:whETH is defensible (single-poll catastrophic gap, CRITICAL reserved for multi-poll corroboration). node_id exists in snapshot.",
+    "wormhole-unbacked-then-resolved": "FAITHFUL — poll 1 = wormhole_breach.json (backing 21 < supply -> breach tracked), poll 2 = wormhole_resolved.json (backing 113,433 > supply 93,769 -> clean); harness grades last poll. should_fire UNBACKED_RESOLVED >= INFO is a correct recovery notice for a tracked breach clearing when backing crosses back above supply. Two-poll structure is a fair model of the real Feb-3 drain -> Feb-4 Jump 120k-ETH restore.",
+    "wormhole-backed-calm": "FAITHFUL — resolved snapshot alone: backing 113,433 > supply 93,769 (1.21x over-collateralized, the safe direction). must_not_fire UNBACKED_SUPPLY + max_emitted {WARN,0} is a genuine over-backed negative control guarding against a hair-trigger that flags solvent bridges. node_id token:whETH consistent."
+  },
+  "draft_sha256": "c93414ac37f2f1443ac5e5e9f975f545e1ec882f832449001654d66903ce38c5"
+}

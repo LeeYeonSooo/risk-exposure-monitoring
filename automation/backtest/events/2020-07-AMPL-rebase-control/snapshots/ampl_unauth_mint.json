@@ -1,0 +1,53 @@
+{
+  "_invariant": "adversarial: rebasing token WITH a 20M unauthorized single mint (12.57% of supply) ON TOP of the MEASURED organic rebase -> the rebasing flag must NOT blind the single-tx mint check. total_supply = MEASURED organic 07-16 supply (139.08M, blk 10467200) + the SYNTHETIC 20M mint = 159.08M. The 20M mint to 0xattacker is a synthetic adversarial construct (no such mint historically occurred on AMPL); the organic supply it rides on is measured.",
+  "_measured": {
+    "organic_total_supply": "ethereum totalSupply @ block 10467200 (2020-07-16T00:00Z): 139076241299642019 (9dp) = 139,076,241.30 AMPL (the real organic rebase, NO synthetic mint)",
+    "total_supply_construction": "measured organic 139,076,241.30M + synthetic 20.0M mint = 159,076,241.30M (159076241299642019). The +20M is the adversarial injection, NOT on-chain.",
+    "mint_pct": "synthetic 20.0M / 159.08M total = 12.57% of supply — a large double-digit single-tx unauthorized mint; HIGH floor unchanged (label modelled 16.7%).",
+    "supply_samples": "ethereum totalSupply @ 00:00 UTC on 2020-07-14 (blk 10454328), 07-15 (blk 10460734), then the constructed unauth total (measured organic 07-16 + 20M synthetic)",
+    "organic_window_no_mint": "Transfer logs over [10460734..10467200] (rebase->unauth day, 6466 blocks, 4927 Transfers): 0 mints (from 0x0), 0 burns (to 0x0) — so the 20M mint_event is the SOLE mint in this case, a clean synthetic injection with no real-mint contamination.",
+    "asserted": "the mint_event (amount 20M, to 0xattacker, tx 0xevil), authorized_minters [0xampl_policy], and rebasing:true are SYNTHETIC/host-fed (placeholder identifiers — no such mint occurred historically)"
+  },
+  "meta": {
+    "token": "AMPL",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2020-07-16T00:00:00Z"
+  },
+  "nodes": [
+    {
+      "node_id": "token:AMPL",
+      "type": "Token",
+      "label": "Ampleforth",
+      "address": "0xD46bA6D942050d489DBd938a2C909A5d5039A161",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "AMPL",
+        "decimals": 9,
+        "total_supply": 159076241299642019,
+        "supply_samples": [
+          114267479711606026,
+          130739374379361927,
+          159076241299642019
+        ],
+        "rebasing": true,
+        "mint_events": [
+          {
+            "amount": 20000000000000000,
+            "to": "0xattacker",
+            "tx_hash": "0xevil",
+            "chain": "ethereum",
+            "home": false,
+            "ts": 1
+          }
+        ],
+        "authorized_minters": [
+          "0xampl_policy"
+        ],
+        "market_cap_usd": 200000000
+      }
+    }
+  ],
+  "edges": []
+}

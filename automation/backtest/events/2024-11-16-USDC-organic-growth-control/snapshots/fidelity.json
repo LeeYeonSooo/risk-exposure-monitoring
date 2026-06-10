@@ -1,0 +1,86 @@
+{
+  "inputs": [
+    {
+      "input": "supply_sample[0]@20000000",
+      "detector": "d10",
+      "measured": true,
+      "source": "onchain:erc20.totalSupply USDC@eth:20000000"
+    },
+    {
+      "input": "supply_sample[1]@20200000",
+      "detector": "d10",
+      "measured": true,
+      "source": "onchain:erc20.totalSupply USDC@eth:20200000"
+    },
+    {
+      "input": "supply_sample[2]@20400000",
+      "detector": "d10",
+      "measured": true,
+      "source": "onchain:erc20.totalSupply USDC@eth:20400000"
+    },
+    {
+      "input": "supply_sample[3]@20600000",
+      "detector": "d10",
+      "measured": true,
+      "source": "onchain:erc20.totalSupply USDC@eth:20600000"
+    },
+    {
+      "input": "supply_sample[4]@20800000",
+      "detector": "d10",
+      "measured": true,
+      "source": "onchain:erc20.totalSupply USDC@eth:20800000"
+    },
+    {
+      "input": "supply_sample[5]@21000000",
+      "detector": "d10",
+      "measured": true,
+      "source": "onchain:erc20.totalSupply USDC@eth:21000000"
+    },
+    {
+      "input": "supply_sample[6]@21200000",
+      "detector": "d10",
+      "measured": true,
+      "source": "onchain:erc20.totalSupply USDC@eth:21200000"
+    },
+    {
+      "input": "total_supply@21200000",
+      "detector": "d05",
+      "measured": true,
+      "source": "onchain:erc20.totalSupply USDC@eth:21200000",
+      "value": 27286857008694271
+    },
+    {
+      "input": "mint_event[0]:0xc55c5e61",
+      "detector": "d10",
+      "measured": true,
+      "source": "onchain:Transfer(0x0->treasury) USDC tx 0xc55c5e61..230b @eth:21198496",
+      "amount": 38112731531,
+      "to": "0xf9a0106251467fff1ff03e8609aa74fc55a2a45e"
+    },
+    {
+      "input": "mint_event[1]:1.5B_test_vector",
+      "detector": "d10",
+      "measured": false,
+      "source": "asserted:labeled authorized-issuance test vector (549 bps; non-vacuous gate)",
+      "amount": 1500000000000000
+    },
+    {
+      "input": "authorized_minters",
+      "detector": "d10",
+      "measured": false,
+      "source": "asserted:Circle treasury recipient 0xf9a0..a45e (research/config allowlist, not on-chain isMinter)"
+    },
+    {
+      "input": "backing:fiat_reserves",
+      "detector": "d09",
+      "measured": false,
+      "source": "asserted:Circle monthly reserve attestation (off-chain, no remote/bridge wrapper)"
+    },
+    {
+      "input": "peg:USDC",
+      "detector": "d08",
+      "measured": false,
+      "source": "asserted:USDC held $1.00 (CoinGecko/DefiLlama); no depeg-sensitive market edge in snapshot"
+    }
+  ]
+}

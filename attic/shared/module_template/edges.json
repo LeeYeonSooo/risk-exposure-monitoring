@@ -1,0 +1,32 @@
+{
+  "_description": "{프로토콜명} 모듈이 생성하는 모든 엣지 타입 정의.",
+  "_protocol": "{프로토콜 식별자}",
+  "_format": "각 엣지는 nodes.json의 노드 사이를 연결",
+
+  "edges": {
+    "example_supply": {
+      "category": "direct_flow",
+      "from_role": "user",
+      "to_role": "protocol_pool",
+      "asset_required": true,
+      "amount_required": true,
+      "source_event": "Pool.Supply",
+      "meaning": "사용자가 자산을 풀에 예치",
+      "metadata_fields": ["onBehalfOf", "referralCode"]
+    }
+  },
+
+  "_categories_summary": {
+    "direct_flow": ["supply", "withdraw", "borrow", "repay"],
+    "delegation": ["..."],
+    "liquidation": ["..."],
+    "static": ["price_dependency"]
+  },
+
+  "_TODO": [
+    "1. shared/vocab/edge_types.md 에서 본인 프로토콜에 적용되는 엣지 타입 선택",
+    "2. 각 타입의 from_role/to_role, 필수 필드 명시",
+    "3. 표준 어휘에 없는 새 엣지 필요하면 팀 채널 + PR 제안",
+    "4. 실제 예시: modules/aave/edges.json 참고 (19개 엣지 타입)"
+  ]
+}

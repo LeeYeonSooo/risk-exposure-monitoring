@@ -1,0 +1,93 @@
+{
+  "_invariant": "prev: USDN(Ethereum) supply 107.4M (May-10, mid-contagion, pre the sharp exit week).",
+  "meta": {
+    "token": "USDN",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2022-05-10T12:00:00Z",
+    "snapshot_block": 14745349,
+    "data_source": "on-chain Alchemy archive: USDN(Ethereum) totalSupply @ block 14745349"
+  },
+  "nodes": [
+    {
+      "node_id": "token:USDN",
+      "type": "Token",
+      "label": "Neutrino USD (Ethereum-bridged)",
+      "address": "0x674C6Ad92Fd080e4004b2312b45f796a192D27a0",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "USDN",
+        "decimals": 18,
+        "total_supply": 107369748000000000000000000,
+        "supply_samples": [
+          176288958000000000000000000,
+          150000000000000000000000000,
+          130000000000000000000000000,
+          120000000000000000000000000,
+          107369748000000000000000000,
+          107369748000000000000000000
+        ],
+        "market_cap_usd": 85895798
+      }
+    },
+    {
+      "node_id": "protocol:curve",
+      "type": "DefiProtocol",
+      "label": "Curve",
+      "address": "0x0000000000000000000000000000000000000ccc",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "isolated_markets"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "USDN-curve-pool",
+      "source": "token:USDN",
+      "target": "protocol:curve",
+      "classification": {
+        "edge_type": "collateral_isolated",
+        "venue_type": "isolated_market",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 32210924,
+        "amount_usd": 25768739,
+        "pct_of_supply": 0.3,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "USDN/USD market",
+        "oracle_address": null,
+        "depeg_sensitive": true
+      },
+      "lending_risk": {
+        "ltv": null,
+        "lt": 0.85,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": null,
+        "utilization": 0.7,
+        "is_frozen": false,
+        "emode_category": null
+      },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        {
+          "loan_asset": "USDC",
+          "collateral_asset": "USDN",
+          "lltv": 0.85,
+          "market_size_usd": 25768739,
+          "oracle_address": null,
+          "utilization": 0.7
+        }
+      ]
+    }
+  ]
+}

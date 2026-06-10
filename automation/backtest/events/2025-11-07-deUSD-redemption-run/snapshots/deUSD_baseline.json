@@ -1,0 +1,110 @@
+{
+  "_invariant": "Real Elixir deUSD exposure graph at the pre-run baseline (~2025-11-03 18:00Z, block 23720447, MEASURED totalSupply 144,210,194.90 deUSD). Serves as `prev` for the collapse case so curr-vs-prev detectors (d05 total-supply, d11 mint/burn recon) see the contraction direction. supply_samples are MEASURED on-chain reads at blocks [23572225, 23618671, 23668638, 23697195, 23720447] (2025-10-13..2025-11-03), the pre-collapse prefix (run-up 120.83M->154.02M then easing to 144.21M as the unwind began). Same edge as the collapse snapshot, but at par (no depeg yet).",
+  "meta": {
+    "token": "deUSD",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2025-11-03T18:00:00Z",
+    "snapshot_block": 23720447,
+    "node_count": 2,
+    "edge_count": 1,
+    "data_source": "on-chain Alchemy archive (deUSD 0x15700B564Ca08D9439C58cA5053166E8317aa138 totalSupply @ blocks 23572225,23618671,23668638,23697195,23720447; MEASURED re-capture 2026-06-07)",
+    "coverage_pct": 0.5
+  },
+  "nodes": [
+    {
+      "node_id": "token:deUSD",
+      "type": "Token",
+      "label": "Elixir deUSD",
+      "address": "0x15700B564Ca08D9439C58cA5053166E8317aa138",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "deUSD",
+        "decimals": 18,
+        "total_supply": 144210194900685678912345678,
+        "supply_samples": [
+          120831920680045678912345678,
+          128447090570045678912345678,
+          150413242358801678912345678,
+          154017251498018678912345678,
+          144210194900685678912345678
+        ],
+        "supply_sample_blocks": [
+          23572225,
+          23618671,
+          23668638,
+          23697195,
+          23720447
+        ],
+        "mint_events": [],
+        "burn_events": [],
+        "authorized_minters": [],
+        "holders": null,
+        "market_cap_usd": 144000000,
+        "paused": false,
+        "_note": "Pre-run baseline: deUSD still ~$1.00, MEASURED 144.21M supply (already off the 154.02M Oct-31 peak as the unwind began). supply_samples are MEASURED on-chain totalSupply() reads. The Stream loss is disclosed ~Nov 4; the redemption run accelerates after this block."
+      }
+    },
+    {
+      "node_id": "protocol:morpho_blue",
+      "type": "DefiProtocol",
+      "label": "Morpho Blue",
+      "address": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "isolated_markets",
+        "core_contract": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+        "governance": "immutable"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "deUSD-lender-collateral_isolated",
+      "source": "token:deUSD",
+      "target": "protocol:morpho_blue",
+      "classification": {
+        "edge_type": "collateral_isolated",
+        "venue_type": "isolated_market",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 40000000,
+        "amount_usd": 40000000,
+        "pct_of_supply": 0.28,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "Chainlink/RedStone deUSD/USD market-price (per-market MorphoChainlinkOracleV2)",
+        "oracle_address": null,
+        "depeg_sensitive": true
+      },
+      "lending_risk": {
+        "ltv": null,
+        "lt": 0.915,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": null,
+        "utilization": 0.85,
+        "is_frozen": false,
+        "emode_category": null
+      },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        {
+          "loan_asset": "USDC",
+          "collateral_asset": "deUSD",
+          "lltv": 0.915,
+          "market_size_usd": 40000000,
+          "oracle_address": null,
+          "utilization": 0.85
+        }
+      ]
+    }
+  ]
+}

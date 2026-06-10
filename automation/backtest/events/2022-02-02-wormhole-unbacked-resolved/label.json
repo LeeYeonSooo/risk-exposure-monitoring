@@ -1,0 +1,66 @@
+{
+  "event": "Wormhole bridge hack & resolution 2022-02-02\u219204 \u2014 attacker minted 120,000 unbacked whETH on Solana, redeemed ~93,750 to drain Ethereum custody from ~93,769 WETH to ~21 WETH (UNBACKED breach), then Jump Crypto deposited 120,000 ETH restoring custody to ~113,433 WETH (> ~93,769 whETH obligation) \u2192 breach RESOLVED. Tests the unbacked-resolve path. See EVENT.md.",
+  "source": "Chainalysis, Halborn, Merkle Science, ImmuneBytes, Blockworks; on-chain WETH.balanceOf(Wormhole custody 0x3ee18B2214AFF97000D974cf647E7C347E8fa585) @ blocks 14130250/14139392 (Alchemy archive) \u2014 see EVENT.md",
+  "closed": true,
+  "cases": [
+    {
+      "id": "wormhole-unbacked-at-drain",
+      "snapshot": "snapshots/wormhole_breach.json",
+      "now": "2022-02-03T02:00:00Z",
+      "should_fire": [
+        {
+          "signal_type": "UNBACKED_SUPPLY",
+          "node_id": "token:whETH",
+          "min_severity": "HIGH"
+        }
+      ],
+      "must_not_fire": [],
+      "beta": 2.0,
+      "note": "BREACH poll. At the drain block (Ethereum 14130250, Feb 3 2022) the Wormhole custody held only ~21 WETH backing against ~93,769 whETH still circulating on Solana \u2014 a near-total backing collapse (backing \u2248 0.02% of the ~93,769 whETH obligation, \u03a3 circulating \u226b backing). This is a textbook UNBACKED_SUPPLY state detectable from ONE snapshot (backing < circulating). HIGH is defensible from a single poll: the gap is catastrophic and unambiguous, far past any rounding/in-flight-bridge skew, so it must page on first sighting. (Not asserting CRITICAL here because CRITICAL in our convention is reserved for breaches corroborated across multiple polls; a single poll proving a catastrophic gap is a confident HIGH.) The custody WETH backing is REAL on-chain (MEASURED); the ~93,769 whETH supply is researcher-asserted off-chain (Solana, unreadable by an Ethereum-only key) \u2014 MEDIUM confidence, but the backing crash (93,769\u219221 WETH) dwarfs any plausible supply uncertainty, so the signal must still fire. node_id token:whETH."
+    },
+    {
+      "id": "wormhole-unbacked-then-resolved",
+      "snapshot": "snapshots/wormhole_resolved.json",
+      "now": "2022-02-04T12:00:00Z",
+      "polls": [
+        {
+          "snapshot": "snapshots/wormhole_breach.json",
+          "now": "2022-02-03T02:00:00Z"
+        },
+        {
+          "snapshot": "snapshots/wormhole_resolved.json",
+          "now": "2022-02-04T12:00:00Z"
+        }
+      ],
+      "should_fire": [
+        {
+          "signal_type": "UNBACKED_RESOLVED",
+          "node_id": "token:whETH",
+          "min_severity": "INFO"
+        }
+      ],
+      "must_not_fire": [],
+      "beta": 2.0,
+      "note": "RESOLVE case \u2014 MULTI-POLL through ONE decision engine. Poll 1 reads the breach snapshot (~21 WETH backing vs ~93,769 whETH \u2192 UNBACKED, the breach is observed and tracked). Poll 2 (~34h later, Feb 4 block 14139392) reads the resolved snapshot: Jump Crypto's 120,000-ETH deposit restored custody to ~113,433 WETH, which now EXCEEDS the ~93,769 whETH obligation, so \u03a3 supply is back within backing and the invariant backing \u2265 supply holds again. A previously-flagged unbacked breach that clears across polls is exactly UNBACKED_RESOLVED, emitted at INFO (a recovery notice, not a page). The harness grades the LAST poll, so this verifies the RESOLVE fires only AFTER the breach was first tracked and then crossed back above supply \u2014 not on a token that was never breached. Backing is MEASURED on-chain (21\u2192113,433 WETH); the ~93,769 whETH supply is asserted off-chain \u2014 MEDIUM confidence; the resolve is driven by the on-chain backing crossing back above the asserted supply. node_id token:whETH."
+    },
+    {
+      "id": "wormhole-backed-calm",
+      "snapshot": "snapshots/wormhole_resolved.json",
+      "now": "2022-02-10T12:00:00Z",
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "UNBACKED_SUPPLY",
+          "node_id": "token:whETH"
+        }
+      ],
+      "max_emitted": {
+        "severity": "WARN",
+        "count": 0
+      },
+      "beta": 2.0,
+      "note": "CONTROL / FP-trap \u2014 a single calm poll, days after the resolve, on the fully-backed custody (~113,433 WETH backing > ~93,769 whETH circulating). Over-collateralized is the SAFE direction: backing comfortably covers supply, so UNBACKED_SUPPLY must stay SILENT and no WARN-or-higher alert may fire (max_emitted WARN:0). This guards against a hair-trigger that would treat an over-backed bridge (the normal healthy state, where locked backing slightly exceeds minted remote supply) as unbacked \u2014 which would make every solvent cross-chain token look breached and destroy trust in the signal. node_id token:whETH."
+    }
+  ],
+  "ratified": "auto(reviewer)"
+}

@@ -1,0 +1,71 @@
+{
+  "event": "Aave V3 (Ethereum) changed the on-chain price-oracle SOURCE for wstETH collateral on 2024-03-18 (block 19461331, 2024-03-18T11:17:47Z): AaveOracle.getSourceOfAsset(wstETH) flipped from OLD 0x8b6851156023f4f5a66f68bea80851c3d905ac93 to NEW 0xb4ab0c94159bc2d8c133946e7241368fc2f2a010 (BGD CAPO WstETHPriceCapAdapter). The oracle is the trust root of a governance-controlled mono_pool lender; a SOURCE swap on a major collateral must be surfaced for human review (benign CAPO hardening vs malicious repoint are indistinguishable on-chain). No price/peg moved \u2014 pure config event. See EVENT.md.",
+  "source": "On-chain archive reads of AaveOracle.getSourceOfAsset(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0) at blocks 19461330/19461331 (source addresses + swap block MEASURED). Governance rationale: Aave governance forum 'BGD. Correlated-asset price oracle' (t/16133), bgd-labs/aave-capo + aave-dao/aave-price-feeds repos, Aave docs (Oracle/CAPO), Chaos Labs / The Block / BeInCrypto CAPO post-mortems. See EVENT.md.",
+  "closed": false,
+  "fidelity_ref": "snapshots/fidelity.json",
+  "measured_note": "RE-CAPTURE (Ethereum archive, 2026-06): the decisive d04a input \u2014 AaveOracle.getSourceOfAsset(wstETH) \u2014 was read on-chain at BOTH the prev (19461330) and curr (19461331) blocks via selector 0x92bf2be0, confirming the OLD 0x8b68...ac93 -> NEW 0xb4ab...a010 swap exactly as labelled (premise NOT contradicted). The previously hand-null reserve-config edge fields (lt/ltv/caps/reserveFactor/emode/is_frozen) were also MEASURED at both blocks via aave_v3.getConfiguration(wstETH) and getReserveData (IRM): ltv 0.785, lt 0.81, liqBonus 1.06, reserveFactor 0.15, supplyCap 1,250,000, borrowCap 24,000, emode 1, is_frozen false, IRM 0x7b8fa454...00f8bb8d \u2014 and the full config WORD plus the IRM were byte-identical across the swap block, confirming this was a PURE oracle-source event (no LTV/freeze/IRM delta). measured_pct = 80% (4/5 inputs measured; the only asserted input is the _none snapshot's absent source, which is a deliberately MODELED FP-trap \u2014 an absent field is not an observable on-chain state, so it has no block to read). Judgment (should_fire / must_not_fire / severity / case ids / now) is UNCHANGED from label.json; only measured data + provenance notes changed.",
+  "cases": [
+    {
+      "id": "wsteth-aave-oracle-source-swap",
+      "snapshot": "snapshots/wsteth_oracle_new.json",
+      "prev": "snapshots/wsteth_oracle_old.json",
+      "now": "2024-03-18T12:00:00Z",
+      "should_fire": [
+        {
+          "signal_type": "ORACLE_CHANGE",
+          "edge_id": "wstETH-aave_v3-collateral",
+          "min_severity": "HIGH"
+        }
+      ],
+      "must_not_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "wstETH-aave_v3-collateral"
+        }
+      ],
+      "beta": 2.0,
+      "note": "INCIDENT. Between prev (oracle source 0x8b68...ac93, MEASURED @19461330) and snapshot (oracle source 0xb4ab...a010, MEASURED @19461331) the price-oracle source for wstETH collateral on Aave V3 was REPLACED (real on-chain swap at block 19461331, re-confirmed via getSourceOfAsset selector 0x92bf2be0). The oracle is the trust root of this mono_pool lender: every wstETH LTV / health-factor / liquidation reads from getSourceOfAsset(wstETH). The rest of the reserve config (lt 0.81 / ltv 0.785 / caps / IRM / is_frozen false) was MEASURED byte-identical across the swap block, so this is unambiguously a SOURCE-only change, not a config or freeze event. At the moment of the swap a monitor CANNOT distinguish benign CAPO hardening (what this actually was) from a malicious/compromised governance repoint to an attacker feed \u2014 both look identical (the source address changed). So ORACLE_CHANGE MUST fire on wstETH-aave_v3-collateral at >= HIGH: a trust-root change on a major collateral is page-worthy for human review (HIGH floor; CRITICAL also defensible). must_not_fire DEPEG: wstETH did NOT depeg here \u2014 no price/peg moved; this is a config/source change, not a price event, and raising DEPEG would be a wrong-signal false positive."
+    },
+    {
+      "id": "wsteth-aave-no-change-calm",
+      "snapshot": "snapshots/wsteth_oracle_new.json",
+      "prev": "snapshots/wsteth_oracle_new.json",
+      "now": "2024-05-01T12:00:00Z",
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "ORACLE_CHANGE",
+          "edge_id": "wstETH-aave_v3-collateral"
+        },
+        {
+          "signal_type": "ORACLE_PAUSE",
+          "edge_id": "wstETH-aave_v3-collateral"
+        }
+      ],
+      "max_emitted": {
+        "severity": "WARN",
+        "count": 0
+      },
+      "note": "CONTROL (calm, no change). prev and snapshot are the SAME file (oracle source 0xb4ab...a010 on BOTH sides, MEASURED @19461331) weeks after the migration \u2014 the source did NOT change and the oracle was not removed. No oracle alarm may fire: ORACLE_CHANGE must_not_fire and ORACLE_PAUSE must_not_fire, with NO WARN-or-above signal on the snapshot (max_emitted WARN/0). This proves the signal keys on an ACTUAL source swap (a prev->curr delta), not merely on the market's existence or on re-observing a present source. A monitor that pages every time it re-reads an unchanged, healthy oracle is uselessly noisy."
+    },
+    {
+      "id": "newly-listed-asset-not-a-swap",
+      "snapshot": "snapshots/wsteth_oracle_new.json",
+      "prev": "snapshots/wsteth_oracle_none.json",
+      "now": "2024-03-18T12:00:00Z",
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "ORACLE_CHANGE",
+          "edge_id": "wstETH-aave_v3-collateral"
+        }
+      ],
+      "max_emitted": {
+        "severity": "WARN",
+        "count": 0
+      },
+      "note": "FP-TRAP (benign field population). prev has the oracle source ABSENT/null (wsteth_oracle_none.json \u2014 a deliberately MODELED, unmeasured input: a newly-listed asset whose source field is not yet populated, or a transient collector miss); snapshot has the source PRESENT (0xb4ab...a010, MEASURED @19461331). An ABSENT->present transition is NOT a source SWAP: there was no prior source to swap away from, so nothing was re-pointed \u2014 the field merely became populated. Firing ORACLE_CHANGE here would be a false positive on benign first-observation / new-listing data, exactly the noise that erodes trust in the trust-root signal. ORACLE_CHANGE must_not_fire and no WARN-or-above on the snapshot (max_emitted WARN/0). This forces the signal to require a real OLD-address -> NEW-address delta (two concrete distinct sources), not null -> address."
+    }
+  ],
+  "ratified": "auto(reviewer)"
+}

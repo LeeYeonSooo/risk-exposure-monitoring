@@ -1,0 +1,78 @@
+{
+  "event": "Ampleforth (AMPL) by-design REBASE \u2014 FP-discipline control + adversarial unauthorized-mint recall (July 2020). AMPL 0xD46bA6D942050d489DBd938a2C909A5d5039A161 (9 dp) is a REBASING/elastic-supply token: its totalSupply is mutated DAILY (~02:00 UTC) by a global scalar to push price toward target. A rebase restates EVERY wallet's balance proportionally (non-dilutive) and emits NO mint_event to any single address. MEASURED on-chain (this re-capture): AMPL's real July-2020 daily totalSupply ran 74.05M (07-12) -> 89.84M (07-13) -> 114.27M (07-14) -> 130.74M (07-15) -> 139.08M (07-16) \u2014 double-digit positive rebases EVERY day, and across the prev->rebase window (6406 blocks, 6917 Transfers) there were 0 mints/0 burns to/from 0x0 (the rebase is a gonsPerFragment scalar restatement, not a mint). CASE 1 (CONTROL): the real +14.42% by-design positive rebase (114.27M->130.74M, mint_events empty) must NOT trip aggregate supply-change detectors (TOTAL_SUPPLY_SPIKE / SUPPLY_DELTA_ANOMALY). CASE 2 (INCIDENT/adversarial): a single SYNTHETIC 20.0M AMPL (12.57% of the 159.08M = measured-organic-139.08M + 20M) unauthorized mint to 0xattacker (tx 0xevil, NOT in authorized_minters [0xampl_policy]) BEYOND the rebase MUST still fire LARGE_SINGLE_MINT \u2014 the rebasing flag suppresses only the aggregate supply-delta family, never the single-tx mint check. See EVENT.md.",
+  "source": "AMPL rebase mechanism + July-2020 positive-rebase run: Collab+Currency (mkt cap ~$13.5M->$700M, ~month of daily positive rebases) https://medium.com/collab-currency/the-rise-and-fall-and-rise-and-fall-of-ampleforth-part-i-cda716dea663 ; Finematics (daily rebase, expand >5% above target, proportional) https://finematics.com/ampleforth-explained/ ; Chainlink case study (24h rebase ~02:00 UTC, stateless) https://chain.link/case-studies/ampleforth . MEASURED on-chain via Alchemy ethereum archive: ERC20 totalSupply @ blocks 10454328/10460734/10467200 (2020-07-14/15/16 00:00Z) = 114.27M/130.74M/139.08M; eth_getLogs Transfer over the two rebase-day windows = 0 zero-address mints/burns. Snapshots host-fed rebasing:true. The 20.0M unauthorized mint is a synthetic adversarial construct (no such mint historically occurred). See EVENT.md / snapshots/fidelity.json.",
+  "closed": true,
+  "cases": [
+    {
+      "id": "ampl-by-design-rebase-quiet",
+      "snapshot": "snapshots/ampl_rebase.json",
+      "prev": "snapshots/ampl_prev.json",
+      "now": "2020-07-15T00:00:00Z",
+      "peg_probes": {},
+      "oracle_probes": {},
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "TOTAL_SUPPLY_SPIKE",
+          "node_id": "token:AMPL",
+          "why": "totalSupply went 114.27M (prev, MEASURED @ blk 10454328) -> 130.74M (curr, MEASURED @ blk 10460734) = +14.42% in one day, but this is a BY-DESIGN POSITIVE REBASE on a rebasing:true token. MEASURED on-chain: AMPL's real July-2020 daily supply ran 74.05M->89.84M->114.27M->130.74M->139.08M \u2014 double-digit positive rebases every single day, and across the prev->rebase window (6406 blocks, 6917 Transfers) there were 0 mints/0 burns to/from 0x0. A +14.42% supply increase with NO zero-address Transfer is AMPL's NORMAL designed behavior, not an anomaly. Firing a supply-spike here would be the EXACT false alarm this control guards \u2014 a naive day-over-day supply diff would alert CRITICAL on every rebase for a month. The host-fed rebasing flag must suppress the aggregate supply-delta family. Must stay SILENT."
+        },
+        {
+          "signal_type": "SUPPLY_DELTA_ANOMALY",
+          "node_id": "token:AMPL",
+          "why": "Same real +14.42% by-design rebase (MEASURED 114.27M->130.74M). SUPPLY_DELTA_ANOMALY (aggregate supply-change-over-baseline) must NOT treat a rebase scalar as anomalous issuance: a rebase restates EVERY wallet proportionally and is non-dilutive (holder of 1% still holds 1%), and mint_events is EMPTY \u2014 confirmed on-chain: 0 mints in the rebase window, so no tokens were minted to any address. The supply elasticity is by-design for rebasing:true tokens, so the aggregate-delta anomaly has nothing legitimate to flag. Must stay SILENT."
+        }
+      ],
+      "max_emitted": {
+        "severity": "WARN",
+        "count": 0
+      },
+      "beta": 2.0,
+      "note": "CONTROL / FP-DISCIPLINE. prev ampl_prev.json (MEASURED ~114.27M @ blk 10454328, rebasing:true, mint_events []), snapshot ampl_rebase.json (MEASURED ~130.74M @ blk 10460734 = +14.42% real positive rebase, rebasing:true, mint_events []), now 2020-07-15T00:00:00Z. Asserts the noise ceiling: ZERO WARN-or-above (INFO housekeeping tolerable). The +14.42% is AMPL's actual day-over-day July-2020 rebase (the modelled +11% understated it); the rebase emitted 0 zero-address Transfers (measured). Proves the aggregate supply-delta detectors are suppressed by the host-fed rebasing flag and do not false-alarm on elastic supply."
+    },
+    {
+      "id": "ampl-rebasing-unauthorized-mint",
+      "snapshot": "snapshots/ampl_unauth_mint.json",
+      "prev": "snapshots/ampl_rebase.json",
+      "now": "2020-07-16T00:00:00Z",
+      "peg_probes": {},
+      "oracle_probes": {},
+      "should_fire": [
+        {
+          "signal_type": "LARGE_SINGLE_MINT",
+          "node_id": "token:AMPL",
+          "min_severity": "HIGH",
+          "why": "A SINGLE SYNTHETIC mint_event of 20.0M AMPL (tx 0xevil) to 0xattacker = 12.57% of the ~159.08M supply (20M / [measured-organic-139.08M + 20M]), delivered to ONE address in ONE transaction. 0xattacker is NOT in authorized_minters ([0xampl_policy]). This is BEYOND the rebase: the rebase restates all balances proportionally and emits NO mint_event (measured: 0 zero-address Transfers in the organic window 10460734->10467200), whereas this is a discrete mint to a single attacker address. A rebasing token is NOT immune to a real unauthorized mint \u2014 the host-fed rebasing flag must suppress only the aggregate supply-delta family (TOTAL_SUPPLY_SPIKE / SUPPLY_DELTA_ANOMALY), NEVER the single-tx mint check. Floor HIGH: an unauthorized ~12.57%-of-supply single mint is a near-certain, urgent real incident, but a single signal short of the near-total-supply / multi-signal catastrophe reserved for CRITICAL. HIGH admits a HIGH or CRITICAL emission as a pass."
+        },
+        {
+          "signal_type": "UNMATCHED_MINT",
+          "node_id": "token:AMPL",
+          "min_severity": "WARN",
+          "why": "The 20.0M AMPL synthetic mint to 0xattacker is NOT matched by any equal burn and is NOT from an authorized issuer (authorized_minters = [0xampl_policy]). An unauthorized, unreconciled single mint is by definition unmatched, so an unmatched-mint condition factually holds here. Judged faithful and listed as should_fire WARN; it corroborates LARGE_SINGLE_MINT rather than carrying the case. If the engine reconciles mints differently this is non-load-bearing and may be left to triage \u2014 LARGE_SINGLE_MINT is the load-bearing expectation."
+        }
+      ],
+      "must_not_fire": [],
+      "max_emitted": null,
+      "beta": 2.0,
+      "note": "INCIDENT / ADVERSARIAL RECALL. prev ampl_rebase.json (MEASURED ~130.74M), snapshot ampl_unauth_mint.json (~159.08M = MEASURED organic 139.08M @ blk 10467200 + SYNTHETIC 20.0M mint_event -> 0xattacker, tx 0xevil, NOT authorized), now 2020-07-16T00:00:00Z. The organic rebase supply is measured on-chain; the 20M mint is a synthetic adversarial construct (no such mint occurred historically) riding on the measured supply (organic window confirmed clean: 0 real zero-address Transfers). LARGE_SINGLE_MINT @ HIGH is load-bearing; UNMATCHED_MINT @ WARN is a faithful corroborator. Proves the rebasing flag does NOT blind the single-tx mint path \u2014 a real exploit on a rebasing token still fires. must_not_fire empty: the rebase-vs-mint discrimination is carried by the CONTROL case."
+    }
+  ],
+  "_recapture": {
+    "measured_pct": 62.5,
+    "measured_inputs": [
+      "prev totalSupply 114,267,479.71 AMPL (onchain @ eth blk 10454328, 2020-07-14T00:00Z) \u2014 was modelled 100.0M",
+      "rebase totalSupply 130,739,374.38 AMPL (onchain @ eth blk 10460734, 2020-07-15T00:00Z) \u2014 was modelled 111.0M; real d/d rebase +14.42% vs modelled +11.0%",
+      "organic 07-16 totalSupply 139,076,241.30 AMPL (onchain @ eth blk 10467200) \u2014 underlies the unauth case",
+      "rebase window 10454328-10460734: 6917 Transfers, 0 mints/0 burns to/from 0x0 (rebase emits no mint_event)",
+      "organic window 10460734-10467200: 4927 Transfers, 0 mints/0 burns to/from 0x0 (synthetic 20M is the sole mint)"
+    ],
+    "asserted_inputs": [
+      "rebasing:true \u2014 host-fed elastic-supply classification (not inferred on-chain)",
+      "20.0M unauthorized mint to 0xattacker / tx 0xevil \u2014 synthetic adversarial construct (no such mint occurred historically)",
+      "authorized_minters [0xampl_policy] \u2014 placeholder minter-set identifier"
+    ],
+    "anomaly": "NONE \u2014 measured data STRENGTHENS the labelled premise. The real day-over-day rebase was +14.42% (and the surrounding days +21.3%/+27.2%/+6.4%), i.e. LARGER and more sustained than the modelled +11%, confirming AMPL's by-design double-digit daily elasticity; and the rebase verifiably emitted 0 zero-address Transfers (no mint_event), exactly the CONTROL premise. The unauth mint % shifted 16.7%->12.57% (mint unchanged at 20M, denominator now the larger measured supply) but remains a large double-digit single-tx unauthorized mint \u2014 HIGH floor and the judgment are unchanged.",
+    "judgment_unchanged": true
+  },
+  "ratified": "auto(reviewer)"
+}

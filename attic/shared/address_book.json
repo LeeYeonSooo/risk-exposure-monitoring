@@ -1,0 +1,30 @@
+{
+  "_description": "주소 ↔ 그래프 노드 id 매핑. 5명 모듈의 노드/엣지가 같은 자산/프로토콜을 가리킬 때 노드 중복을 막기 위한 단일 진실 공급원.",
+  "_usage": "module_bridge.py 의 normalize_id() 가 이 파일을 읽어서 lower-case 주소 또는 논리 id 를 simulator graph 의 기존 id 로 변환.",
+  "_extension": "다른 팀원이 새 자산/프로토콜 추가 시 이 파일에 매핑 한 줄 추가하면 자동 머지됨.",
+  "_policy": "여기엔 *실제로 그래프에 등장하는 주소* 만 둠. 사용되지 않는 매핑(dormant)은 청소 — 어느 모듈이 그 주소를 가져오면 그때 추가.",
+  "_oracles_removed": "oracles 섹션은 의도적으로 제거됨 (2026-05). 모든 Chainlink 피드를 단일 'chainlink' 노드로 합치면 'Chainlink ETH/USD' 같은 의미 있는 라벨이 사라지므로, 각 피드가 자기 노드로 살아남게 함.",
+
+  "ethereum": {
+    "_chain_id": 1,
+
+    "tokens": {
+      "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0": "wsteth",
+      "0xae7ab96520de3a18e5e111b5eaab095312d7fe84": "steth",
+      "0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee": "weeth",
+      "0xbe9895146f7af43049ca1c1ae358b0541ea49704": "cbeth",
+      "0xa1290d69c65a6fe4df752f95823fae25cb99e5a7": "rseth"
+    },
+
+    "protocols": {
+      "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2": "aave_v3",
+      "0xae78736cd615f374d3085123a210448e74fc6393": "rocketpool"
+    }
+  },
+
+  "_notes": {
+    "tokens": "graph_data.py 의 token 시드 id 와 1:1 매핑. simulator graph 가 이 id 들을 anchor 로 사용.",
+    "protocols": "Aave Pool, RocketPool rETH 컨트랙트 주소를 시드 id 로 흡수.",
+    "policy_oracles": "Oracle 은 더 이상 합치지 않음. 각 Chainlink/CAPO 피드가 자기 노드 (예: 'Chainlink ETH/USD') 로 그래프에 등장."
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "inputs": [
+    {
+      "input": "supply:deUSD@collapse_trough",
+      "detector": "d05",
+      "measured": true,
+      "source": "onchain:erc20.totalSupply(deUSD 0x1570..a138) @ethereum:23740100",
+      "value_raw": "92000479399462158977662981",
+      "value_human": "92,000,479.40 deUSD"
+    },
+    {
+      "input": "supply:deUSD@baseline_prev",
+      "detector": "d05",
+      "measured": true,
+      "source": "onchain:erc20.totalSupply(deUSD 0x1570..a138) @ethereum:23720447",
+      "value_raw": "144210194900685678912345678",
+      "value_human": "144,210,194.90 deUSD"
+    },
+    {
+      "input": "supply_delta:deUSD@baseline->trough",
+      "detector": "d05",
+      "measured": true,
+      "source": "onchain:erc20.totalSupply delta @ethereum:23720447->23740100",
+      "pct": "-36.20",
+      "note": "one-step contraction d05 sees; peak(154.02M)->trough = -40.27%"
+    },
+    {
+      "input": "supply_samples:deUSD@collapse",
+      "detector": "d05",
+      "measured": true,
+      "source": "onchain:erc20.totalSupply series @ethereum blocks [23572225,23618671,23668638,23697195,23720447,23732958,23740100]",
+      "note": "7-pt measured run-up+collapse series 120.83M->154.02M->92.00M"
+    },
+    {
+      "input": "supply:deUSD@calm",
+      "detector": "d05",
+      "measured": true,
+      "source": "onchain:erc20.totalSupply(deUSD 0x1570..a138) @ethereum:23529320",
+      "value_human": "114,184,657.78 deUSD"
+    },
+    {
+      "input": "supply:deUSD@calm_prev",
+      "detector": "d05",
+      "measured": true,
+      "source": "onchain:erc20.totalSupply(deUSD 0x1570..a138) @ethereum:23522162",
+      "value_human": "114,164,677.78 deUSD"
+    },
+    {
+      "input": "supply_delta:deUSD@calm_prev->calm",
+      "detector": "d05",
+      "measured": true,
+      "source": "onchain:erc20.totalSupply delta @ethereum:23522162->23529320",
+      "pct": "+0.0175",
+      "note": "flat/sub-threshold; confirms FP-trap stays silent"
+    },
+    {
+      "input": "peg_probe:deUSD-lender-collateral_isolated",
+      "detector": "d08",
+      "measured": false,
+      "source": "asserted: secondary-market/CEX intraday trough Nov 5-7 2025 (FXStreet \"down to $0.015 within hours\"; reports range $0.015-$0.03) \u2014 NOT an on-chain protocol-oracle reading at the labelled block 23740100",
+      "price": 0.015,
+      "peg": 1.0,
+      "note": "Known systemic gap: documented depeg depth is an off-chain CEX/DEX intraday low not representative of a single on-chain oracle answer at this block; kept asserted, not fabricated. The label conclusion (catastrophic >= -90%) is robust to the $0.015-$0.03 spread."
+    },
+    {
+      "input": "peg_probe:deUSD-lender-collateral_isolated@calm",
+      "detector": "d08",
+      "measured": false,
+      "source": "asserted: deUSD at par ~$1.00 early-mid Oct 2025 (pre Nov-4 disclosure)",
+      "price": 1.0,
+      "peg": 1.0,
+      "note": "calm control at par; off-chain assertion"
+    },
+    {
+      "input": "edge:deUSD-lender-collateral_isolated.exposure",
+      "detector": "d06/d07",
+      "measured": false,
+      "source": "asserted: representative isolated Morpho deUSD/USDC market (40M exposure, util 0.85) \u2014 deUSD spread across Morpho/Euler/Silo; not a single measured per-market util read",
+      "note": "modeled representative venue; this event tests SUPPLY collapse + DEPEG, not a measured utilization/outflow facet"
+    }
+  ]
+}

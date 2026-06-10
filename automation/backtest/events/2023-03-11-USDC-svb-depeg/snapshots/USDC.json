@@ -1,0 +1,122 @@
+{
+  "_invariant": "Real USDC exposure graph at the 2023-03-11 SVB depeg. Token node anchored on ON-CHAIN reads (address/decimals/totalSupply at block 16803810 via Alchemy archive, ts 2023-03-11T09:00:11Z, totalSupply 38.926B, decimals 6). Two collateral edges into an isolated lending venue exercise both oracle regimes: one MARKET-price (depeg_sensitive=true — a sighted feed tracks the ~$0.87 secondary price and liquidates) and one HARDCODED $1.00 (depeg_sensitive=false — the typical blue-chip config; oracle blind, on-chain liquidations muted). LT=0.86 is a representative stablecoin-collateral liquidation line. The depeg price is injected per-case via peg_probes, not stored on the edge.",
+  "meta": {
+    "token": "USDC",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2023-03-11",
+    "snapshot_block": 16803810,
+    "node_count": 2,
+    "edge_count": 2,
+    "data_source": "on-chain Alchemy archive (USDC 0xA0b8…6eB48 @ block 16803810, ts 2023-03-11T09:00:11Z, totalSupply 38925924909579550 raw / 38.926B, decimals 6) + lending exposure from SVB-depeg post-mortems (Circle/Reuters/CoinDesk/Curve 3pool skew)",
+    "coverage_pct": 0.6
+  },
+  "nodes": [
+    {
+      "node_id": "token:USDC",
+      "type": "Token",
+      "label": "USD Coin (Circle)",
+      "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "USDC",
+        "decimals": 6,
+        "total_supply": 38925924909,
+        "holders": null,
+        "market_cap_usd": 38925924909,
+        "paused": false,
+        "_note": "Fiat-backed stablecoin. ~$3.3B of reserves were at Silicon Valley Bank (FDIC receivership 2023-03-10). USDC traded as low as ~$0.87 on 2023-03-11 before the US Treasury/Fed/FDIC backstop (2023-03-12) restored confidence; recovered to ~0.999 by 2023-03-13. A backing-confidence depeg, not a permanent insolvency.",
+        "bridges": {}
+      }
+    },
+    {
+      "node_id": "protocol:isolated_lender",
+      "type": "DefiProtocol",
+      "label": "Isolated lending venue",
+      "address": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "isolated_markets",
+        "core_contract": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+        "governance": "immutable",
+        "_note": "USDC was a top-3 collateral/borrow asset across lending venues with billions in aggregate exposure at the time of the depeg."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "USDC-lender-collateral_market_oracle",
+      "source": "token:USDC",
+      "target": "protocol:isolated_lender",
+      "classification": {
+        "edge_type": "collateral_isolated",
+        "venue_type": "isolated_market",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 120000000,
+        "amount_usd": 120000000,
+        "pct_of_supply": 0.0031,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "USDC/USD market-price feed (tracks secondary price)",
+        "oracle_address": null,
+        "depeg_sensitive": true
+      },
+      "lending_risk": {
+        "ltv": null,
+        "lt": 0.86,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": null,
+        "utilization": 0.9,
+        "is_frozen": false,
+        "emode_category": null
+      },
+      "meta": {
+        "confidence": 0.9
+      }
+    },
+    {
+      "edge_id": "USDC-lender-collateral_hardcoded_oracle",
+      "source": "token:USDC",
+      "target": "protocol:isolated_lender",
+      "classification": {
+        "edge_type": "collateral_isolated",
+        "venue_type": "isolated_market",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 300000000,
+        "amount_usd": 300000000,
+        "pct_of_supply": 0.0077,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "HARDCODED",
+        "oracle_provider": "Hardcoded $1.00 USDC oracle (typical blue-chip config)",
+        "oracle_address": null,
+        "depeg_sensitive": false
+      },
+      "lending_risk": {
+        "ltv": null,
+        "lt": 0.86,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": null,
+        "utilization": 0.9,
+        "is_frozen": false,
+        "emode_category": null
+      },
+      "meta": {
+        "confidence": 0.9
+      }
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Exposure 프론트엔드 상시 구동(설계 D#11) — 단일 링크 http://localhost:3000 을 재부팅/크래시에도 유지.
+  비용 0: DB(로컬 Postgres)만 읽어 서빙 — RPC 호출 없음. cron(아래)과 독립.
+
+  설치:  cp ops/com.exposure.frontend.plist ~/Library/LaunchAgents/
+         (먼저 `cd frontend && npm run build` 로 .next 빌드)
+         launchctl load  ~/Library/LaunchAgents/com.exposure.frontend.plist
+  해제:  launchctl unload ~/Library/LaunchAgents/com.exposure.frontend.plist
+  로그:  /tmp/exposure-frontend.log
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.exposure.frontend</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>cd /ABSOLUTE/PATH/TO/risk-exposure-monitoring/frontend &amp;&amp; exec npm run start</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/ABSOLUTE/PATH/TO/risk-exposure-monitoring/frontend</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/tmp/exposure-frontend.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/exposure-frontend.log</string>
+</dict>
+</plist>

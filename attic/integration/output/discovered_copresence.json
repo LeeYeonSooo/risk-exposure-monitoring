@@ -1,0 +1,426 @@
+{
+  "nodes": [],
+  "edges": [
+    {
+      "edge_id": "copresence:aave-v3<->morpho",
+      "edge_type": "protocol",
+      "from": "aave_v3",
+      "to": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "protocol": "cross-protocol",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true,
+        "layer": "position_copresence",
+        "tier": "latent",
+        "shared_whales": 7,
+        "combined_usd": 2562919.34,
+        "weight_hint": 7,
+        "source": "position_snapshot (subgraph + API)"
+      }
+    },
+    {
+      "edge_id": "copresence:aave-v3<->lido",
+      "edge_type": "protocol",
+      "from": "aave_v3",
+      "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+      "protocol": "cross-protocol",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true,
+        "layer": "position_copresence",
+        "tier": "latent",
+        "shared_whales": 1,
+        "combined_usd": 1365968.9,
+        "weight_hint": 1,
+        "source": "position_snapshot (subgraph + API)"
+      }
+    },
+    {
+      "edge_id": "copresence:aave-v3<->pendle",
+      "edge_type": "protocol",
+      "from": "aave_v3",
+      "to": "0x888888888889758f76e7103c6cbf23abbf58f946",
+      "protocol": "cross-protocol",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true,
+        "layer": "position_copresence",
+        "tier": "latent",
+        "shared_whales": 1,
+        "combined_usd": 1365968.9,
+        "weight_hint": 1,
+        "source": "position_snapshot (subgraph + API)"
+      }
+    },
+    {
+      "edge_id": "copresence:morpho<->lido",
+      "edge_type": "protocol",
+      "from": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "to": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+      "protocol": "cross-protocol",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true,
+        "layer": "position_copresence",
+        "tier": "latent",
+        "shared_whales": 9,
+        "combined_usd": 10826127.23,
+        "weight_hint": 9,
+        "source": "position_snapshot (subgraph + API)"
+      }
+    },
+    {
+      "edge_id": "copresence:morpho<->sky",
+      "edge_type": "protocol",
+      "from": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "to": "0xdc035d45d973e3ec169d2276ddab16f1e407384f",
+      "protocol": "cross-protocol",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true,
+        "layer": "position_copresence",
+        "tier": "latent",
+        "shared_whales": 14,
+        "combined_usd": 995627958.16,
+        "weight_hint": 14,
+        "source": "position_snapshot (subgraph + API)"
+      }
+    },
+    {
+      "edge_id": "copresence:morpho<->pendle",
+      "edge_type": "protocol",
+      "from": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "to": "0x888888888889758f76e7103c6cbf23abbf58f946",
+      "protocol": "cross-protocol",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true,
+        "layer": "position_copresence",
+        "tier": "latent",
+        "shared_whales": 9,
+        "combined_usd": 42357316.29,
+        "weight_hint": 9,
+        "source": "position_snapshot (subgraph + API)"
+      }
+    },
+    {
+      "edge_id": "copresence:lido<->sky",
+      "edge_type": "protocol",
+      "from": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+      "to": "0xdc035d45d973e3ec169d2276ddab16f1e407384f",
+      "protocol": "cross-protocol",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true,
+        "layer": "position_copresence",
+        "tier": "latent",
+        "shared_whales": 11,
+        "combined_usd": 3017871.67,
+        "weight_hint": 11,
+        "source": "position_snapshot (subgraph + API)"
+      }
+    },
+    {
+      "edge_id": "copresence:lido<->pendle",
+      "edge_type": "protocol",
+      "from": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+      "to": "0x888888888889758f76e7103c6cbf23abbf58f946",
+      "protocol": "cross-protocol",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true,
+        "layer": "position_copresence",
+        "tier": "latent",
+        "shared_whales": 1,
+        "combined_usd": 1365968.9,
+        "weight_hint": 1,
+        "source": "position_snapshot (subgraph + API)"
+      }
+    },
+    {
+      "edge_id": "copresence:sky<->pendle",
+      "edge_type": "protocol",
+      "from": "0xdc035d45d973e3ec169d2276ddab16f1e407384f",
+      "to": "0x888888888889758f76e7103c6cbf23abbf58f946",
+      "protocol": "cross-protocol",
+      "chain_id": 1,
+      "metadata": {
+        "discovered": true,
+        "layer": "position_copresence",
+        "tier": "latent",
+        "shared_whales": 1,
+        "combined_usd": 640327.84,
+        "weight_hint": 1,
+        "source": "position_snapshot (subgraph + API)"
+      }
+    }
+  ],
+  "_meta": {
+    "discovered_at": 1780453948.7935739,
+    "bridges": [
+      {
+        "protocol_a": "aave-v3",
+        "protocol_b": "morpho",
+        "shared_whales": 7,
+        "combined_morpho_usd": 2562919.34,
+        "tier": "latent",
+        "top_shared": [
+          {
+            "address": "0xd2b2a8ab7a8c903501f4db4ee45c67522a4511ed",
+            "morpho_supply_usd": 1365968.9
+          },
+          {
+            "address": "0x595362a906a0b4e90aee1430b1f80fdde2be80de",
+            "morpho_supply_usd": 1110655.16
+          },
+          {
+            "address": "0xde0ea31b4084b428ca85205a5e6dbaf16818d253",
+            "morpho_supply_usd": 75914.32
+          },
+          {
+            "address": "0x508ff4857d4aa432026e9b8a3834f81882c57e77",
+            "morpho_supply_usd": 10377.97
+          },
+          {
+            "address": "0x8afddc3709fa26032ae7e041141d102c0c8878e8",
+            "morpho_supply_usd": 2.55
+          },
+          {
+            "address": "0x7fe4b2632f5ae6d930677d662af26bc0a06672b3",
+            "morpho_supply_usd": 0.43
+          },
+          {
+            "address": "0x33fd212a17eb516fa1acac2fd2a74d12b229100b",
+            "morpho_supply_usd": 0.01
+          }
+        ]
+      },
+      {
+        "protocol_a": "aave-v3",
+        "protocol_b": "lido",
+        "shared_whales": 1,
+        "combined_morpho_usd": 1365968.9,
+        "tier": "latent",
+        "top_shared": [
+          {
+            "address": "0xd2b2a8ab7a8c903501f4db4ee45c67522a4511ed",
+            "morpho_supply_usd": 1365968.9
+          }
+        ]
+      },
+      {
+        "protocol_a": "aave-v3",
+        "protocol_b": "pendle",
+        "shared_whales": 1,
+        "combined_morpho_usd": 1365968.9,
+        "tier": "latent",
+        "top_shared": [
+          {
+            "address": "0xd2b2a8ab7a8c903501f4db4ee45c67522a4511ed",
+            "morpho_supply_usd": 1365968.9
+          }
+        ]
+      },
+      {
+        "protocol_a": "morpho",
+        "protocol_b": "lido",
+        "shared_whales": 9,
+        "combined_morpho_usd": 10826127.23,
+        "tier": "latent",
+        "top_shared": [
+          {
+            "address": "0x833adaef212c5cd3f78906b44bbfb18258f238f0",
+            "morpho_supply_usd": 4537778.36
+          },
+          {
+            "address": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+            "morpho_supply_usd": 3017871.67
+          },
+          {
+            "address": "0x3a43aec53490cb9fa922847385d82fe25d0e9de7",
+            "morpho_supply_usd": 1457999.38
+          },
+          {
+            "address": "0xd2b2a8ab7a8c903501f4db4ee45c67522a4511ed",
+            "morpho_supply_usd": 1365968.9
+          },
+          {
+            "address": "0x90deceec188094f6f6c1ef446d843f70abfc92cb",
+            "morpho_supply_usd": 371870.04
+          },
+          {
+            "address": "0xc5890af3facba05b4c6ef82b2eb274feb3b75e8e",
+            "morpho_supply_usd": 42880.86
+          },
+          {
+            "address": "0x9b6f53be2af3cd989f82134deb1963532d3ec50e",
+            "morpho_supply_usd": 19867.71
+          },
+          {
+            "address": "0xf3d913de4b23ddb9cfdfaf955bac5634cbae95f4",
+            "morpho_supply_usd": 6722.95
+          }
+        ]
+      },
+      {
+        "protocol_a": "morpho",
+        "protocol_b": "sky",
+        "shared_whales": 14,
+        "combined_morpho_usd": 995627958.16,
+        "tier": "latent",
+        "top_shared": [
+          {
+            "address": "0xf9f061d9a5f04e223ed3c560e03a8ab0a70cc1c4",
+            "morpho_supply_usd": 989331895.47
+          },
+          {
+            "address": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+            "morpho_supply_usd": 3017871.67
+          },
+          {
+            "address": "0xa427def3f920f718a89e5ab473c79c065ab10ef4",
+            "morpho_supply_usd": 1007583.71
+          },
+          {
+            "address": "0xd7583e3cf08bbcab66f1242195227bbf9f865fda",
+            "morpho_supply_usd": 640327.84
+          },
+          {
+            "address": "0xe837770fc477522360cf620bc15ba34cb9e4a6d0",
+            "morpho_supply_usd": 600459.83
+          },
+          {
+            "address": "0x7399436c47e4a1bad90499d87dfaa117cbf08b96",
+            "morpho_supply_usd": 269508.24
+          },
+          {
+            "address": "0x9d6cfd1ebf9411aa4d67b4e25f04890ab0111821",
+            "morpho_supply_usd": 251577.06
+          },
+          {
+            "address": "0x8449f934dbfbfa050f5e7738bf2e73a811022904",
+            "morpho_supply_usd": 171676.97
+          }
+        ]
+      },
+      {
+        "protocol_a": "morpho",
+        "protocol_b": "pendle",
+        "shared_whales": 9,
+        "combined_morpho_usd": 42357316.29,
+        "tier": "latent",
+        "top_shared": [
+          {
+            "address": "0xd17ad0177e9822caa9055ada6725d497f083a5c5",
+            "morpho_supply_usd": 39896670.24
+          },
+          {
+            "address": "0xd2b2a8ab7a8c903501f4db4ee45c67522a4511ed",
+            "morpho_supply_usd": 1365968.9
+          },
+          {
+            "address": "0xd7583e3cf08bbcab66f1242195227bbf9f865fda",
+            "morpho_supply_usd": 640327.84
+          },
+          {
+            "address": "0xefa911756a790e0f9e806189dfa97e3fc96fb096",
+            "morpho_supply_usd": 227265.41
+          },
+          {
+            "address": "0xc50965e638cf07fb735d48d40c53c8e64c2add7c",
+            "morpho_supply_usd": 99031.71
+          },
+          {
+            "address": "0xf7c04a39e47c7ea9d6888f9389ea85846e22ae1a",
+            "morpho_supply_usd": 61007.95
+          },
+          {
+            "address": "0xe29300c00618dd16c9d332f899b71f4362be6b1d",
+            "morpho_supply_usd": 50246.31
+          },
+          {
+            "address": "0xa070023f2b2a4c9ae60f58d72a1ad2aa5847a104",
+            "morpho_supply_usd": 11445.25
+          }
+        ]
+      },
+      {
+        "protocol_a": "lido",
+        "protocol_b": "sky",
+        "shared_whales": 11,
+        "combined_morpho_usd": 3017871.67,
+        "tier": "latent",
+        "top_shared": [
+          {
+            "address": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+            "morpho_supply_usd": 3017871.67
+          },
+          {
+            "address": "0xa68195a15faa6e2987c6ab079d711a501e191bbb",
+            "morpho_supply_usd": 0
+          },
+          {
+            "address": "0x00000000008d5f1200332af8a6813cb8377b5bfd",
+            "morpho_supply_usd": 0
+          },
+          {
+            "address": "0xcf5540fffcdc3d510b18bfca6d2b9987b0772559",
+            "morpho_supply_usd": 0
+          },
+          {
+            "address": "0xdcea9474d3cbe13ef23908c33d81668fe9d40ac5",
+            "morpho_supply_usd": 0
+          },
+          {
+            "address": "0x336166717591a0828b2ef7a42672231fd7c1ccdf",
+            "morpho_supply_usd": 0
+          },
+          {
+            "address": "0xe3af0aadfb19e3bdb889465d492451a17167d081",
+            "morpho_supply_usd": 0
+          },
+          {
+            "address": "0xba1333333333a1ba1108e8412f11850a5c319ba9",
+            "morpho_supply_usd": 0
+          }
+        ]
+      },
+      {
+        "protocol_a": "lido",
+        "protocol_b": "pendle",
+        "shared_whales": 1,
+        "combined_morpho_usd": 1365968.9,
+        "tier": "latent",
+        "top_shared": [
+          {
+            "address": "0xd2b2a8ab7a8c903501f4db4ee45c67522a4511ed",
+            "morpho_supply_usd": 1365968.9
+          }
+        ]
+      },
+      {
+        "protocol_a": "sky",
+        "protocol_b": "pendle",
+        "shared_whales": 1,
+        "combined_morpho_usd": 640327.84,
+        "tier": "latent",
+        "top_shared": [
+          {
+            "address": "0xd7583e3cf08bbcab66f1242195227bbf9f865fda",
+            "morpho_supply_usd": 640327.84
+          }
+        ]
+      }
+    ],
+    "error": null,
+    "aave_holders": 4480,
+    "morpho_holders": 1878,
+    "lido_independent": 70,
+    "sky_independent": 45,
+    "balance_checked": 400,
+    "lido_holders_total": 77,
+    "sky_holders_total": 59,
+    "pendle_holders_in_pool": 9,
+    "bridges_count": 9
+  }
+}

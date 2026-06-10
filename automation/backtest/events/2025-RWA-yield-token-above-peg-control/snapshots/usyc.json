@@ -1,0 +1,92 @@
+{
+  "_invariant": "USYC (Hashnote US Yield Coin) is a YIELD-BEARING RWA token whose NAV ACCRUES ABOVE $1 by design. MEASURED on-chain @ ethereum:22606143 (first block >= 2025-06-01T00:00:00Z): the USYC/USD NAV oracle 0x4c48bcb2160F8e0aDbf9D4F3B034f1e36d1f8b3e (8dp Chainlink interface, description 'USYC / USD'; 18dp sibling 0x74f2199AEb743f68f05943e5715A33EaF2b61f53 agrees) reports answer = 1.08863422, i.e. NAV ~$1.0886 (+8.86% above $1), last published 2025-05-30 (daily ~9am ET report; 2025-06-01 is a Sunday). A flat-'$1' depeg scan that flags this 'off-peg' is a FALSE positive: an upward accrual of a collateral token is NOT a liquidation risk. Tests that the monitor (a) is SILENT when the peg is correctly modeled as NAV, and (b) never CRITICAL-pages on an upward deviation even if the peg is naively set to $1.",
+  "_measured": {
+    "peg_price_source": "onchain:chainlink USYC/USD oracle 0x4c48bcb2160F8e0aDbf9D4F3B034f1e36d1f8b3e latestRoundData() @ ethereum:22606143",
+    "measured_nav_usd": 1.08863422,
+    "oracle_18dp_sibling": "0x74f2199AEb743f68f05943e5715A33EaF2b61f53 (description 'USYC / USD', answer 1.0886342286)",
+    "oracle_updated_at_ts": 1748601467,
+    "oracle_updated_at": "2025-05-30T10:37:47Z",
+    "measured_total_supply_usyc": 347359823,
+    "note": "core_weight/market_cap below are host-fed structural figures refreshed to the measured NAV (measured supply 347,359,823 USYC; mkt_cap ~ supply*NAV). The decisive depeg input is peg_probes (measured, see snapshots/fidelity.json); the market-graph topology is host-asserted per capture.py fidelity caveats."
+  },
+  "meta": {
+    "token": "USYC",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2025-06-01T00:00:00Z",
+    "block": 22606143
+  },
+  "nodes": [
+    {
+      "node_id": "token:USYC",
+      "type": "Token",
+      "label": "Hashnote US Yield Coin",
+      "address": "0x136471a34f6ef19fE571EFFC1CA711fdb8E49f2b",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "USYC",
+        "decimals": 6,
+        "market_cap_usd": 378160000
+      }
+    },
+    {
+      "node_id": "protocol:morpho",
+      "type": "DefiProtocol",
+      "label": "Morpho Blue",
+      "address": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "isolated_markets"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "USYC-morpho-collateral",
+      "source": "token:USYC",
+      "target": "protocol:morpho",
+      "classification": {
+        "edge_type": "collateral_isolated",
+        "venue_type": "isolated_market",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 100000000,
+        "amount_usd": 108863422,
+        "pct_of_supply": 0.288,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "USYC NAV oracle (accrues above $1) 0x4c48bcb2160F8e0aDbf9D4F3B034f1e36d1f8b3e",
+        "oracle_address": "0x4c48bcb2160F8e0aDbf9D4F3B034f1e36d1f8b3e",
+        "depeg_sensitive": true
+      },
+      "lending_risk": {
+        "ltv": null,
+        "lt": 0.92,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": null,
+        "utilization": 0.7,
+        "is_frozen": false,
+        "emode_category": null
+      },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        {
+          "loan_asset": "USDC",
+          "collateral_asset": "USYC",
+          "lltv": 0.92,
+          "market_size_usd": 108863422,
+          "oracle_address": "0x4c48bcb2160F8e0aDbf9D4F3B034f1e36d1f8b3e",
+          "utilization": 0.7
+        }
+      ]
+    }
+  ]
+}

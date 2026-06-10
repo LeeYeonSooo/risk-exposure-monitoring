@@ -1,0 +1,33 @@
+{
+  "inputs": [
+    {
+      "input": "peg_probe:DAI-lender-sighted@16803316",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:chainlink 0xAed0c38402a5d19df6E4c03F4E2DcED6e29c1ee9 @ethereum:16803316",
+      "price": 0.89110864
+    },
+    {
+      "input": "peg_probe:DAI-lender-blind@16803316",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:chainlink 0xAed0c38402a5d19df6E4c03F4E2DcED6e29c1ee9 @ethereum:16803316",
+      "price": 0.89110864
+    },
+    {
+      "input": "peg_probe:DAI-lender-sighted-recovered@16820707",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:chainlink 0xAed0c38402a5d19df6E4c03F4E2DcED6e29c1ee9 @ethereum:16820707",
+      "price": 0.99775901
+    },
+    {
+      "input": "token_supply:DAI@16803316",
+      "detector": "snapshot",
+      "measured": true,
+      "source": "onchain:DAI.totalSupply() @ethereum:16803316",
+      "total_supply_raw": 5568713805161949974669060911,
+      "total_supply": 5568713805
+    }
+  ]
+}

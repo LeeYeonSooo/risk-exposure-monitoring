@@ -1,0 +1,5 @@
+{
+  "verdict": "APPROVE",
+  "summary": "Data-only backfill: judged fields (should_fire ORACLE_FREEZE CRITICAL / must_not_fire silent / severities / max_emitted{WARN,0} / beta / answers 0.0&1.0 / refs 1.0) are byte-identical to prior label.json; only oracle_address placeholder->real measured 0xcb7e..3c82 and MEASURED notes changed. Measured incident getPrices=2.0e36 floor-divides exchangeRate to 0 (answer<=0 dead read, still CRITICAL); control getPrices=1e15 -> rate 1e21 -> answer 1.0==ref (still benign); fidelity marks both swapped inputs measured=true (on-chain @22785461/22785460, attack-tx ts 01:53:59Z). a/b/c all hold.",
+  "draft_sha256": "8330910a6ca89b3b903e0aec7a0e78b22e96faa761184adad7c0f480b3590dd5"
+}

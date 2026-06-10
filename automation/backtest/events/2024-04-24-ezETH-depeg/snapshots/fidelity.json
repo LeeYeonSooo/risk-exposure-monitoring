@@ -1,0 +1,25 @@
+{
+  "inputs": [
+    {
+      "input": "peg_probe:ezETH-morpho_blue-collateral_isolated@19722430",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:univ3 0xbe80225f09645f172b079394312220637c440a63 0in1 @ethereum:19722430",
+      "price": 0.88325674
+    },
+    {
+      "input": "peg_probe:ezETH-morpho_blue-collateral_isolated@19722320",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:univ3 0xbe80225f09645f172b079394312220637c440a63 0in1 @ethereum:19722320",
+      "price": 0.85629218
+    },
+    {
+      "input": "peg_probe:ezETH-morpho_blue-collateral_isolated@19711992",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:univ3 0xbe80225f09645f172b079394312220637c440a63 0in1 @ethereum:19711992",
+      "price": 1.00631427
+    }
+  ]
+}

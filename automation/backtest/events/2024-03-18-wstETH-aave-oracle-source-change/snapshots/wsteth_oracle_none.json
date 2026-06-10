@@ -1,0 +1,62 @@
+{
+  "_invariant": "All edges connect exactly one token node and one protocol node. wstETH-aave_v3-collateral models Lido wstETH as collateral on Aave V3 Ethereum (mono_pool). This snapshot INTENTIONALLY models the oracle source ABSENT/null (a newly-listed asset whose source field is not yet populated, or a transient collector miss) — this is a MODELED FP-trap input, NOT an on-chain state, so it is deliberately unmeasured (an absent field has no block to read). Identical to wsteth_oracle_new.json except oracle.oracle_address is null.",
+  "meta": {
+    "token": "wstETH",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2024-03-18T11:00:00Z",
+    "snapshot_block": null,
+    "node_count": 2,
+    "edge_count": 1,
+    "data_source": "modeled (NOT measured): oracle source field absent (new-listing / transient collector miss) — an absent field is not an observable on-chain value",
+    "coverage_pct": 0.5
+  },
+
+  "nodes": [
+    {
+      "node_id": "token:wstETH",
+      "type": "Token",
+      "label": "Lido Wrapped Staked ETH",
+      "address": "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "wstETH",
+        "decimals": 18,
+        "paused": false,
+        "_note_wrappers": "Lido wrapped staked ETH; rebasing stETH wrapped into a non-rebasing share token (wstETH/stETH ratio grows with staking yield)."
+      }
+    },
+    {
+      "node_id": "protocol:aave_v3",
+      "type": "DefiProtocol",
+      "label": "Aave V3",
+      "address": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "mono_pool",
+        "core_contract": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+        "oracle_contract": "AaveOracle 0x54586bE62E3c3580375aE3723C145253060Ca0C2",
+        "governance": "Aave DAO"
+      }
+    }
+  ],
+
+  "edges": [
+    {
+      "edge_id": "wstETH-aave_v3-collateral",
+      "source": "token:wstETH",
+      "target": "protocol:aave_v3",
+      "classification": { "edge_type": "collateral", "venue_type": "market", "protocol_class": "lending" },
+      "core_weight": { "amount_token": null, "amount_usd": null, "pct_of_supply": null, "pct_of_protocol_tvl": null },
+      "oracle": { "oracle_type": "MARKET", "oracle_provider": null, "oracle_address": null, "depeg_sensitive": false },
+      "lending_risk": { "ltv": null, "lt": null, "liquidation_bonus": null, "supply_cap": null, "borrow_cap": null, "reserve_factor": null, "utilization": null, "is_frozen": false, "emode_category": null },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": null,
+      "top_pools": null,
+      "meta": { "snapshot_block": null, "snapshot_ts": "2024-03-18T11:00:00Z", "verifiable_onchain": false, "confidence": "MODELED", "data_source": "oracle source field ABSENT/null -> models a newly-listed asset (source not yet populated) or a transient collector miss; NOT an observed source swap (deliberately unmeasured FP-trap input)" }
+    }
+  ]
+}

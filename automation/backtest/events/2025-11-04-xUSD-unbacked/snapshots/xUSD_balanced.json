@@ -1,0 +1,27 @@
+{
+  "meta": {
+    "token": "xUSD",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2025-10-01T12:00:00Z"
+  },
+  "nodes": [
+    {
+      "node_id": "token:xUSD",
+      "type": "Token",
+      "address": "0xe2fc85bfb48c4cf147921fbe110cf92ef9f26f94",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "backing": 170000000000000,
+        "remote_supply": {
+          "ethereum": 168000000000000
+        },
+        "circulating": "remote",
+        "market_cap_usd": 168000000,
+        "_fidelity": "synthetic control: backing 170M > \u03a3remote 168M (over-backed = safe direction). Must stay silent."
+      }
+    }
+  ],
+  "edges": []
+}

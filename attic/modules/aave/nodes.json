@@ -1,0 +1,116 @@
+{
+  "_description": "Aave V3 분석 모듈이 다루는 모든 노드 타입. 시장당 인스턴스 개수 표시.",
+
+  "static_nodes": {
+    "_description": "시장 초기화 시 Address Book에서 로드되는 정적 노드",
+
+    "market_registry": {
+      "label": "PoolAddressesProvider",
+      "role": "시장 식별자. 모든 핵심 컨트랙트 주소의 단일 진실 공급원",
+      "count_per_market": 1,
+      "source": "AaveV3Ethereum.POOL_ADDRESSES_PROVIDER"
+    },
+    "protocol_pool": {
+      "label": "Pool",
+      "role": "사용자 진입점. supply/borrow/repay/liquidation/flashLoan 호출 대상",
+      "count_per_market": 1,
+      "source": "AaveV3Ethereum.POOL"
+    },
+    "protocol_admin": {
+      "label": "PoolConfigurator",
+      "role": "거버넌스 전용 컨트롤 패널. 룰 변경 이벤트 출처",
+      "count_per_market": 1,
+      "source": "AaveV3Ethereum.POOL_CONFIGURATOR"
+    },
+    "access_control": {
+      "label": "ACLManager",
+      "role": "권한(role) 관리. POOL_ADMIN, EMERGENCY_ADMIN 등",
+      "count_per_market": 1,
+      "source": "AaveV3Ethereum.ACL_MANAGER"
+    },
+    "oracle": {
+      "label": "AaveOracle",
+      "role": "가격 라우터. getAssetPrice() 단일 진입점",
+      "count_per_market": 1,
+      "source": "AaveV3Ethereum.ORACLE"
+    },
+    "treasury": {
+      "label": "Collector",
+      "role": "Reserve Factor + Flash Loan Premium + GHO 이자 수령. = Aave DAO Treasury",
+      "count_per_market": 1,
+      "source": "AaveV3Ethereum.COLLECTOR"
+    },
+    "a_token": {
+      "label": "aUSDC, aWETH 등",
+      "role": "예치 영수증. ERC-20, transferable, balanceOf 자동 증가",
+      "count_per_market": "자산 수만큼 (메인 ~30개)",
+      "source": "AaveV3Ethereum.ASSETS.{TOKEN}.A_TOKEN"
+    },
+    "variable_debt_token": {
+      "label": "variableDebtUSDC 등",
+      "role": "부채 영수증. non-transferable. credit delegation 이벤트 출처",
+      "count_per_market": "자산 수만큼",
+      "source": "AaveV3Ethereum.ASSETS.{TOKEN}.V_TOKEN"
+    },
+    "underlying_asset": {
+      "label": "USDC, WETH 등 외부 토큰",
+      "role": "Aave가 다루는 기초 자산 (Aave 발행 아님)",
+      "count_per_market": "자산 수만큼",
+      "source": "AaveV3Ethereum.ASSETS.{TOKEN}.UNDERLYING"
+    },
+    "price_feed": {
+      "label": "Chainlink Aggregator",
+      "role": "외부 가격 데이터 1차 소스 (예: ETH/USD 피드)",
+      "count_per_market": "피드 수만큼",
+      "source": "AaveV3Ethereum.ASSETS.{TOKEN}.ORACLE 또는 그 하위"
+    },
+    "price_adapter": {
+      "label": "CAPO Adapter (WstETHPriceCapAdapter 등)",
+      "role": "LST/LRT 가격 계산 + 인플레이션 cap. 하위 price_feed들에 의존",
+      "count_per_market": "LST/LRT 자산 수만큼",
+      "source": "AaveV3Ethereum.ASSETS.{LST}.ORACLE"
+    },
+    "stable_token": {
+      "label": "GHO",
+      "role": "Aave가 직접 발행하는 USD 스테이블",
+      "count_per_market": "1 (메인 마켓에만)",
+      "source": "GHO 컨트랙트 주소"
+    },
+    "stability_module": {
+      "label": "GSM (GHO Stability Module)",
+      "role": "USDC ↔ GHO 1:1 스왑으로 페그 안정화",
+      "count_per_market": "facilitator별로 (USDC GSM 등)",
+      "source": "GSM 컨트랙트 주소"
+    }
+  },
+
+  "dynamic_nodes": {
+    "_description": "이벤트 처리 중 새 주소 등장 시 생성되는 노드",
+
+    "user": {
+      "label": "EOA (일반 사용자)",
+      "role": "supply/borrow 등 행위의 주체",
+      "metadata_examples": {
+        "emode_category": 1,
+        "collateral_enabled_assets": ["WETH"],
+        "borrowed_assets": ["USDC"],
+        "current_hf": 1.15,
+        "liquidation_count": 0
+      }
+    },
+    "liquidator_bot": {
+      "label": "알려진 청산 봇",
+      "role": "MEV 봇, 청산 전담. 사전 태깅 또는 패턴 추론",
+      "tagging_source": "Dune 대시보드, Etherscan 라벨"
+    },
+    "mev_bot": {
+      "label": "MEV 봇",
+      "role": "차익거래, 샌드위치 등 MEV 추출",
+      "tagging_source": "Flashbots builder 주소 목록 등"
+    },
+    "external_contract": {
+      "label": "알려지지 않은 dApp/컨트랙트",
+      "role": "Aave와 상호작용하는 외부 컨트랙트 (DeFi Saver, Instadapp 등)"
+    }
+  }
+}

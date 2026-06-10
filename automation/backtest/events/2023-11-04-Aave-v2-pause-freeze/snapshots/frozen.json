@@ -1,0 +1,85 @@
+{
+  "_invariant": "INCIDENT: Aave V2 Ethereum PAUSED (2023-11-04) — Guardian paused the pool; deposits/withdrawals BLOCKED, the fund's ~$80M USDC is STRANDED until ~Nov-13. MEASURED: LendingPool.paused() flips false->true (18500000 -> 18508000); is_frozen models that pool pause.",
+  "meta": {
+    "token": "USDC",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2023-11-04T18:00:00Z",
+    "snapshot_block": 18508000,
+    "data_source": "Aave V2 Ethereum pause (2023-11-04) — Guardian paused the pool blocking deposits/withdrawals. MEASURED @block 18508000: LendingPool(0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9).paused()=TRUE (paused, withdrawals blocked, funds stranded); getConfiguration(USDC) -> ltv=0.80 lt=0.875 reserve_factor=0.20 is_active=true reserve-isFrozen-bit=false. is_frozen=true here models the pool-level paused() flip (Aave V2 pauses the WHOLE pool; the per-reserve frozen bit did NOT flip — see fidelity ANOMALY note). See snapshots/fidelity.json."
+  },
+  "nodes": [
+    {
+      "node_id": "token:USDC",
+      "type": "Token",
+      "label": "USD Coin",
+      "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "USDC",
+        "decimals": 6,
+        "market_cap_usd": 25000000000,
+        "total_supply": 22615139462607622
+      }
+    },
+    {
+      "node_id": "protocol:aave_v2",
+      "type": "DefiProtocol",
+      "label": "Aave V2",
+      "address": "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "mono_pool"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "USDC-aave_v2-supply",
+      "source": "token:USDC",
+      "target": "protocol:aave_v2",
+      "classification": {
+        "edge_type": "supply",
+        "venue_type": "shared_pool",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 80000000,
+        "amount_usd": 80000000,
+        "pct_of_supply": 0.003,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "Aave USDC/USD",
+        "oracle_address": null,
+        "depeg_sensitive": false
+      },
+      "lending_risk": {
+        "ltv": 0.8,
+        "lt": 0.875,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": 0.2,
+        "utilization": 0.8,
+        "is_frozen": true,
+        "emode_category": null
+      },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        {
+          "loan_asset": "DAI",
+          "collateral_asset": "USDC",
+          "lltv": 0.875,
+          "market_size_usd": 80000000,
+          "oracle_address": null,
+          "utilization": 0.8
+        }
+      ]
+    }
+  ]
+}

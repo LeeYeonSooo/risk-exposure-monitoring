@@ -1,0 +1,162 @@
+{
+  "_description": "Sky (구 MakerDAO) 의 구조적 노드/엣지. nodes.jsonc/edges.jsonc/events.jsonc v1.0 에서 핵심 추출.",
+  "_protocol": "sky",
+  "_chain_id": 1,
+  "_source": "modules/sky/{nodes,edges,events}.jsonc (사용자 제공 v1.0)",
+  "_note": "전체 37 roles/125 instances 중 핵심 + cross-protocol 연결만. 동적 vault/spell 인스턴스는 indexer 가 추후 생성.",
+
+  "nodes": [
+    {
+      "address": "0xdc035d45d973e3ec169d2276ddab16f1e407384f", "chain_id": 1,
+      "type": "stable_token", "protocol": "sky", "label": "USDS",
+      "metadata": {"symbol": "USDS", "decimals": 18, "category": "stable_token", "role": "Sky 발행 stablecoin (시스템 핵심 산출물)"}
+    },
+    {
+      "address": "0x6b175474e89094c44da98b954eedeac495271d0f", "chain_id": 1,
+      "type": "stable_token", "protocol": "sky", "label": "DAI",
+      "metadata": {"symbol": "DAI", "decimals": 18, "category": "stable_token", "role": "레거시 stablecoin (USDS 와 1:1 변환)"}
+    },
+    {
+      "address": "0xa3931d71877c0e7a3148cb7eb4463524fec27fbd", "chain_id": 1,
+      "type": "yield_share_token", "protocol": "sky", "label": "sUSDS",
+      "metadata": {"symbol": "sUSDS", "decimals": 18, "category": "stable_token", "underlying": "0xdc035d45d973e3ec169d2276ddab16f1e407384f", "role": "USDS yield-bearing share (ERC-4626)"}
+    },
+    {
+      "address": "0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9", "chain_id": 1,
+      "type": "yield_share_token", "protocol": "sky", "label": "stUSDS",
+      "metadata": {"symbol": "stUSDS", "decimals": 18, "category": "stable_token", "underlying": "0xdc035d45d973e3ec169d2276ddab16f1e407384f", "role": "risk capital share — bad debt 흡수 (chi 감소)"}
+    },
+    {
+      "address": "0x56072c95faa701256059aa122697b133aded9279", "chain_id": 1,
+      "type": "governance_token", "protocol": "sky", "label": "SKY",
+      "metadata": {"symbol": "SKY", "decimals": 18, "category": "governance_token", "role": "거버넌스 + LockStake 담보"}
+    },
+    {
+      "address": "0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2", "chain_id": 1,
+      "type": "governance_token", "protocol": "sky", "label": "MKR",
+      "metadata": {"symbol": "MKR", "decimals": 18, "category": "governance_token", "activity_label": "wind_down", "role": "레거시 거버넌스 (1 MKR = 24000 SKY 마이그)"}
+    },
+    {
+      "address": "0xf9a9cfd3229e985b91f99bc866d42938044ffa1c", "chain_id": 1,
+      "type": "lockstake_share", "protocol": "sky", "label": "lsSKY",
+      "metadata": {"symbol": "lsSKY", "decimals": 18, "category": "governance_token", "role": "SKY 잠금 증거 토큰"}
+    },
+    {
+      "address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", "chain_id": 1,
+      "type": "underlying_asset", "protocol": "external", "label": "USDC",
+      "metadata": {"symbol": "USDC", "decimals": 6, "category": "stable", "issuer": "circle"}
+    },
+    {
+      "address": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0", "chain_id": 1,
+      "type": "lst_token", "protocol": "external", "label": "wstETH",
+      "metadata": {"symbol": "wstETH", "decimals": 18, "category": "lst_token", "issuer": "lido"}
+    },
+    {
+      "address": "0xae78736cd615f374d3085123a210448e74fc6393", "chain_id": 1,
+      "type": "lst_token", "protocol": "external", "label": "rETH",
+      "metadata": {"symbol": "rETH", "decimals": 18, "category": "lst_token", "issuer": "rocketpool"}
+    },
+    {
+      "address": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599", "chain_id": 1,
+      "type": "underlying_asset", "protocol": "external", "label": "WBTC",
+      "metadata": {"symbol": "WBTC", "decimals": 8, "category": "blue_chip", "issuer": "bitgo"}
+    },
+
+    {
+      "address": "0xf6e72db5454dd049d0788e411b06cfaf16853042", "chain_id": 1,
+      "type": "stability_module", "protocol": "sky", "label": "Sky LitePSM (USDC)",
+      "metadata": {"role": "USDS ↔ USDC 1:1 swap", "gem": "USDC", "ilk": "LITE-PSM-USDC-A"}
+    },
+    {
+      "address": "0x37305b1cd40574e4c5ce33f8e8306be057fd7341", "chain_id": 1,
+      "type": "treasury", "protocol": "sky", "label": "Sky PSM Pocket (USDC)",
+      "metadata": {"role": "USDC 격리 보관 (blacklist 위험 격리)"}
+    },
+    {
+      "address": "0x3225737a9bbb6473cb4a45b7244aca2befdb276a", "chain_id": 1,
+      "type": "converter", "protocol": "sky", "label": "DAI↔USDS Converter",
+      "metadata": {"role": "DAI ↔ USDS 1:1 양방향 변환", "ratio": "1:1"}
+    },
+    {
+      "address": "0xa1ea1ba18e88c381c724a75f23a130420c403f9a", "chain_id": 1,
+      "type": "converter", "protocol": "sky", "label": "MKR→SKY Converter",
+      "metadata": {"role": "MKR → SKY 단방향 마이그 (1:24000)", "ratio": "1:24000"}
+    },
+    {
+      "address": "0xce01c90de7fd1bcfa39e237fe6d8d9f569e8a6a3", "chain_id": 1,
+      "type": "vault_engine", "protocol": "sky", "label": "Sky LockstakeEngine",
+      "metadata": {"role": "SKY 잠금 + 담보 + LSSKY mint + farm stake (4-in-1)", "module": "lockstake"}
+    },
+    {
+      "address": "0x5ef30b9986345249bc32d8928b7ee64de9435e39", "chain_id": 1,
+      "type": "vault_engine", "protocol": "sky", "label": "Sky CDP Manager",
+      "metadata": {"role": "CDP vault 생성/소유권 관리", "module": "cdp"}
+    },
+    {
+      "address": "0x135954d155898d42c90d2a57824c690e0c7bef1b", "chain_id": 1,
+      "type": "liquidation_router", "protocol": "sky", "label": "Sky Dog (Liquidation Router)",
+      "metadata": {"role": "모든 ilk 청산 진입점 — Vat.grab + Clipper.kick"}
+    },
+    {
+      "address": "0x12f36cdea3a28c35ac8c6cc71d9265c17c74a27f", "chain_id": 1,
+      "type": "d3m_module", "protocol": "sky", "label": "Sky D3M Hub",
+      "metadata": {"role": "Sky → 외부 프로토콜 자본 공급 hub"}
+    },
+    {
+      "address": "0x374d9c3d5134052bc558f432afa1df6575f07407", "chain_id": 1,
+      "type": "smart_burn_engine", "protocol": "sky", "label": "Sky Smart Burn Engine",
+      "metadata": {"role": "vow surplus → USDS-SKY swap + LP mint (Splitter+Flapper)"}
+    },
+    {
+      "address": "0x60744434d6339a6b27d73d9eda62b6f66a0a04fa", "chain_id": 1,
+      "type": "flash_mint", "protocol": "sky", "label": "Sky DssFlash",
+      "metadata": {"role": "DAI atomic flash loan (fee=0)", "modes": ["EIP-3156", "Vat-native"]}
+    },
+    {
+      "address": "0xbe8e3e3618f7474f8cb1d074a26affef007e98fb", "chain_id": 1,
+      "type": "pause_proxy", "protocol": "sky", "label": "Sky PauseProxy",
+      "metadata": {"role": "거의 모든 Sky 컨트랙트의 ward — spell 실행 endpoint", "delay": "4d GSM"}
+    },
+    {
+      "address": "0x09e05ff6142f2f9de8b6b65855a1d56b6cfe4c58", "chain_id": 1,
+      "type": "emergency_module", "protocol": "sky", "label": "Sky ESM",
+      "metadata": {"role": "50k SKY 임계 → Global Settlement trigger", "threshold_sky": "50000"}
+    },
+
+    {
+      "address": "0xafa2dd8a0594b2b24b59de405da9338c4ce23437", "chain_id": 1,
+      "type": "external_protocol_pool", "protocol": "spark", "label": "Spark sDAI Vault (D3M)",
+      "metadata": {"role": "Sky D3M 자본 수용처", "external_protocol": "spark"}
+    },
+    {
+      "address": "0x691a6c29e9e96dd897718305427ad5d534db16ba", "chain_id": 1,
+      "type": "allocator_vault", "protocol": "sky", "label": "Sky Allocator Spark-A",
+      "metadata": {"role": "Star(Spark) 가 USDS draw/wipe", "star": "spark"}
+    }
+  ],
+
+  "static_edges": [
+    {"edge_id": "sky:susds->usds", "edge_type": "mint_wrapper", "from": "0xa3931d71877c0e7a3148cb7eb4463524fec27fbd", "to": "0xdc035d45d973e3ec169d2276ddab16f1e407384f", "protocol": "sky", "chain_id": 1, "metadata": {"layer": "savings_wraps_usds", "data": "sUSDS 는 USDS 의 yield share"}},
+    {"edge_id": "sky:stusds->usds", "edge_type": "mint_wrapper", "from": "0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9", "to": "0xdc035d45d973e3ec169d2276ddab16f1e407384f", "protocol": "sky", "chain_id": 1, "metadata": {"layer": "risk_capital_wraps_usds", "data": "stUSDS — bad debt 흡수형 share"}},
+    {"edge_id": "sky:psm->usdc", "edge_type": "psm_swap", "from": "0xf6e72db5454dd049d0788e411b06cfaf16853042", "to": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", "protocol": "sky", "chain_id": 1, "metadata": {"layer": "psm_gem", "data": "PSM 이 USDC ↔ USDS 1:1"}},
+    {"edge_id": "sky:psm->usds", "edge_type": "psm_swap", "from": "0xf6e72db5454dd049d0788e411b06cfaf16853042", "to": "0xdc035d45d973e3ec169d2276ddab16f1e407384f", "protocol": "sky", "chain_id": 1, "metadata": {"layer": "psm_stable"}},
+    {"edge_id": "sky:psm->pocket", "edge_type": "delegation", "from": "0xf6e72db5454dd049d0788e411b06cfaf16853042", "to": "0x37305b1cd40574e4c5ce33f8e8306be057fd7341", "protocol": "sky", "chain_id": 1, "metadata": {"layer": "psm_custody", "data": "PSM gem 보관소 분리"}},
+    {"edge_id": "sky:dai_usds_conv->dai", "edge_type": "mint_wrapper", "from": "0x3225737a9bbb6473cb4a45b7244aca2befdb276a", "to": "0x6b175474e89094c44da98b954eedeac495271d0f", "protocol": "sky", "chain_id": 1, "metadata": {"layer": "converter"}},
+    {"edge_id": "sky:dai_usds_conv->usds", "edge_type": "mint_wrapper", "from": "0x3225737a9bbb6473cb4a45b7244aca2befdb276a", "to": "0xdc035d45d973e3ec169d2276ddab16f1e407384f", "protocol": "sky", "chain_id": 1, "metadata": {"layer": "converter"}},
+    {"edge_id": "sky:mkr_sky_conv->mkr", "edge_type": "mint_wrapper", "from": "0xa1ea1ba18e88c381c724a75f23a130420c403f9a", "to": "0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2", "protocol": "sky", "chain_id": 1, "metadata": {"layer": "migration"}},
+    {"edge_id": "sky:mkr_sky_conv->sky", "edge_type": "mint_wrapper", "from": "0xa1ea1ba18e88c381c724a75f23a130420c403f9a", "to": "0x56072c95faa701256059aa122697b133aded9279", "protocol": "sky", "chain_id": 1, "metadata": {"layer": "migration"}},
+    {"edge_id": "sky:lockstake->sky", "edge_type": "collateral", "from": "0x56072c95faa701256059aa122697b133aded9279", "to": "0xce01c90de7fd1bcfa39e237fe6d8d9f569e8a6a3", "protocol": "sky", "chain_id": 1, "metadata": {"layer": "lockstake_collateral", "data": "SKY 가 LockstakeEngine 담보"}},
+    {"edge_id": "sky:lockstake->lssky", "edge_type": "mint_wrapper", "from": "0xf9a9cfd3229e985b91f99bc866d42938044ffa1c", "to": "0xce01c90de7fd1bcfa39e237fe6d8d9f569e8a6a3", "protocol": "sky", "chain_id": 1, "metadata": {"layer": "lssky_mint"}},
+    {"edge_id": "sky:lockstake->usds", "edge_type": "vault_allocation", "from": "0xce01c90de7fd1bcfa39e237fe6d8d9f569e8a6a3", "to": "0xdc035d45d973e3ec169d2276ddab16f1e407384f", "protocol": "sky", "chain_id": 1, "metadata": {"layer": "draw_usds", "data": "LockstakeEngine 에서 USDS 차입"}},
+    {"edge_id": "sky:dog->lockstake", "edge_type": "delegation", "from": "0x135954d155898d42c90d2a57824c690e0c7bef1b", "to": "0xce01c90de7fd1bcfa39e237fe6d8d9f569e8a6a3", "protocol": "sky", "chain_id": 1, "metadata": {"layer": "liquidation_route"}},
+    {"edge_id": "sky:smartburn->sky", "edge_type": "mint_wrapper", "from": "0x374d9c3d5134052bc558f432afa1df6575f07407", "to": "0x56072c95faa701256059aa122697b133aded9279", "protocol": "sky", "chain_id": 1, "metadata": {"layer": "burn", "data": "vow surplus 로 SKY 매입/burn"}},
+
+    {"edge_id": "sky:d3m->spark", "edge_type": "vault_allocation", "from": "0x12f36cdea3a28c35ac8c6cc71d9265c17c74a27f", "to": "0xafa2dd8a0594b2b24b59de405da9338c4ce23437", "protocol": "sky", "chain_id": 1, "metadata": {"layer": "cross_protocol_d3m", "data": "★ Sky D3M → Spark 자본 공급 (cross-protocol)"}},
+    {"edge_id": "sky:d3m->aave", "edge_type": "vault_allocation", "from": "0x12f36cdea3a28c35ac8c6cc71d9265c17c74a27f", "to": "aave_v3", "protocol": "sky", "chain_id": 1, "metadata": {"layer": "cross_protocol_d3m", "data": "★ Sky D3M → Aave V3 Lido USDS pool (cross-protocol)"}},
+    {"edge_id": "sky:allocator->spark", "edge_type": "vault_allocation", "from": "0x691a6c29e9e96dd897718305427ad5d534db16ba", "to": "0xafa2dd8a0594b2b24b59de405da9338c4ce23437", "protocol": "sky", "chain_id": 1, "metadata": {"layer": "allocator_capital", "data": "Allocator Star → 외부 풀"}},
+    {"edge_id": "sky:allocator->usds", "edge_type": "vault_allocation", "from": "0x691a6c29e9e96dd897718305427ad5d534db16ba", "to": "0xdc035d45d973e3ec169d2276ddab16f1e407384f", "protocol": "sky", "chain_id": 1, "metadata": {"layer": "allocator_draw"}},
+    {"edge_id": "sky:esm->pauseproxy", "edge_type": "delegation", "from": "0x09e05ff6142f2f9de8b6b65855a1d56b6cfe4c58", "to": "0xbe8e3e3618f7474f8cb1d074a26affef007e98fb", "protocol": "sky", "chain_id": 1, "metadata": {"layer": "emergency"}},
+    {"edge_id": "sky:cdp_manager->usds", "edge_type": "vault_allocation", "from": "0x5ef30b9986345249bc32d8928b7ee64de9435e39", "to": "0xdc035d45d973e3ec169d2276ddab16f1e407384f", "protocol": "sky", "chain_id": 1, "metadata": {"layer": "cdp_draw", "data": "CDP Manager 가 USDS/DAI 차입 vault 관리"}},
+    {"edge_id": "sky:flash->dai", "edge_type": "mint_wrapper", "from": "0x60744434d6339a6b27d73d9eda62b6f66a0a04fa", "to": "0x6b175474e89094c44da98b954eedeac495271d0f", "protocol": "sky", "chain_id": 1, "metadata": {"layer": "flash_mint", "data": "DssFlash 가 DAI atomic flash loan 발행"}}
+  ]
+}

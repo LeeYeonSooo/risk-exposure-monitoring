@@ -1,0 +1,113 @@
+{
+  "inputs": [
+    {
+      "input": "concentration:amount_token:adopted",
+      "detector": "d02",
+      "measured": true,
+      "source": "onchain:erc20.balanceOf(aToken)@eth:21089068",
+      "amount_token": 7567.3525,
+      "block": 21089068
+    },
+    {
+      "input": "concentration:pct_of_supply:adopted",
+      "detector": "d02",
+      "measured": true,
+      "source": "onchain:erc20.balanceOf/totalSupply@eth:21089068",
+      "pct_of_supply": 0.715618,
+      "total_supply": 10574.569,
+      "block": 21089068
+    },
+    {
+      "input": "config:ltv_lt_frozen:adopted",
+      "detector": "d02",
+      "measured": true,
+      "source": "onchain:aave.getConfiguration@eth:21089068",
+      "ltv": 0.73,
+      "lt": 0.78,
+      "is_frozen": false,
+      "is_active": true,
+      "block": 21089068
+    },
+    {
+      "input": "concentration:amount_token:prelisting",
+      "detector": "d02",
+      "measured": true,
+      "source": "onchain:erc20.balanceOf(aToken)@eth:20780000",
+      "amount_token": 0.0,
+      "block": 20780000
+    },
+    {
+      "input": "concentration:pct_of_supply:prelisting",
+      "detector": "d02",
+      "measured": true,
+      "source": "onchain:erc20.balanceOf/totalSupply@eth:20780000",
+      "pct_of_supply": 0.0,
+      "total_supply": 1089.51,
+      "block": 20780000
+    },
+    {
+      "input": "config:ltv_lt_frozen:prelisting",
+      "detector": "d02",
+      "measured": false,
+      "source": "asserted:forward-market-identity (pre-listing reserve inactive on-chain; config word=0)",
+      "note": "amount_token/pct_of_supply ARE measured (=0); reserve not active at block so config word is 0 and not used as the snapshot market identity",
+      "block": 20780000
+    },
+    {
+      "input": "concentration:amount_token:calm",
+      "detector": "d02",
+      "measured": true,
+      "source": "onchain:erc20.balanceOf(aToken)@eth:21948291",
+      "amount_token": 8021.4163,
+      "block": 21948291
+    },
+    {
+      "input": "concentration:pct_of_supply:calm",
+      "detector": "d02",
+      "measured": true,
+      "source": "onchain:erc20.balanceOf/totalSupply@eth:21948291",
+      "pct_of_supply": 0.451505,
+      "total_supply": 17765.9335,
+      "block": 21948291
+    },
+    {
+      "input": "config:ltv_lt_frozen:calm",
+      "detector": "d02",
+      "measured": true,
+      "source": "onchain:aave.getConfiguration@eth:21948291",
+      "ltv": 0.73,
+      "lt": 0.78,
+      "is_frozen": false,
+      "is_active": true,
+      "block": 21948291
+    },
+    {
+      "input": "concentration:amount_token:calm_prev",
+      "detector": "d02",
+      "measured": true,
+      "source": "onchain:erc20.balanceOf(aToken)@eth:21912000",
+      "amount_token": 7949.8244,
+      "block": 21912000
+    },
+    {
+      "input": "concentration:pct_of_supply:calm_prev",
+      "detector": "d02",
+      "measured": true,
+      "source": "onchain:erc20.balanceOf/totalSupply@eth:21912000",
+      "pct_of_supply": 0.467757,
+      "total_supply": 16995.6217,
+      "block": 21912000
+    },
+    {
+      "input": "config:ltv_lt_frozen:calm_prev",
+      "detector": "d02",
+      "measured": true,
+      "source": "onchain:aave.getConfiguration@eth:21912000",
+      "ltv": 0.73,
+      "lt": 0.78,
+      "is_frozen": false,
+      "is_active": true,
+      "block": 21912000
+    }
+  ]
+}

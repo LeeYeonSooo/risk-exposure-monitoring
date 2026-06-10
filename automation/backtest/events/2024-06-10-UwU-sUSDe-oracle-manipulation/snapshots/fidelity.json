@@ -1,0 +1,22 @@
+{
+  "inputs": [
+    {
+      "input": "oracle_probe:sUSDe-uwulend-collateral__refprobe-manip@20037000",
+      "detector": "d04b",
+      "measured": true,
+      "source": "onchain:chainlink.latestRoundData @ ethereum:20037000 feed=0xa569d910839Ae8865Da8F8e70FfFb0cBA869F961",
+      "answer": 1.0012,
+      "updated_at": 1717709711,
+      "reverted": false
+    },
+    {
+      "input": "oracle_probe:sUSDe-uwulend-collateral__refprobe-honest@20037000",
+      "detector": "d04b",
+      "measured": true,
+      "source": "onchain:chainlink.latestRoundData @ ethereum:20037000 feed=0xa569d910839Ae8865Da8F8e70FfFb0cBA869F961",
+      "answer": 1.0012,
+      "updated_at": 1717709711,
+      "reverted": false
+    }
+  ]
+}

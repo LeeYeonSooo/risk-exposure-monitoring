@@ -1,0 +1,42 @@
+{
+  "_invariant": "prev: AMPL ~114.3M supply (rebasing token). total_supply + supply_samples are MEASURED on-chain (ERC20 totalSupply @ block 10454328 = 2020-07-14 00:00 UTC, and the 3 trailing daily reads 07-12/13/14). rebasing flag is host-fed (asserted); mint_events empty (measured: 0 zero-address Transfers across the rebase window).",
+  "_measured": {
+    "total_supply": "ethereum totalSupply @ block 10454328 (2020-07-14T00:00Z): 114267479711606026 (9dp) = 114,267,479.71 AMPL",
+    "supply_samples": "ethereum totalSupply @ 00:00 UTC on 2020-07-12 (blk 10441344), 07-13 (blk 10447835), 07-14 (blk 10454328)",
+    "rebase_no_mint": "Transfer logs over [10454328..10460734] (prev->rebase day, 6406 blocks, 6917 Transfers): 0 mints (from 0x0), 0 burns (to 0x0) — the rebase is a gonsPerFragment scalar restatement, not a mint.",
+    "asserted": "rebasing:true (host-fed classification); mint_events [] is consistent with the measured 0 zero-address Transfers"
+  },
+  "meta": {
+    "token": "AMPL",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2020-07-14T00:00:00Z"
+  },
+  "nodes": [
+    {
+      "node_id": "token:AMPL",
+      "type": "Token",
+      "label": "Ampleforth",
+      "address": "0xD46bA6D942050d489DBd938a2C909A5d5039A161",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "AMPL",
+        "decimals": 9,
+        "total_supply": 114267479711606026,
+        "supply_samples": [
+          74047748837732289,
+          89839888949930357,
+          114267479711606026
+        ],
+        "rebasing": true,
+        "mint_events": [],
+        "authorized_minters": [
+          "0xampl_policy"
+        ],
+        "market_cap_usd": 200000000
+      }
+    }
+  ],
+  "edges": []
+}

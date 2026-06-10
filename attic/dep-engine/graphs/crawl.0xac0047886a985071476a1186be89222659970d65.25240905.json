@@ -1,0 +1,417 @@
+{
+  "root": "0xac0047886a985071476a1186be89222659970d65",
+  "block": 25240905,
+  "edges": [
+    {
+      "from_token": "0xac0047886a985071476a1186be89222659970d65",
+      "holder": "0xfb35fd0095dd1096b1ca49ad44d8c5812a201677",
+      "amount": 672.6031650420441,
+      "frac": 0.356,
+      "kind": "erc20_receipt",
+      "label": "PendleYieldToken",
+      "depth": 0,
+      "note": "symbol=YT-weETH-27JUN2024"
+    },
+    {
+      "from_token": "0xfb35fd0095dd1096b1ca49ad44d8c5812a201677",
+      "holder": "0xaaf5feaa9e5694b2b293e67558e2da8ea4b1fb13",
+      "amount": 26059.407494541938,
+      "frac": 0.063,
+      "kind": "opaque",
+      "label": "",
+      "depth": 1
+    },
+    {
+      "from_token": "0xfb35fd0095dd1096b1ca49ad44d8c5812a201677",
+      "holder": "0x2b55afd4ac9d6c077a5cc193af7045261261024e",
+      "amount": 20826.582800262837,
+      "frac": 0.0503,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0xfb35fd0095dd1096b1ca49ad44d8c5812a201677",
+      "holder": "0xd91cf067edd811bed4cc88d3f141ea0d0c8161b2",
+      "amount": 16557.9661535176,
+      "frac": 0.04,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0xfb35fd0095dd1096b1ca49ad44d8c5812a201677",
+      "holder": "0x4e2bb4b6ead3830f4625cbbeb2f80b920f6417ee",
+      "amount": 15798.04991718432,
+      "frac": 0.0382,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0xfb35fd0095dd1096b1ca49ad44d8c5812a201677",
+      "holder": "0x2def5ce83d3c0176355672806988b91450b31170",
+      "amount": 10868.198129786253,
+      "frac": 0.0263,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0xfb35fd0095dd1096b1ca49ad44d8c5812a201677",
+      "holder": "0xc3708f8c576f9b374138d7cc101978da8ec954b6",
+      "amount": 9445.252951915852,
+      "frac": 0.0228,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0xfb35fd0095dd1096b1ca49ad44d8c5812a201677",
+      "holder": "0xfb35fd0095dd1096b1ca49ad44d8c5812a201677",
+      "amount": 8610.842600136417,
+      "frac": 0.0208,
+      "kind": "erc20_receipt",
+      "label": "PendleYieldToken",
+      "depth": 1,
+      "note": "symbol=YT-weETH-27JUN2024"
+    },
+    {
+      "from_token": "0xfb35fd0095dd1096b1ca49ad44d8c5812a201677",
+      "holder": "0x84c6d0a59f3d49d59b0b9de26b4ab29b6de9bccc",
+      "amount": 7279.526807232182,
+      "frac": 0.0176,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0xac0047886a985071476a1186be89222659970d65",
+      "holder": "0xf25586be8b7bbcdbf1585ffe02d50c6d1f2bc51b",
+      "amount": 440.7598476594893,
+      "frac": 0.2333,
+      "kind": "erc20_receipt",
+      "label": "PendleYieldToken",
+      "depth": 0,
+      "note": "symbol=YT-weETH-25JUN2026"
+    },
+    {
+      "from_token": "0xf25586be8b7bbcdbf1585ffe02d50c6d1f2bc51b",
+      "holder": "0x01cc647103f4ce8a8f7985df8101d24aab029bf3",
+      "amount": 128.58562181975847,
+      "frac": 0.2668,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0xf25586be8b7bbcdbf1585ffe02d50c6d1f2bc51b",
+      "holder": "0xd8f401b9d8ea5362b029ba1df80b8dd94a84a503",
+      "amount": 126.49008499270825,
+      "frac": 0.2624,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0xf25586be8b7bbcdbf1585ffe02d50c6d1f2bc51b",
+      "holder": "0x2236946e0df3d2ae0b79f464742fc9e8d7bc53b1",
+      "amount": 75.98821006264045,
+      "frac": 0.1576,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0xf25586be8b7bbcdbf1585ffe02d50c6d1f2bc51b",
+      "holder": "0xcbc2e7ad9b8fa66926eb175f99c7f87cb01ca67f",
+      "amount": 55.9364296912377,
+      "frac": 0.116,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0xf25586be8b7bbcdbf1585ffe02d50c6d1f2bc51b",
+      "holder": "0x6def0b3e60d93ab280ea20541431075d23414d34",
+      "amount": 27.138516523853728,
+      "frac": 0.0563,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0xf25586be8b7bbcdbf1585ffe02d50c6d1f2bc51b",
+      "holder": "0x1cbc3125b7763c548b1af9b0fc3b13064745b1f6",
+      "amount": 18.788111844053645,
+      "frac": 0.039,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0xf25586be8b7bbcdbf1585ffe02d50c6d1f2bc51b",
+      "holder": "0x4abadbe16a0691041122ac4f44d178a1960d8046",
+      "amount": 10.289017610452317,
+      "frac": 0.0213,
+      "kind": "opaque",
+      "label": "",
+      "depth": 1
+    },
+    {
+      "from_token": "0xf25586be8b7bbcdbf1585ffe02d50c6d1f2bc51b",
+      "holder": "0x731bfadaf268f6a388558fad07cfcc5ec9e9323f",
+      "amount": 7.0,
+      "frac": 0.0145,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0xac0047886a985071476a1186be89222659970d65",
+      "holder": "0x95a9504f246cd65bf91c2c550a53f7f415227ed1",
+      "amount": 440.52507920287286,
+      "frac": 0.2332,
+      "kind": "erc20_receipt",
+      "label": "PendleMarketV3",
+      "depth": 0,
+      "note": "symbol=PENDLE-LPT"
+    },
+    {
+      "from_token": "0x95a9504f246cd65bf91c2c550a53f7f415227ed1",
+      "holder": "0x9592f9602cee58323a4f99504838cb344effb355",
+      "amount": 70.57718085640627,
+      "frac": 0.2832,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0x95a9504f246cd65bf91c2c550a53f7f415227ed1",
+      "holder": "0x22561c5931143536309c17e832587b625c390b9a",
+      "amount": 69.74079514370413,
+      "frac": 0.2799,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0x95a9504f246cd65bf91c2c550a53f7f415227ed1",
+      "holder": "0xf59214b4752c2394a9d23ca1e8bfc77a1983c966",
+      "amount": 27.152431456820867,
+      "frac": 0.109,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0x95a9504f246cd65bf91c2c550a53f7f415227ed1",
+      "holder": "0xd0e72c1b2eb87e3dc0445b7f689cadcfc872b293",
+      "amount": 12.15108417862511,
+      "frac": 0.0488,
+      "kind": "opaque",
+      "label": "",
+      "depth": 1
+    },
+    {
+      "from_token": "0x95a9504f246cd65bf91c2c550a53f7f415227ed1",
+      "holder": "0x1c6db846995ac6e0ca6ac28a8afe0e55e1eef87c",
+      "amount": 9.900460592095913,
+      "frac": 0.0397,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0x95a9504f246cd65bf91c2c550a53f7f415227ed1",
+      "holder": "0xe08c0cdef1e1e7797efaf0faf22fe6251420eab5",
+      "amount": 8.463653049220206,
+      "frac": 0.034,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0x95a9504f246cd65bf91c2c550a53f7f415227ed1",
+      "holder": "0x5cfb72603775e64a3444271af03d7cbb455a4673",
+      "amount": 4.317918072579568,
+      "frac": 0.0173,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0x95a9504f246cd65bf91c2c550a53f7f415227ed1",
+      "holder": "0x5cffadade556ed06c32e0b03e4e742f80c4529fe",
+      "amount": 3.8286060940352193,
+      "frac": 0.0154,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0xac0047886a985071476a1186be89222659970d65",
+      "holder": "0xf32e58f92e60f4b0a37a69b95d642a471365eae8",
+      "amount": 151.3134300429862,
+      "frac": 0.0801,
+      "kind": "erc20_receipt",
+      "label": "PendleMarketV3",
+      "depth": 0,
+      "note": "symbol=PENDLE-LPT"
+    },
+    {
+      "from_token": "0xf32e58f92e60f4b0a37a69b95d642a471365eae8",
+      "holder": "0xf34552e7618ee8cbe78e8aa582e282a6400643cd",
+      "amount": 25.400856109777425,
+      "frac": 0.1224,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0xf32e58f92e60f4b0a37a69b95d642a471365eae8",
+      "holder": "0x06ad5f1df17d278473136786353695b0749d8c9e",
+      "amount": 9.450722303906803,
+      "frac": 0.0455,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0xf32e58f92e60f4b0a37a69b95d642a471365eae8",
+      "holder": "0x66d432ef9da206fd65d18f49f95abd58e70de9ea",
+      "amount": 7.539166510356097,
+      "frac": 0.0363,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0xf32e58f92e60f4b0a37a69b95d642a471365eae8",
+      "holder": "0x6e799758cee75dae3d84e09d40dc416ecf713652",
+      "amount": 6.9290141029533,
+      "frac": 0.0334,
+      "kind": "contract",
+      "label": "TransparentUpgradeableProxy",
+      "depth": 1
+    },
+    {
+      "from_token": "0xf32e58f92e60f4b0a37a69b95d642a471365eae8",
+      "holder": "0x15e5ad807f5b8d823bf26f03fa3569985d41d8bc",
+      "amount": 5.069050084011481,
+      "frac": 0.0244,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0xf32e58f92e60f4b0a37a69b95d642a471365eae8",
+      "holder": "0x7fc304492ee5cd07baf900bfd86afe66a731d82f",
+      "amount": 4.088733531258675,
+      "frac": 0.0197,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0xf32e58f92e60f4b0a37a69b95d642a471365eae8",
+      "holder": "0xd9364a92c4f02d38e0f0ae99df0847549b575ca4",
+      "amount": 4.056511574296191,
+      "frac": 0.0195,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0xf32e58f92e60f4b0a37a69b95d642a471365eae8",
+      "holder": "0xf8f5b785e185d96b061929a4ac019b8454406b6f",
+      "amount": 2.7932729634808733,
+      "frac": 0.0135,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0xac0047886a985071476a1186be89222659970d65",
+      "holder": "0x129e6b5dbc0ecc12f9e486c5bc9cdf1a6a80bc6a",
+      "amount": 52.71323117675793,
+      "frac": 0.0279,
+      "kind": "erc20_receipt",
+      "label": "PendleYieldToken",
+      "depth": 0,
+      "note": "symbol=YT-weETH-26DEC2024"
+    },
+    {
+      "from_token": "0x129e6b5dbc0ecc12f9e486c5bc9cdf1a6a80bc6a",
+      "holder": "0xc0979af67786f30dea9335665592d6813b21b819",
+      "amount": 20838.880333210975,
+      "frac": 0.4644,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0x129e6b5dbc0ecc12f9e486c5bc9cdf1a6a80bc6a",
+      "holder": "0xd1edf7fc3d913c94e6c649985ce36bbc2e871d0e",
+      "amount": 4612.203997849341,
+      "frac": 0.1028,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0x129e6b5dbc0ecc12f9e486c5bc9cdf1a6a80bc6a",
+      "holder": "0xc0fd44f7f62a45b2ca447c4d8b4b51ccc8d93d95",
+      "amount": 2048.3423659742407,
+      "frac": 0.0457,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0x129e6b5dbc0ecc12f9e486c5bc9cdf1a6a80bc6a",
+      "holder": "0x9fb1750da6266a05601855bb62767ebc742707b1",
+      "amount": 2042.947499960289,
+      "frac": 0.0455,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0x129e6b5dbc0ecc12f9e486c5bc9cdf1a6a80bc6a",
+      "holder": "0xee2826453a4fd5afeb7ceffeef3ffa2320081268",
+      "amount": 2000.3672347855475,
+      "frac": 0.0446,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0x129e6b5dbc0ecc12f9e486c5bc9cdf1a6a80bc6a",
+      "holder": "0xa7c0279dc70285d0df8d756fe42215129bdcfd34",
+      "amount": 1383.7393709069086,
+      "frac": 0.0308,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0x129e6b5dbc0ecc12f9e486c5bc9cdf1a6a80bc6a",
+      "holder": "0xadb4baa4bf3a1c176c4399402395403632b036a3",
+      "amount": 1022.1326917739946,
+      "frac": 0.0228,
+      "kind": "EOA",
+      "label": "EOA",
+      "depth": 1
+    },
+    {
+      "from_token": "0x129e6b5dbc0ecc12f9e486c5bc9cdf1a6a80bc6a",
+      "holder": "0xaaf5feaa9e5694b2b293e67558e2da8ea4b1fb13",
+      "amount": 813.0288291335354,
+      "frac": 0.0181,
+      "kind": "opaque",
+      "label": "",
+      "depth": 1
+    }
+  ]
+}

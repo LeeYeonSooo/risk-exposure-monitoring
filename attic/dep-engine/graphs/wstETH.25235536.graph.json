@@ -1,0 +1,773 @@
+{
+  "meta": {
+    "spec": "bipartite-graphhh schema.json",
+    "root_token": "token:wstETH",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_block": 25235536,
+    "snapshot_ts": "2026-06-03T08:02:11Z",
+    "total_supply": 3496406,
+    "price_usd": 2319.48,
+    "covered_token_in_nodes": 2344888,
+    "covered_pct_of_supply": 0.6707,
+    "non_node_residual_note": "나머지는 EOA고래/멀티시그/CEX 직접보유 (프로토콜 아님, 컷오프 미달). 최대 0x466a…7501 EOA.",
+    "data_source": "Alchemy archive RPC @fixed block + Etherscan/Dune 식별"
+  },
+  "nodes": [
+    {
+      "node_id": "token:wstETH",
+      "type": "Token",
+      "label": "Wrapped liquid staked ETH",
+      "address": "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "wstETH",
+        "decimals": 18,
+        "total_supply": 3496406,
+        "holders": null,
+        "market_cap_usd": 8109842663,
+        "paused": false,
+        "mint_controller": null,
+        "bridges": {
+          "ethereum": [
+            {
+              "bridge": "Arbitrum native bridge",
+              "locked_amount": 54145,
+              "dest_chains": [
+                "arbitrum"
+              ],
+              "mechanism": "lock_unlock"
+            },
+            {
+              "bridge": "Chainlink CCIP",
+              "locked_amount": 38713,
+              "dest_chains": [
+                "multi"
+              ],
+              "mechanism": "messaging"
+            },
+            {
+              "bridge": "Base native bridge",
+              "locked_amount": 32673,
+              "dest_chains": [
+                "base"
+              ],
+              "mechanism": "lock_unlock"
+            },
+            {
+              "bridge": "Optimism native bridge",
+              "locked_amount": 19338,
+              "dest_chains": [
+                "optimism"
+              ],
+              "mechanism": "lock_unlock"
+            },
+            {
+              "bridge": "Gnosis Omnibridge",
+              "locked_amount": 17421,
+              "dest_chains": [
+                "gnosis"
+              ],
+              "mechanism": "lock_unlock"
+            },
+            {
+              "bridge": "Polygon PoS bridge",
+              "locked_amount": 5647,
+              "dest_chains": [
+                "polygon"
+              ],
+              "mechanism": "lock_unlock"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "node_id": "protocol:spark",
+      "type": "DefiProtocol",
+      "label": "Spark",
+      "address": "0x12b54025c112aa61face2cdb7118740875a566e9",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "mono_pool",
+        "core_contract": "0x12b54025c112aa61face2cdb7118740875a566e9",
+        "tokens_held": 859083,
+        "tokens_held_usd": 1992625582,
+        "governance": "Sky/Spark DAO"
+      }
+    },
+    {
+      "node_id": "protocol:aave_v3",
+      "type": "DefiProtocol",
+      "label": "Aave V3 (core+Lido)",
+      "address": "0x0b925ed163218f6662a35e0f0371ac234f9e9371",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "mono_pool",
+        "core_contract": "0x0b925ed163218f6662a35e0f0371ac234f9e9371",
+        "tokens_held": 704989,
+        "tokens_held_usd": 1635207634,
+        "governance": "Aave DAO"
+      }
+    },
+    {
+      "node_id": "protocol:morpho_blue",
+      "type": "DefiProtocol",
+      "label": "Morpho Blue",
+      "address": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "isolated_markets",
+        "core_contract": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+        "tokens_held": 309439,
+        "tokens_held_usd": 717736444,
+        "governance": "immutable"
+      }
+    },
+    {
+      "node_id": "protocol:sky_maker",
+      "type": "DefiProtocol",
+      "label": "Sky / Maker (CDP)",
+      "address": "0x248ccbf4864221fc0e840f29bb042ad5bfc89b5c",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "cdp",
+        "core_contract": "0x248ccbf4864221fc0e840f29bb042ad5bfc89b5c",
+        "tokens_held": 103377,
+        "tokens_held_usd": 239781713,
+        "governance": "Sky"
+      }
+    },
+    {
+      "node_id": "protocol:compound_v3",
+      "type": "DefiProtocol",
+      "label": "Compound V3",
+      "address": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "mono_pool",
+        "core_contract": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+        "tokens_held": 65441,
+        "tokens_held_usd": 151788303,
+        "governance": "Compound DAO"
+      }
+    },
+    {
+      "node_id": "protocol:fluid",
+      "type": "DefiProtocol",
+      "label": "Fluid",
+      "address": "0x52aa899454998be5b000ad077a46bbe360f4e497",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "multi_asset_liquidity",
+        "core_contract": "0x52aa899454998be5b000ad077a46bbe360f4e497",
+        "tokens_held": 54113,
+        "tokens_held_usd": 125515060,
+        "governance": "Instadapp"
+      }
+    },
+    {
+      "node_id": "protocol:liquity_v2",
+      "type": "DefiProtocol",
+      "label": "Liquity V2 (CDP)",
+      "address": "0x531a8f99c70d6a56a7cee02d6b4281650d7919a0",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "cdp",
+        "core_contract": "0x531a8f99c70d6a56a7cee02d6b4281650d7919a0",
+        "tokens_held": 20824,
+        "tokens_held_usd": 48301167,
+        "governance": "immutable"
+      }
+    },
+    {
+      "node_id": "protocol:curve",
+      "type": "DefiProtocol",
+      "label": "Curve",
+      "address": "0x37417b2238aa52d0dd2d6252d989e728e8f706e4",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "stable_swap",
+        "core_contract": "0x37417b2238aa52d0dd2d6252d989e728e8f706e4",
+        "tokens_held": 12785,
+        "tokens_held_usd": 29653544,
+        "governance": "Curve DAO"
+      }
+    },
+    {
+      "node_id": "protocol:symbiotic",
+      "type": "DefiProtocol",
+      "label": "Symbiotic (restaking collateral)",
+      "address": "0xc329400492c6ff2438472d4651ad17389fcb843a",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "single_asset_wrapper",
+        "core_contract": "0xc329400492c6ff2438472d4651ad17389fcb843a",
+        "tokens_held": 23572,
+        "tokens_held_usd": 54675284,
+        "governance": "Symbiotic"
+      }
+    },
+    {
+      "node_id": "protocol:zircuit",
+      "type": "DefiProtocol",
+      "label": "Zircuit (staking pool)",
+      "address": "0xf047ab4c75cebf0eb9ed34ae2c186f3611aeafa6",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "single_asset_wrapper",
+        "core_contract": "0xf047ab4c75cebf0eb9ed34ae2c186f3611aeafa6",
+        "tokens_held": 14818,
+        "tokens_held_usd": 34370067,
+        "governance": "Zircuit"
+      }
+    },
+    {
+      "node_id": "protocol:treehouse",
+      "type": "DefiProtocol",
+      "label": "Treehouse (tETH)",
+      "address": "0x551d155760ae96050439ad24ae98a96c765d761b",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "multi_asset_basket",
+        "core_contract": "0x551d155760ae96050439ad24ae98a96c765d761b",
+        "tokens_held": 8509,
+        "tokens_held_usd": 19735874,
+        "governance": "Treehouse"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "wstETH--spark",
+      "source": "token:wstETH",
+      "target": "protocol:spark",
+      "classification": {
+        "roles": [
+          {
+            "edge_type": "collateral",
+            "amount_token": 859083,
+            "amount_usd": 1992625582
+          }
+        ],
+        "primary_role": "collateral",
+        "venue_type": "market",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 859083,
+        "amount_usd": 1992625582,
+        "pct_of_supply": 0.2457,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "EXCHANGE_RATE",
+        "oracle_provider": "Lido wstETH/stETH rate + Chainlink ETH/USD (CAPO)",
+        "oracle_address": "0x8105f69d9c41644c6a0803fda7d03aa70996cfd9",
+        "depeg_sensitive": false,
+        "source_feed": "0xe98d51fa014c7ed68018dbfe6347de9c3f39ca39"
+      },
+      "meta": {
+        "snapshot_block": 25235536,
+        "snapshot_ts": "2026-06-03T08:02:11Z",
+        "verifiable_onchain": true,
+        "confidence": "HIGH",
+        "data_source": "RPC balanceOf @block + getSourceOfAsset"
+      },
+      "lending_risk": {
+        "ltv": null,
+        "lt": null,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": null,
+        "utilization": 0.0,
+        "is_frozen": false,
+        "emode_category": null,
+        "avg_ltv": 0.35
+      }
+    },
+    {
+      "edge_id": "wstETH--aave_v3",
+      "source": "token:wstETH",
+      "target": "protocol:aave_v3",
+      "classification": {
+        "roles": [
+          {
+            "edge_type": "collateral",
+            "amount_token": 704989,
+            "amount_usd": 1635207634
+          }
+        ],
+        "primary_role": "collateral",
+        "venue_type": "market",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 704989,
+        "amount_usd": 1635207634,
+        "pct_of_supply": 0.2016,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "EXCHANGE_RATE",
+        "oracle_provider": "Lido wstETH/stETH rate + Chainlink ETH/USD (CAPO)",
+        "oracle_address": "0x54586be62e3c3580375ae3723c145253060ca0c2",
+        "depeg_sensitive": false,
+        "source_feed": "0xe1d97bf61901b075e9626c8a2340a7de385861ef"
+      },
+      "meta": {
+        "snapshot_block": 25235536,
+        "snapshot_ts": "2026-06-03T08:02:11Z",
+        "verifiable_onchain": true,
+        "confidence": "HIGH",
+        "data_source": "RPC balanceOf @block + getSourceOfAsset"
+      },
+      "lending_risk": {
+        "ltv": null,
+        "lt": null,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": null,
+        "utilization": 0.0,
+        "is_frozen": false,
+        "emode_category": "ETH",
+        "avg_ltv": 0.84
+      }
+    },
+    {
+      "edge_id": "wstETH--morpho_blue",
+      "source": "token:wstETH",
+      "target": "protocol:morpho_blue",
+      "classification": {
+        "roles": [
+          {
+            "edge_type": "collateral_isolated",
+            "amount_token": 309439,
+            "amount_usd": 717736444
+          }
+        ],
+        "primary_role": "collateral_isolated",
+        "venue_type": "isolated_market",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 309439,
+        "amount_usd": 717736444,
+        "pct_of_supply": 0.0885,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "EXCHANGE_RATE",
+        "oracle_provider": "per-market (Chainlink/exchange-rate adapters)",
+        "oracle_address": null,
+        "depeg_sensitive": false,
+        "source_feed": null
+      },
+      "meta": {
+        "snapshot_block": 25235536,
+        "snapshot_ts": "2026-06-03T08:02:11Z",
+        "verifiable_onchain": true,
+        "confidence": "MEDIUM",
+        "data_source": "RPC balanceOf @block + getSourceOfAsset"
+      },
+      "lending_risk": {
+        "ltv": null,
+        "lt": null,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": null,
+        "utilization": null,
+        "is_frozen": false,
+        "emode_category": null,
+        "avg_ltv": null
+      }
+    },
+    {
+      "edge_id": "wstETH--sky_maker",
+      "source": "token:wstETH",
+      "target": "protocol:sky_maker",
+      "classification": {
+        "roles": [
+          {
+            "edge_type": "cdp_collateral",
+            "amount_token": 103377,
+            "amount_usd": 239781713
+          }
+        ],
+        "primary_role": "cdp_collateral",
+        "venue_type": "cdp",
+        "protocol_class": "cdp"
+      },
+      "core_weight": {
+        "amount_token": 103377,
+        "amount_usd": 239781713,
+        "pct_of_supply": 0.0296,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "EXCHANGE_RATE",
+        "oracle_provider": "Maker Spotter pip (wstETH)",
+        "oracle_address": null,
+        "depeg_sensitive": false,
+        "source_feed": null
+      },
+      "meta": {
+        "snapshot_block": 25235536,
+        "snapshot_ts": "2026-06-03T08:02:11Z",
+        "verifiable_onchain": true,
+        "confidence": "MEDIUM",
+        "data_source": "RPC balanceOf @block + getSourceOfAsset"
+      },
+      "lending_risk": {
+        "ltv": null,
+        "lt": null,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": null,
+        "utilization": null,
+        "is_frozen": false,
+        "emode_category": null,
+        "avg_ltv": null
+      },
+      "cdp_risk": {
+        "debt_ceiling": null,
+        "debt_current": null,
+        "stability_fee": null,
+        "liquidation_ratio": null
+      }
+    },
+    {
+      "edge_id": "wstETH--compound_v3",
+      "source": "token:wstETH",
+      "target": "protocol:compound_v3",
+      "classification": {
+        "roles": [
+          {
+            "edge_type": "collateral",
+            "amount_token": 65441,
+            "amount_usd": 151788303
+          }
+        ],
+        "primary_role": "collateral",
+        "venue_type": "market",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 65441,
+        "amount_usd": 151788303,
+        "pct_of_supply": 0.0187,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "EXCHANGE_RATE",
+        "oracle_provider": "Compound III price feed",
+        "oracle_address": null,
+        "depeg_sensitive": false,
+        "source_feed": "0xa2699232b341881b1ed85d91592b7c259e029acf"
+      },
+      "meta": {
+        "snapshot_block": 25235536,
+        "snapshot_ts": "2026-06-03T08:02:11Z",
+        "verifiable_onchain": true,
+        "confidence": "HIGH",
+        "data_source": "RPC balanceOf @block + getSourceOfAsset"
+      },
+      "lending_risk": {
+        "ltv": null,
+        "lt": null,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": null,
+        "utilization": null,
+        "is_frozen": false,
+        "emode_category": null,
+        "avg_ltv": null
+      }
+    },
+    {
+      "edge_id": "wstETH--fluid",
+      "source": "token:wstETH",
+      "target": "protocol:fluid",
+      "classification": {
+        "roles": [
+          {
+            "edge_type": "collateral",
+            "amount_token": 54113,
+            "amount_usd": 125515060
+          }
+        ],
+        "primary_role": "collateral",
+        "venue_type": "market",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 54113,
+        "amount_usd": 125515060,
+        "pct_of_supply": 0.0155,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "EXCHANGE_RATE",
+        "oracle_provider": "Fluid oracle",
+        "oracle_address": null,
+        "depeg_sensitive": false,
+        "source_feed": null
+      },
+      "meta": {
+        "snapshot_block": 25235536,
+        "snapshot_ts": "2026-06-03T08:02:11Z",
+        "verifiable_onchain": true,
+        "confidence": "MEDIUM",
+        "data_source": "RPC balanceOf @block + getSourceOfAsset"
+      },
+      "lending_risk": {
+        "ltv": null,
+        "lt": null,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": null,
+        "utilization": null,
+        "is_frozen": false,
+        "emode_category": null,
+        "avg_ltv": null
+      }
+    },
+    {
+      "edge_id": "wstETH--liquity_v2",
+      "source": "token:wstETH",
+      "target": "protocol:liquity_v2",
+      "classification": {
+        "roles": [
+          {
+            "edge_type": "cdp_collateral",
+            "amount_token": 20824,
+            "amount_usd": 48301167
+          }
+        ],
+        "primary_role": "cdp_collateral",
+        "venue_type": "cdp",
+        "protocol_class": "cdp"
+      },
+      "core_weight": {
+        "amount_token": 20824,
+        "amount_usd": 48301167,
+        "pct_of_supply": 0.006,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "EXCHANGE_RATE",
+        "oracle_provider": "Liquity V2 wstETH branch PriceFeed",
+        "oracle_address": null,
+        "depeg_sensitive": false,
+        "source_feed": null
+      },
+      "meta": {
+        "snapshot_block": 25235536,
+        "snapshot_ts": "2026-06-03T08:02:11Z",
+        "verifiable_onchain": true,
+        "confidence": "MEDIUM",
+        "data_source": "RPC balanceOf @block + getSourceOfAsset"
+      },
+      "lending_risk": {
+        "ltv": null,
+        "lt": null,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": null,
+        "utilization": null,
+        "is_frozen": false,
+        "emode_category": null,
+        "avg_ltv": null
+      },
+      "cdp_risk": {
+        "debt_ceiling": null,
+        "debt_current": null,
+        "stability_fee": null,
+        "liquidation_ratio": null
+      }
+    },
+    {
+      "edge_id": "wstETH--curve",
+      "source": "token:wstETH",
+      "target": "protocol:curve",
+      "classification": {
+        "roles": [
+          {
+            "edge_type": "lp_pair",
+            "amount_token": 12785,
+            "amount_usd": 29653544
+          }
+        ],
+        "primary_role": "lp_pair",
+        "venue_type": "pool",
+        "protocol_class": "dex"
+      },
+      "core_weight": {
+        "amount_token": 12785,
+        "amount_usd": 29653544,
+        "pct_of_supply": 0.0037,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "EMA",
+        "oracle_provider": "Curve internal EMA",
+        "oracle_address": null,
+        "depeg_sensitive": false,
+        "source_feed": null
+      },
+      "meta": {
+        "snapshot_block": 25235536,
+        "snapshot_ts": "2026-06-03T08:02:11Z",
+        "verifiable_onchain": true,
+        "confidence": "HIGH",
+        "data_source": "RPC balanceOf @block + getSourceOfAsset"
+      },
+      "dex_metrics": {
+        "pool_count": 1,
+        "liquidity_usd": 29653544,
+        "depth_at_1pct_usd": null,
+        "depth_at_5pct_usd": null,
+        "top_pairs": [
+          "wstETH/crvUSD (LLAMMA)"
+        ]
+      }
+    },
+    {
+      "edge_id": "wstETH--symbiotic",
+      "source": "token:wstETH",
+      "target": "protocol:symbiotic",
+      "classification": {
+        "roles": [
+          {
+            "edge_type": "deposit_supply",
+            "amount_token": 23572,
+            "amount_usd": 54675284
+          }
+        ],
+        "primary_role": "deposit_supply",
+        "venue_type": "vault",
+        "protocol_class": "wrapper"
+      },
+      "core_weight": {
+        "amount_token": 23572,
+        "amount_usd": 54675284,
+        "pct_of_supply": 0.0067,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "NONE",
+        "oracle_provider": null,
+        "oracle_address": null,
+        "depeg_sensitive": false,
+        "source_feed": null
+      },
+      "meta": {
+        "snapshot_block": 25235536,
+        "snapshot_ts": "2026-06-03T08:02:11Z",
+        "verifiable_onchain": true,
+        "confidence": "MEDIUM",
+        "data_source": "RPC balanceOf @block + getSourceOfAsset"
+      }
+    },
+    {
+      "edge_id": "wstETH--zircuit",
+      "source": "token:wstETH",
+      "target": "protocol:zircuit",
+      "classification": {
+        "roles": [
+          {
+            "edge_type": "deposit_supply",
+            "amount_token": 14818,
+            "amount_usd": 34370067
+          }
+        ],
+        "primary_role": "deposit_supply",
+        "venue_type": "vault",
+        "protocol_class": "wrapper"
+      },
+      "core_weight": {
+        "amount_token": 14818,
+        "amount_usd": 34370067,
+        "pct_of_supply": 0.0042,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "NONE",
+        "oracle_provider": null,
+        "oracle_address": null,
+        "depeg_sensitive": false,
+        "source_feed": null
+      },
+      "meta": {
+        "snapshot_block": 25235536,
+        "snapshot_ts": "2026-06-03T08:02:11Z",
+        "verifiable_onchain": true,
+        "confidence": "MEDIUM",
+        "data_source": "RPC balanceOf @block + getSourceOfAsset"
+      }
+    },
+    {
+      "edge_id": "wstETH--treehouse",
+      "source": "token:wstETH",
+      "target": "protocol:treehouse",
+      "classification": {
+        "roles": [
+          {
+            "edge_type": "mint_backing",
+            "amount_token": 8509,
+            "amount_usd": 19735874
+          }
+        ],
+        "primary_role": "mint_backing",
+        "venue_type": "vault",
+        "protocol_class": "wrapper"
+      },
+      "core_weight": {
+        "amount_token": 8509,
+        "amount_usd": 19735874,
+        "pct_of_supply": 0.0024,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "NONE",
+        "oracle_provider": null,
+        "oracle_address": null,
+        "depeg_sensitive": false,
+        "source_feed": null
+      },
+      "meta": {
+        "snapshot_block": 25235536,
+        "snapshot_ts": "2026-06-03T08:02:11Z",
+        "verifiable_onchain": true,
+        "confidence": "MEDIUM",
+        "data_source": "RPC balanceOf @block + getSourceOfAsset"
+      },
+      "mint_backing": {
+        "issued_token": "tETH",
+        "backing_share": null,
+        "co_backing_tokens": null,
+        "redemption": "vault redeem",
+        "manager": "Treehouse"
+      }
+    }
+  ]
+}

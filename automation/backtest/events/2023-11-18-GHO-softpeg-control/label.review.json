@@ -1,0 +1,5 @@
+{
+  "verdict": "APPROVE",
+  "summary": "Data-only backfill: judgment fields (should_fire empty, must_not_fire DEPEG, max_emitted HIGH=0, by_design_discount, asset_class) UNCHANGED from prior label.json; measured GHO/USD $0.9647 sits inside the documented ~$0.96-0.98 soft-peg band and ~25% above LT 0.77, so the fully-backed control stays benign; fidelity marks the swapped probe measured=true (univ3 0x5c95…5bc1d @18600000) and honestly leaves the 0.985 band-coverage point measured=false.",
+  "draft_sha256": "d57a2216c0bba207d35a4f21d0b8994b02447e1f9855af2729025cf690fe6b12"
+}

@@ -1,0 +1,5 @@
+{
+  "verdict": "APPROVE",
+  "summary": "Data-only re-capture: all 3 case judgments (should_fire ORACLE_CHANGE>=HIGH + DEPEG must_not_fire; calm + new-listing FP-traps, max_emitted WARN/0) byte-identical to prior label.json; MEASURED oracle source swaps OLD 0x8b68..ac93 -> NEW 0xb4ab..a010 (two distinct addrs) @19461330/19461331 with reserve-config word byte-identical across the swap block (pure source event), none-snapshot oracle_address=null (absent->present, no swap), edge_id wstETH-aave_v3-collateral present in all 3, fidelity marks 4/5 inputs measured=true and the modeled FP-trap measured=false (80%).",
+  "draft_sha256": "52ca033badd5ea8f6cc55f7e33e208ffb0b3ec7be4f280a2959f07822fcfff43"
+}

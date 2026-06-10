@@ -1,0 +1,116 @@
+{
+  "_invariant": "INCIDENT: USR totalSupply jumped 102,507,700.61->178,655,619.39 (+76,147,918.78, +74.28%) REAL on-chain MEASURED (erc20 totalSupply @ blocks 24709326/24711714); a compromised off-chain signer key (no on-chain mint cap) minted ~80M USR — MEASURED via eth_getLogs as TWO mints to attacker 0xa27a69ae (single 50M tx 0xfe37f25e + 30M tx 0x41b6b937, gross 80,199,993.14, net mint-burn 76,147,918.78) — against ~$100K collateral; USR depegged to $0.0508 on Curve MEASURED on-chain at block 24711714 (08:00Z; the $0.025 intraday flash-crash low near 02:21Z is off-chain/transient, not present at the labelled block). Supply jump + 50M unauthorized single mint + catastrophic depeg.",
+  "meta": {
+    "token": "USR",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2026-03-22T08:00:00Z",
+    "snapshot_block": 24711714,
+    "data_source": "on-chain Alchemy archive MEASURED: USR 0x66a1E3…e110 totalSupply @24711714=178,655,619.3856; eth_getLogs Transfer 0x0->attacker 0xa27a69ae… single 50M tx 0xfe37f25e… + 30M tx 0x41b6b937…; Curve USR/USDC 0x3ee841f4… get_dy(0,1) @24711714 = $0.050804"
+  },
+  "nodes": [
+    {
+      "node_id": "token:USR",
+      "type": "Token",
+      "label": "Resolv USR",
+      "address": "0x66a1E37C9b0eAddca17d3662D6c05F4DECf3e110",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "USR",
+        "decimals": 18,
+        "total_supply": 178655619385602495637483044,
+        "supply_samples": [
+          101500000000000000000000000,
+          102000000000000000000000000,
+          102300000000000000000000000,
+          102507700609480181254973428,
+          140000000000000000000000000,
+          178655619385602495637483044
+        ],
+        "mint_events": [
+          {
+            "amount": 50000000000000000000000000,
+            "to": "0xa27a69ae180e202fde5d38189a3f24fe24e55861",
+            "tx_hash": "0xfe37f25efd67d0a4da4afe48509b258df48757b97810b28ce4c649658dc33743",
+            "chain": "ethereum",
+            "home": false,
+            "ts": 1774166400
+          },
+          {
+            "amount": 30000000000000000000000000,
+            "to": "0xa27a69ae180e202fde5d38189a3f24fe24e55861",
+            "tx_hash": "0x41b6b9376d174165cbd54ba576c8f6675ff966f17609a7b80d27d8652db1f18f",
+            "chain": "ethereum",
+            "home": false,
+            "ts": 1774166400
+          }
+        ],
+        "burn_events": [],
+        "authorized_minters": [
+          "0x0000000000000000000000000000000000000dead"
+        ],
+        "market_cap_usd": 178655619,
+        "paused": false
+      }
+    },
+    {
+      "node_id": "protocol:curve",
+      "type": "DefiProtocol",
+      "label": "Curve",
+      "address": "0x0000000000000000000000000000000000000ccc",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "isolated_markets"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "USR-curve-collateral",
+      "source": "token:USR",
+      "target": "protocol:curve",
+      "classification": {
+        "edge_type": "collateral_isolated",
+        "venue_type": "isolated_market",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 20000000,
+        "amount_usd": 20000000,
+        "pct_of_supply": 0.11,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "Curve USR market price",
+        "oracle_address": "0x3ee841f47947fefbe510366e4bbb49e145484195",
+        "depeg_sensitive": true
+      },
+      "lending_risk": {
+        "ltv": null,
+        "lt": 0.9,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": null,
+        "utilization": 0.8,
+        "is_frozen": false,
+        "emode_category": null
+      },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        {
+          "loan_asset": "USDC",
+          "collateral_asset": "USR",
+          "lltv": 0.9,
+          "market_size_usd": 20000000,
+          "oracle_address": "0x3ee841f47947fefbe510366e4bbb49e145484195",
+          "utilization": 0.8
+        }
+      ]
+    }
+  ]
+}

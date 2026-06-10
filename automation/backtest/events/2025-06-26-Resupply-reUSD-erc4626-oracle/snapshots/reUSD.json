@@ -1,0 +1,83 @@
+{
+  "_invariant": "Resupply reUSD ERC4626-donation oracle manipulation, 2025-06-26. Attacker donated 2,000 crvUSD into a freshly-deployed EMPTY ERC4626 wrapper used as the market's price oracle, then minted 1 share; price = total_assets*1e36/(totalSupply*shares) overflowed past 1e36, integer-dividing the exchange rate to ZERO, which zeroed the LTV health check -> borrowed ~10M reUSD against ~1 wei collateral. The oracle/exchange-rate READ returns 0 (a dead/garbage value) \u2014 d04b's answer<=0 check is exactly this failure mode. The 0 read is injected per-case via oracle_probes.",
+  "meta": {
+    "token": "reUSD",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2025-06-26T02:00:00Z",
+    "snapshot_block": 22785000
+  },
+  "nodes": [
+    {
+      "node_id": "token:reUSD",
+      "type": "Token",
+      "label": "Resupply reUSD",
+      "address": "0x57aB1E0003F623289CD798B1824Be09a793e4Bec",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "reUSD",
+        "decimals": 18,
+        "market_cap_usd": 50000000
+      }
+    },
+    {
+      "node_id": "protocol:resupply",
+      "type": "DefiProtocol",
+      "label": "Resupply",
+      "address": "0x8970b1b71B6cFc4e8C50a6c6cFd9b4eF3eA4f3F0",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "isolated_markets"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "reUSD-resupply-wstUSR_market",
+      "source": "token:reUSD",
+      "target": "protocol:resupply",
+      "classification": {
+        "edge_type": "collateral_isolated",
+        "venue_type": "isolated_market",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 10000000,
+        "amount_usd": 10000000,
+        "pct_of_supply": 0.2,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "cvcrvUSD ERC4626 share-price wrapper (manipulable when empty)",
+        "oracle_address": "0x0114b1c4f5e0e0e0e0e0e0e0e0e0e0e0e0e0e001",
+        "depeg_sensitive": true
+      },
+      "lending_risk": {
+        "ltv": 0.95,
+        "lt": 0.97,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": null,
+        "utilization": 0.9,
+        "is_frozen": false,
+        "emode_category": null
+      },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        {
+          "loan_asset": "reUSD",
+          "collateral_asset": "wstUSR",
+          "lltv": 0.97,
+          "market_size_usd": 10000000,
+          "oracle_address": "0x0114b1c4f5e0e0e0e0e0e0e0e0e0e0e0e0e0e001",
+          "utilization": 0.9
+        }
+      ]
+    }
+  ]
+}

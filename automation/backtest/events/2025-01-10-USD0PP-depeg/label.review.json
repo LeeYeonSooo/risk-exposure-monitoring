@@ -1,0 +1,5 @@
+{
+  "verdict": "APPROVE",
+  "summary": "Re-anchor/measure pass: should_fire/must_not_fire/severity IDENTICAL to label.json on all 3 cases (re-anchor moved block/price/source only; FP-trap now moved Jan-13->Jan-10 as a pure synthetic control, judgment unchanged). Measured Chainlink USD0++/USD @block 21594531 = $0.90977632 (9.0% off peg, deepest in-window 0.909274), Curve get_dy 0.9070 with ~7/93 pool imbalance — squarely inside EVENT.md's $0.89-0.92 / 8-11% / ~92-8-drain band, not cherry-picked. Case1 CRITICAL kept on factual premise with honest logic-boundary-flag (measured 9.0% vs possible flat 10% line, label+engine untouched); Case2 HIGH with venue hardcoded-$1 correctly NOT measured; FP-trap honestly off-chain-kept-asserted (USD0++ never re-pegged to par on-chain). Fidelity marks the 2 on-chain probes measured=true and the 0.997 control measured=false. Both edge_ids/probe keys exist in snapshot. Firewall respected (no risk_rules read).",
+  "draft_sha256": "78bdd66b8a11e937ea0f5657105dad1c2ab42ba140575e8e360c6f6501f6ac59"
+}

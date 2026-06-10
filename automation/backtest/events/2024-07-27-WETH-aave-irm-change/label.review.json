@@ -1,0 +1,5 @@
+{
+  "verdict": "APPROVE",
+  "summary": "Data-only backfill: should_fire/must_not_fire/severities identical to prior label.json; measured OLD 0x42ec...811d @20398673 vs NEW 0x847a...9e82 @20398674 IRM swap still supports the INCIDENT premise, unchanged 0x847a...9e82 calm-control read @20655578 supports the no-change control, null->address FP-trap correctly modeled (measured=false); fidelity marks the 5 chain inputs measured=true and only the intentional none.json absence false.",
+  "draft_sha256": "60f2a311904c44a7034c2114280dcac987c059534d89e03f96a71358b5e66e9a"
+}

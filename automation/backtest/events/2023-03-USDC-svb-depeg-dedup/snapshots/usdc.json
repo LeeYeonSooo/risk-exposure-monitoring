@@ -1,0 +1,83 @@
+{
+  "_invariant": "USDC SVB depeg (2023-03-10/11) used to test DIRECTIONAL DEDUP: a depeg that WORSENS across polls must RE-PAGE; a depeg that holds steady must be dedup-SUPPRESSED (no alert spam). This GRAPH is representative/host-fed and held CONSTANT across all polls (only the injected price + `now` change) so any difference in the last poll's emitted set is attributable purely to the dedup engine. Per-poll PRICES are MEASURED on-chain from the Curve 3pool get_dy(USDC->USDT) at each poll's block (snapshots/fidelity.json). RE-ANCHORED: the on-chain 3pool dislocation LAGGED the CEX evening print by ~4h, so the polls were moved into the Mar-11 02:00-07:00Z window where the labelled tiers (WARN soft depeg ~0.975 @02:00-03:00Z / deep low ~0.878 @07:00Z) are actually true on-chain. snapshot_block 16803216 = 2023-03-11T07:00:00Z = the case-1 graded deep-low block.",
+  "meta": {
+    "token": "USDC",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2023-03-11T07:00:00Z",
+    "snapshot_block": 16803216
+  },
+  "nodes": [
+    {
+      "node_id": "token:USDC",
+      "type": "Token",
+      "label": "USD Coin",
+      "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "USDC",
+        "decimals": 6,
+        "market_cap_usd": 42000000000
+      }
+    },
+    {
+      "node_id": "protocol:morpho_blue",
+      "type": "DefiProtocol",
+      "label": "Morpho Blue",
+      "address": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "isolated_markets"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "USDC-morpho-collateral",
+      "source": "token:USDC",
+      "target": "protocol:morpho_blue",
+      "classification": {
+        "edge_type": "collateral_isolated",
+        "venue_type": "isolated_market",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 50000000,
+        "amount_usd": 50000000,
+        "pct_of_supply": 0.001,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "Chainlink USDC/USD",
+        "oracle_address": null,
+        "depeg_sensitive": true
+      },
+      "lending_risk": {
+        "ltv": null,
+        "lt": 0.91,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": null,
+        "utilization": 0.85,
+        "is_frozen": false,
+        "emode_category": null
+      },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        {
+          "loan_asset": "DAI",
+          "collateral_asset": "USDC",
+          "lltv": 0.91,
+          "market_size_usd": 50000000,
+          "oracle_address": null,
+          "utilization": 0.85
+        }
+      ]
+    }
+  ]
+}

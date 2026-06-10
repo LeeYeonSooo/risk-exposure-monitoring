@@ -1,0 +1,84 @@
+{
+  "event": "USD0++ (Usual) depeg 2025-01-10 — redemption-rule change to $0.87 floor; Morpho collateral",
+  "source": "Blockworks, Leviathan News, ChainCatcher, Gate Learn, Robdog (X), Etherscan — see EVENT.md",
+  "closed": true,
+  "_draft_note": "RE-ANCHOR / MEASURE pass (2026-06-07). Decisive depeg inputs are now ON-CHAIN MEASURED at the event block, not hand-asserted. All should_fire/must_not_fire/severity/id/snapshot/now/beta are UNCHANGED from label.json — only the price data, source provenance, and notes change. measured_pct=66.7 (2/3). Two outcomes flagged for the orchestrator: (1) Case 1 'logic-boundary-flag' (measured depth ~9.0% sits just SHORT of a 10% catastrophic line); (2) FP-trap 'off-chain-kept-asserted' (no USD0++ block EVER re-pegged to 0.997 on-chain — even the latest reachable 2026-06-01 block reads ~0.966 — so the benign at-peg premise is unmeasurable and stays asserted/synthetic). See per-case _anomaly/_measured notes.",
+  "_capture_read_plan": {
+    "token": "USD0++",
+    "home_chain": "ethereum",
+    "token_address": "0x35D8949372D46B7a3D5A56006AE77B215fc69bC0",
+    "block_by_chain": { "ethereum": 21594532 },
+    "markets": [
+      { "edge_id": "USD0PP-morpho_blue-collateral_isolated", "price_source": { "kind": "chainlink", "feed": "0xFC9e30Cf89f8A00dba3D34edf8b65BCDAdeCC1cB", "decimals": 8 }, "oracle_feed": "0xFC9e30Cf89f8A00dba3D34edf8b65BCDAdeCC1cB", "config_source": "Morpho Blue market params (per-market MorphoChainlinkOracleV2 -> Chainlink USD0++/USD)" },
+      { "edge_id": "USD0PP-morpho_blue-collateral_isolated_2", "price_source": { "kind": "chainlink", "feed": "0xFC9e30Cf89f8A00dba3D34edf8b65BCDAdeCC1cB", "decimals": 8 }, "oracle_feed": "hardcoded-1.00 (NOT measured — see case note)", "config_source": "Morpho Blue market params (hardcoded $1.00 oracle, blind)" }
+    ],
+    "cross_check_source": "Curve USD0/USD0++ pool 0x1d08e7adc263cfc70b1babe6dc5bb339c16eec52 get_dy(1->0); coins(0)=USD0 0x73a1…acf5, coins(1)=USD0++ 0x35d8…9bc0",
+    "backing_source": "n/a (governance-induced redemption-rule revaluation, not a backing failure)",
+    "remote_tokens": {}
+  },
+  "cases": [
+    {
+      "id": "depeg-market-price-morpho-liquidations",
+      "snapshot": "snapshots/USD0PP.json",
+      "now": "2025-01-10T14:00:00Z",
+      "peg_probes": {
+        "USD0PP-morpho_blue-collateral_isolated": {
+          "price": 0.90977632,
+          "peg": 1.0,
+          "asset_class": "stable_bond",
+          "source": "onchain:chainlink 0xFC9e30Cf89f8A00dba3D34edf8b65BCDAdeCC1cB @ethereum:21594531"
+        }
+      },
+      "_peg_probes_note": "(MEASURED on-chain @block 21594531, ts 2025-01-10T13:59:59Z) — Chainlink USD0++/USD market-price feed (8 dec) = $0.90977632, the deepest on-chain trough of the depeg window (a fine scan 13:15→15:30 UTC bottomed at $0.909274 @block 21594980; both endpoints ~9.0% off peg). This market's per-market MorphoChainlinkOracleV2 priced against exactly this Chainlink USD0++/USD feed, so this is the protocol's actual price reference. Cross-confirmed by Curve USD0/USD0++ get_dy(1->0) marginal = 0.9070 at this block (pool already 7%/93% imbalanced: 17.15M USD0 / 231.3M USD0++ — matches the EVENT.md ~92/8 drain). Verdict tier UNCHANGED (catastrophic depeg of a major Morpho collateral through the 86% LLTV).",
+      "_anomaly": "logic-boundary-flag — MEASURED on-chain depth is ~9.0% off peg (Chainlink $0.90977632; deepest in-window $0.909274). The EVENT.md / press intraday low of ~$0.89 (~11%) was a CEX/aggregator print; the on-chain protocol oracle (Chainlink USD0++/USD) NEVER fell below ~$0.909 anywhere in the Jan-9→Jan-14 window. If the engine's catastrophic-depeg tier uses a 10% line, this measured ~9.0% would tier ONE NOTCH below CRITICAL. The label keeps min_severity=CRITICAL on the FACTUAL premise (a depeg whose floor $0.87 sits just above the 0.86 LLTV, with real on-chain liquidations of looped positions — this WAS a catastrophic, liquidation-triggering event). Tier gap to surface for the orchestrator: measured 9.0% vs a possible 10% catastrophic boundary = ~1.0pp short. Do NOT change the label or the engine here — flagged for a safe logic-refinement decision (e.g. whether the catastrophic tier should also trip on 'depeg crossing/approaching the LLTV' rather than a flat 10%, since 9.0% through an 86% LLTV with $0.87 floor IS the catastrophic on-chain reality).",
+      "should_fire": [
+        { "signal_type": "DEPEG", "edge_id": "USD0PP-morpho_blue-collateral_isolated", "min_severity": "CRITICAL" }
+      ],
+      "must_not_fire": [],
+      "beta": 2.0,
+      "note": "Main USD0++ Morpho market priced at the REAL market price via a Chainlink/market oracle (measured $0.90977632 on-chain). An ~9-11% depeg pushed leveraged (looped) positions THROUGH the 86% LLTV (floor $0.87 sits just above the 0.86 liq line); on-chain liquidations actually triggered. $200m+ borrows backed by USD0++. Imminent-liquidation depeg of a major collateral -> DEPEG must fire at CRITICAL. (See _anomaly: measured on-chain trough ~9.0%, just short of a 10% line — logic-boundary-flag for the orchestrator.)"
+    },
+    {
+      "id": "depeg-hardcoded-1.00-oracle-blind",
+      "snapshot": "snapshots/USD0PP.json",
+      "now": "2025-01-10T14:00:00Z",
+      "peg_probes": {
+        "USD0PP-morpho_blue-collateral_isolated_2": {
+          "price": 0.90977632,
+          "peg": 1.0,
+          "asset_class": "stable_bond",
+          "source": "onchain:chainlink 0xFC9e30Cf89f8A00dba3D34edf8b65BCDAdeCC1cB @ethereum:21594531"
+        }
+      },
+      "_peg_probes_note": "(MEASURED on-chain @block 21594531) — the REAL asset price = $0.90977632 from the Chainlink USD0++/USD feed (Curve-cross-confirmed 0.9070). This market's VENUE oracle was a hardcoded $1.00 (blind) — deliberately NOT measured here, because the whole point of the case is that the monitor judges the ASSET price, not the blind venue value (measuring the hardcoded oracle would inject 1.00 and defeat the test). ~9.0% off peg — verdict tier UNCHANGED (HIGH; no imminent on-chain liquidation at THIS blind venue).",
+      "should_fire": [
+        { "signal_type": "DEPEG", "edge_id": "USD0PP-morpho_blue-collateral_isolated_2", "min_severity": "HIGH" }
+      ],
+      "must_not_fire": [],
+      "beta": 2.0,
+      "note": "Second USD0++ Morpho market hard-wired a HARDCODED $1.00 oracle, so on-chain it never breached the 86% LLTV and on-chain liquidations did NOT trigger (largest was ~$500). But the exposure is REAL: an ~9-11% impairment of collateral the venue pretends is whole; suppliers fled and borrow rates spiked. The monitor must judge the ASSET price (measured $0.90977632), not the venue oracle -> DEPEG must STILL fire. Slightly below the market-price case (no imminent on-chain liquidation at THIS venue) -> HIGH, not CRITICAL. Silence here is the dangerous failure mode (inheriting the blind oracle)."
+    },
+    {
+      "id": "quiet-at-peg-fp-trap",
+      "snapshot": "snapshots/USD0PP.json",
+      "now": "2025-01-10T14:00:00Z",
+      "peg_probes": {
+        "USD0PP-morpho_blue-collateral_isolated": {
+          "price": 0.997,
+          "peg": 1.0,
+          "asset_class": "stable_bond",
+          "source": "asserted (synthetic at-peg probe — measured=False; no USD0++ block ever read 0.997 on-chain, see _anomaly)"
+        }
+      },
+      "_peg_probes_note": "(ASSERTED — NOT measured; measured=False) a SYNTHETIC at-peg control probe kept at 0.997 by design. This is intentionally a hypothetical 'what if USD0++ were trading at par' input, NOT a real on-chain reading. See _anomaly for why no real USD0++ block can back it.",
+      "_anomaly": "off-chain-kept-asserted — USD0++ NEVER re-pegged to 0.997 (or anywhere near par) on-chain in ANY reachable block. On-chain Chainlink USD0++/USD reads measured across 2025-2026: 2025-01-13 $0.9271, 2025-02-15 $0.9416, 2025-04-15 $0.9711, 2025-05-15 $0.9752, 2025-12-01 $0.9380, 2026-03-01 $0.9624, 2026-06-01 $0.9657 (latest reachable). Curve get_dy tracks the same band. USD0++ is a 4-year bond with a $0.87 redemption floor that re-pegs only GRADUALLY; it has stayed materially below $1 for 17+ months. Therefore the FP-trap's benign 'recovered to ~par' premise is UNMEASURABLE — there is no real block to anchor it to. The ORIGINAL draft put this FP-trap at now=2025-01-13T16:00 and discovered the same thing (block 21616615 read $0.9271, still ~7.3% off peg). Per the re-anchor firewall I do NOT fabricate a block and do NOT inject a real ~0.96-0.97 venue value (which would FLIP this control's verdict — a stable_bond at 0.96-0.97 is a genuine depeg that SHOULD fire). The input stays ASSERTED 0.997 / measured=False as an explicit synthetic at-peg control, and `now` is moved back to the event block 2025-01-10T14:00:00Z so the control is evaluated as a pure hypothetical alongside cases 1&2 rather than pretending a recovered Jan-13 block existed. RECOMMENDED reviewer follow-up: keep this as a clearly-labelled synthetic FP-trap (no real-block backing), OR retire it in favour of a different token that genuinely recovered to par on-chain (USD0++ never did). Do NOT promote this FP-trap as on-chain-measured — it is a deliberate synthetic.",
+      "should_fire": [],
+      "must_not_fire": [
+        { "signal_type": "DEPEG", "edge_id": "USD0PP-morpho_blue-collateral_isolated" }
+      ],
+      "beta": 2.0,
+      "note": "FP-trap (SYNTHETIC at-peg control): a stable_bond trading at/near $1 (0.997, a benign sub-0.3% wobble within normal noise) must NOT raise a DEPEG. Guards against a hair-trigger that fires on every micro-deviation of a $1-pegged asset. A tiny benign blip is not an actionable exposure event. NOTE: this is a synthetic probe — the REAL USD0++ never recovered to par on-chain (it stayed ~0.92-0.97 for 17+ months), so this control cannot be anchored to a real USD0++ block; it is kept asserted/measured=False by design (see _anomaly: off-chain-kept-asserted)."
+    }
+  ],
+  "ratified": "auto(reviewer)"
+}

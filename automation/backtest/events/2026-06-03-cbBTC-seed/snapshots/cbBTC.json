@@ -1,0 +1,377 @@
+{
+  "_invariant": "All edges connect exactly one token node and one protocol node. No token-token or protocol-protocol edges. The Morpho Vault->Morpho Blue (vault_allocation) link is encoded as top_markets[].funding_vaults[] inside token:cbBTC edges, not as a separate edge. cbBTC has no mint_backing edge and no bridges (Coinbase native FiatToken).",
+  "meta": {
+    "token": "cbBTC",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2026-06-03",
+    "node_count": 11,
+    "edge_count": 10,
+    "data_source": "on-chain cast/Alchemy + Morpho GraphQL + GeckoTerminal + ethplorer + Etherscan",
+    "coverage_pct": 0.71
+  },
+
+  "nodes": [
+    {
+      "node_id": "token:cbBTC",
+      "type": "Token",
+      "label": "Coinbase Wrapped BTC",
+      "address": "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "cbBTC",
+        "decimals": 8,
+        "total_supply": 43757.53,
+        "holders": null,
+        "market_cap_usd": 3040000000,
+        "paused": false,
+        "mint_controller": "0x1302dFb1F806398f48650c75ab0fDA9a0186f47B",
+        "_note_wrappers": "Circle FiatToken v2 (USDC codebase), Coinbase custodial 1:1 BTC backing, masterMinter-controlled. Base wrapped-BTC token (not a yield derivative). No third-party bridge: Coinbase native mint per chain (OFT/LayerZero interfaces revert).",
+        "bridges": {}
+      }
+    },
+    {
+      "node_id": "protocol:aave_v3",
+      "type": "DefiProtocol",
+      "label": "Aave V3",
+      "address": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "mono_pool",
+        "core_contract": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+        "tokens_held": 16128,
+        "tokens_held_usd": 1120000000,
+        "governance": "Aave DAO"
+      }
+    },
+    {
+      "node_id": "protocol:morpho_blue",
+      "type": "DefiProtocol",
+      "label": "Morpho Blue",
+      "address": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "isolated_markets",
+        "core_contract": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+        "tokens_held": 8084,
+        "tokens_held_usd": 562000000,
+        "governance": "immutable"
+      }
+    },
+    {
+      "node_id": "protocol:morpho_vault",
+      "type": "DefiProtocol",
+      "label": "Morpho Vault (MetaMorpho, ERC-4626 curated)",
+      "address": "0x1897A8997241C1cD4bD0698647e4EB7213535c24",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "multi_asset_liquidity",
+        "core_contract": "factory v1.1 0x1897A8997241C1cD4bD0698647e4EB7213535c24 ; v1.0 0xA9c3D3a366466Fa809d1Ae982Fb2c46E5fC41101",
+        "tokens_held": 0,
+        "tokens_held_usd": 98200000,
+        "governance": "per-curator (Steakhouse Financial, Gauntlet, Sentora, Hakutora)"
+      }
+    },
+    {
+      "node_id": "protocol:spark",
+      "type": "DefiProtocol",
+      "label": "Spark (SparkLend)",
+      "address": "0xC13e21B648A5Ee794902342038FF3aDAB66BE987",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "mono_pool",
+        "core_contract": "0xC13e21B648A5Ee794902342038FF3aDAB66BE987",
+        "tokens_held": 5011,
+        "tokens_held_usd": 348000000,
+        "governance": "Sky / Spark DAO"
+      }
+    },
+    {
+      "node_id": "protocol:compound_v3",
+      "type": "DefiProtocol",
+      "label": "Compound III",
+      "address": "0xc3d688B66703497DAA19211EEdff47f25384cdc3",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "isolated_markets",
+        "core_contract": "cUSDCv3 0xc3d688B66703497DAA19211EEdff47f25384cdc3 ; cWETHv3 0xA17581A9E3356d9A858b789D68B4d866e593aE94 ; cUSDTv3 0x3Afdc9BCA9213A35503b077a6072F3D0d5AB0840",
+        "tokens_held": 339,
+        "tokens_held_usd": 24000000,
+        "governance": "Compound DAO"
+      }
+    },
+    {
+      "node_id": "protocol:fluid",
+      "type": "DefiProtocol",
+      "label": "Fluid",
+      "address": "0x52aa899454998be5b000ad077a46bbe360f4e497",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "multi_asset_liquidity",
+        "core_contract": "Liquidity 0x52aa899454998be5b000ad077a46bbe360f4e497",
+        "tokens_held": 180,
+        "tokens_held_usd": 12500000,
+        "governance": "Instadapp / Fluid"
+      }
+    },
+    {
+      "node_id": "protocol:frankencoin",
+      "type": "DefiProtocol",
+      "label": "Frankencoin",
+      "address": "0xDe12B620A8a714476A97EfD14E6F7180Ca653557",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "cdp",
+        "core_contract": "MintingHub 0xDe12B620A8a714476A97EfD14E6F7180Ca653557 ; cbBTC Position 0xdc189ac81bec4db551a0478334691d71109d9382",
+        "tokens_held": 152,
+        "tokens_held_usd": 10500000,
+        "governance": "Frankencoin DAO"
+      }
+    },
+    {
+      "node_id": "protocol:uniswap_v3",
+      "type": "DefiProtocol",
+      "label": "Uniswap V3",
+      "address": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "dex_type": "clamm",
+        "factory_or_router": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+        "pool_count": 9,
+        "tokens_held": 293,
+        "tokens_held_usd": 20400000
+      }
+    },
+    {
+      "node_id": "protocol:uniswap_v4",
+      "type": "DefiProtocol",
+      "label": "Uniswap V4",
+      "address": "0x000000000004444c5dc75cB358380D2e3dE08A90",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "dex_type": "clamm",
+        "factory_or_router": "0x000000000004444c5dc75cB358380D2e3dE08A90",
+        "pool_count": 26,
+        "tokens_held": 281,
+        "tokens_held_usd": 19500000
+      }
+    },
+    {
+      "node_id": "protocol:yield_basis",
+      "type": "DefiProtocol",
+      "label": "Yield Basis",
+      "address": "0x862cb4e988fb66e72f128d1183829f8c05b6c6a0",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "dex_type": "stable_swap",
+        "factory_or_router": "Curve Twocrypto pools 0x862cb4e988fb66e72f128d1183829f8c05b6c6a0 , 0x83f24023d15d835a213df24fd309c47dab5beb32",
+        "pool_count": 2,
+        "tokens_held": 876,
+        "tokens_held_usd": 61000000
+      }
+    }
+  ],
+
+  "edges": [
+    {
+      "edge_id": "cbBTC-aave_v3-collateral",
+      "source": "token:cbBTC",
+      "target": "protocol:aave_v3",
+      "classification": { "edge_type": "collateral", "venue_type": "market", "protocol_class": "lending" },
+      "core_weight": { "amount_token": 16128, "amount_usd": 1120000000, "pct_of_supply": 0.3687, "pct_of_protocol_tvl": null },
+      "oracle": { "oracle_type": "MARKET", "oracle_provider": "Chainlink BTC/USD", "oracle_address": "0xb41E773f507F7a7EA890b1afB7d2b660c30C8B0A", "depeg_sensitive": false },
+      "lending_risk": { "ltv": 0.73, "lt": 0.78, "liquidation_bonus": 0.075, "supply_cap": 19000, "borrow_cap": 1440, "reserve_factor": 0.50, "utilization": 0.0082, "is_frozen": false, "emode_category": null },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": null,
+      "top_pools": null,
+      "meta": { "snapshot_block": null, "snapshot_ts": "2026-06-03", "verifiable_onchain": true, "confidence": "HIGH", "data_source": "cast: AaveOracle.getSourceOfAsset + DataProvider.getReserveConfigurationData/getReserveCaps/getReserveData; eMode cat=0 (none); BTC/USD oracle is blind to a cbBTC-from-BTC depeg" }
+    },
+    {
+      "edge_id": "cbBTC-morpho_blue-collateral_isolated",
+      "source": "token:cbBTC",
+      "target": "protocol:morpho_blue",
+      "classification": { "edge_type": "collateral_isolated", "venue_type": "isolated_market", "protocol_class": "lending" },
+      "core_weight": { "amount_token": 8084, "amount_usd": 562000000, "pct_of_supply": 0.1848, "pct_of_protocol_tvl": null },
+      "oracle": { "oracle_type": "MARKET", "oracle_provider": "Chainlink cbBTC/USD (per-market MorphoChainlinkOracleV2)", "oracle_address": "0x2665701293fCbEB223D11A08D826563EDcCE423A", "depeg_sensitive": true },
+      "lending_risk": { "ltv": null, "lt": 0.86, "liquidation_bonus": null, "supply_cap": null, "borrow_cap": null, "reserve_factor": null, "utilization": null, "is_frozen": false, "emode_category": null },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        {
+          "loan_asset": "USDC", "collateral_asset": "cbBTC", "lltv": 0.86, "market_size_usd": 268000000,
+          "oracle_address": "0x2665701293fCbEB223D11A08D826563EDcCE423A", "utilization": 0.895,
+          "ouroboros_risk": false, "vault_funded": true, "vault_funded_share_of_supply": null,
+          "funding_vaults": [
+            { "vault_name": "Vault Bridge USDC", "vault_address": "0xBEefb9f61CC44895d8AEc381373555a64191A9c4", "curator": "Steakhouse Financial", "deposit_asset": "USDC", "allocation_usd": 21500000 },
+            { "vault_name": "Hakutora USDC", "vault_address": "0x974c8FBf4fd795F66B85B73ebC988A51F1A040a9", "curator": "Hakutora", "deposit_asset": "USDC", "allocation_usd": 16300000 },
+            { "vault_name": "Gauntlet USDC Prime", "vault_address": "0xdd0f28e19C1780eb6396170735D45153D261490d", "curator": "Gauntlet", "deposit_asset": "USDC", "allocation_usd": 12700000 }
+          ]
+        },
+        {
+          "loan_asset": "RLUSD", "collateral_asset": "cbBTC", "lltv": 0.86, "market_size_usd": 18750000,
+          "oracle_address": null, "utilization": 0.887,
+          "ouroboros_risk": false, "vault_funded": true, "vault_funded_share_of_supply": 1.0,
+          "funding_vaults": [
+            { "vault_name": "Sentora RLUSD", "vault_address": "0x71cb2F8038B2C5D65ddc740B2F3268890CD2A89C", "curator": "Sentora", "deposit_asset": "RLUSD", "allocation_usd": 18800000 }
+          ]
+        },
+        {
+          "loan_asset": "PYUSD", "collateral_asset": "cbBTC", "lltv": 0.86, "market_size_usd": 10400000,
+          "oracle_address": null, "utilization": null,
+          "ouroboros_risk": false, "vault_funded": true, "vault_funded_share_of_supply": 1.0,
+          "funding_vaults": [
+            { "vault_name": "Sentora PYUSD", "vault_address": "0x19b3cD7032B8C062E8d44EaCad661a0970DD8c55", "curator": "Sentora", "deposit_asset": "PYUSD", "allocation_usd": 10400000 }
+          ]
+        }
+      ],
+      "top_pools": null,
+      "meta": { "snapshot_block": null, "snapshot_ts": "2026-06-03", "verifiable_onchain": true, "confidence": "HIGH", "data_source": "Morpho GraphQL + cast idToMarketParams; 53 active cbBTC-collateral markets; cbBTC/USDC ($268M, util 0.895) is the largest; markets immutable (no oracle/IRM change, no freeze)" }
+    },
+    {
+      "edge_id": "cbBTC-morpho_vault-collateral",
+      "source": "token:cbBTC",
+      "target": "protocol:morpho_vault",
+      "classification": { "edge_type": "collateral", "venue_type": "vault", "protocol_class": "lending" },
+      "core_weight": { "amount_token": 0, "amount_usd": 98200000, "pct_of_supply": null, "pct_of_protocol_tvl": null },
+      "oracle": { "oracle_type": "MARKET", "oracle_provider": "inherited from underlying cbBTC markets (Chainlink cbBTC/USD)", "oracle_address": null, "depeg_sensitive": true },
+      "lending_risk": { "ltv": null, "lt": 0.86, "liquidation_bonus": null, "supply_cap": null, "borrow_cap": null, "reserve_factor": null, "utilization": null, "is_frozen": false, "emode_category": null },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        {
+          "loan_asset": "USDC/RLUSD/PYUSD/USDT (aggregate)", "collateral_asset": "cbBTC", "lltv": 0.86, "market_size_usd": 98200000,
+          "oracle_address": null, "utilization": null,
+          "ouroboros_risk": false, "vault_funded": true, "vault_funded_share_of_supply": 1.0,
+          "funding_vaults": [
+            { "vault_name": "Vault Bridge USDC", "vault_address": "0xBEefb9f61CC44895d8AEc381373555a64191A9c4", "curator": "Steakhouse Financial", "deposit_asset": "USDC", "allocation_usd": 21500000 },
+            { "vault_name": "Sentora RLUSD", "vault_address": "0x71cb2F8038B2C5D65ddc740B2F3268890CD2A89C", "curator": "Sentora", "deposit_asset": "RLUSD", "allocation_usd": 18800000 },
+            { "vault_name": "Hakutora USDC", "vault_address": "0x974c8FBf4fd795F66B85B73ebC988A51F1A040a9", "curator": "Hakutora", "deposit_asset": "USDC", "allocation_usd": 16300000 },
+            { "vault_name": "Gauntlet USDC Prime", "vault_address": "0xdd0f28e19C1780eb6396170735D45153D261490d", "curator": "Gauntlet", "deposit_asset": "USDC", "allocation_usd": 12700000 },
+            { "vault_name": "Sentora PYUSD", "vault_address": "0x19b3cD7032B8C062E8d44EaCad661a0970DD8c55", "curator": "Sentora", "deposit_asset": "PYUSD", "allocation_usd": 10400000 }
+          ]
+        }
+      ],
+      "top_pools": null,
+      "meta": { "snapshot_block": null, "snapshot_ts": "2026-06-03", "verifiable_onchain": true, "confidence": "HIGH", "data_source": "Morpho GraphQL vault allocations; 62 MetaMorpho vaults supply $98.2M of loan assets into cbBTC markets; vault holds 0 cbBTC (loan-side exposure). NOTE: ~20% ($21.5M) is Vault Bridge USDC = Agglayer bridge-sourced funds (curator Steakhouse)" }
+    },
+    {
+      "edge_id": "cbBTC-spark-collateral",
+      "source": "token:cbBTC",
+      "target": "protocol:spark",
+      "classification": { "edge_type": "collateral", "venue_type": "market", "protocol_class": "lending" },
+      "core_weight": { "amount_token": 5011, "amount_usd": 348000000, "pct_of_supply": 0.1146, "pct_of_protocol_tvl": null },
+      "oracle": { "oracle_type": "MARKET", "oracle_provider": "Aggregated BTC/USD (Chronicle + Chainlink + RedStone)", "oracle_address": "0x4219aA1A99f3fe90C2ACB97fCbc1204f6485B537", "depeg_sensitive": false },
+      "lending_risk": { "ltv": 0.81, "lt": 0.82, "liquidation_bonus": 0.08, "supply_cap": 5555, "borrow_cap": 98, "reserve_factor": 0.20, "utilization": 0.0095, "is_frozen": false, "emode_category": "3" },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": null,
+      "top_pools": null,
+      "meta": { "snapshot_block": null, "snapshot_ts": "2026-06-03", "verifiable_onchain": true, "confidence": "HIGH", "data_source": "cast: Spark DataProvider getReserveConfigurationData/getReserveCaps/getReserveData + oracle; eMode cat=3 (BTC); BTC/USD oracle blind to cbBTC-specific depeg" }
+    },
+    {
+      "edge_id": "cbBTC-compound_v3-collateral",
+      "source": "token:cbBTC",
+      "target": "protocol:compound_v3",
+      "classification": { "edge_type": "collateral", "venue_type": "isolated_market", "protocol_class": "lending" },
+      "core_weight": { "amount_token": 339, "amount_usd": 24000000, "pct_of_supply": 0.0078, "pct_of_protocol_tvl": null },
+      "oracle": { "oracle_type": "MARKET", "oracle_provider": "Chainlink cbBTC/USD", "oracle_address": "0x0A4F4F9E84Fc4F674F0D209f94d41FaFE5aF887D", "depeg_sensitive": true },
+      "lending_risk": { "ltv": 0.80, "lt": 0.85, "liquidation_bonus": 0.10, "supply_cap": 900, "borrow_cap": null, "reserve_factor": null, "utilization": null, "is_frozen": false, "emode_category": null },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": null,
+      "top_pools": null,
+      "meta": { "snapshot_block": null, "snapshot_ts": "2026-06-03", "verifiable_onchain": true, "confidence": "HIGH", "data_source": "cast: Comet.getAssetInfoByAddress (cUSDCv3/cWETHv3/cUSDTv3); ltv=borrowCF 0.80, lt=liquidateCF 0.85, liquidation_bonus=1-liquidationFactor(0.90); cbBTC is collateral-only (not borrowable -> utilization n/a)" }
+    },
+    {
+      "edge_id": "cbBTC-fluid-collateral",
+      "source": "token:cbBTC",
+      "target": "protocol:fluid",
+      "classification": { "edge_type": "collateral", "venue_type": "market", "protocol_class": "lending" },
+      "core_weight": { "amount_token": 180, "amount_usd": 12500000, "pct_of_supply": 0.0041, "pct_of_protocol_tvl": null },
+      "oracle": { "oracle_type": "MARKET", "oracle_provider": "Fluid multi-oracle (Chainlink + TWAP checkpoints)", "oracle_address": null, "depeg_sensitive": false },
+      "lending_risk": { "ltv": null, "lt": null, "liquidation_bonus": null, "supply_cap": null, "borrow_cap": null, "reserve_factor": null, "utilization": null, "is_frozen": null, "emode_category": null },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": null,
+      "top_pools": null,
+      "meta": { "snapshot_block": null, "snapshot_ts": "2026-06-03", "verifiable_onchain": false, "confidence": "MEDIUM", "data_source": "cast: 180 cbBTC in Fluid Liquidity 0x52aa (confirmed). cbBTC sits in the smart-collateral vault 'Vault 52' (WBTC+cbBTC -> USDC); exact per-vault oracle address + LTV NOT pinned (Fluid encodes oracle in vault config). Sibling WBTC vaults: 0x6f72895c.../0x3a0b7c88..." }
+    },
+    {
+      "edge_id": "cbBTC-frankencoin-cdp_collateral",
+      "source": "token:cbBTC",
+      "target": "protocol:frankencoin",
+      "classification": { "edge_type": "cdp_collateral", "venue_type": "cdp", "protocol_class": "cdp" },
+      "core_weight": { "amount_token": 152, "amount_usd": 10500000, "pct_of_supply": 0.0035, "pct_of_protocol_tvl": null },
+      "oracle": { "oracle_type": "ORACLE_FREE", "oracle_provider": null, "oracle_address": null, "depeg_sensitive": false },
+      "lending_risk": { "ltv": 0.66, "lt": null, "liquidation_bonus": null, "supply_cap": null, "borrow_cap": null, "reserve_factor": null, "utilization": null, "is_frozen": null, "emode_category": null },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": null,
+      "top_pools": null,
+      "meta": { "snapshot_block": null, "snapshot_ts": "2026-06-03", "verifiable_onchain": true, "confidence": "HIGH", "data_source": "cast: Position 0xdc18 (150 cbBTC) + original 0x1eEd91 (2 cbBTC); oracle-free CDP, challenge/auction price discovery; LTV ~66% per Frankencoin docs" }
+    },
+    {
+      "edge_id": "cbBTC-uniswap_v3-lp_pair",
+      "source": "token:cbBTC",
+      "target": "protocol:uniswap_v3",
+      "classification": { "edge_type": "lp_pair", "venue_type": "pool", "protocol_class": "dex" },
+      "core_weight": { "amount_token": 293, "amount_usd": 20400000, "pct_of_supply": 0.0067, "pct_of_protocol_tvl": null },
+      "oracle": { "oracle_type": "MARKET", "oracle_provider": "pool spot / TWAP (no external feed)", "oracle_address": null, "depeg_sensitive": true },
+      "lending_risk": null,
+      "dex_metrics": { "pool_count": 9, "liquidity_usd": 20400000, "depth_at_1pct_usd": null, "depth_at_5pct_usd": null, "top_pairs": ["cbBTC/WBTC", "USDC/cbBTC", "PAXG/cbBTC", "tBTC/cbBTC", "cbBTC/WETH"] },
+      "wrapper": null,
+      "top_markets": null,
+      "top_pools": [
+        { "pair": "cbBTC/WBTC 0.01%", "amount": 217, "fee": 0.0001, "paired_token": "WBTC", "depth_at_1pct_usd": null },
+        { "pair": "USDC/cbBTC 0.3%", "amount": 39, "fee": 0.003, "paired_token": "USDC", "depth_at_1pct_usd": null },
+        { "pair": "PAXG/cbBTC 0.3%", "amount": 31, "fee": 0.003, "paired_token": "PAXG", "depth_at_1pct_usd": null }
+      ],
+      "meta": { "snapshot_block": null, "snapshot_ts": "2026-06-03", "verifiable_onchain": true, "confidence": "HIGH", "data_source": "cast balanceOf per pool + Uniswap v3 factory.getPool; depth_at_x not computed (needs tick liquidity math)" }
+    },
+    {
+      "edge_id": "cbBTC-uniswap_v4-lp_pair",
+      "source": "token:cbBTC",
+      "target": "protocol:uniswap_v4",
+      "classification": { "edge_type": "lp_pair", "venue_type": "pool", "protocol_class": "dex" },
+      "core_weight": { "amount_token": 281, "amount_usd": 19500000, "pct_of_supply": 0.0064, "pct_of_protocol_tvl": null },
+      "oracle": { "oracle_type": "MARKET", "oracle_provider": "pool spot / TWAP (no external feed)", "oracle_address": null, "depeg_sensitive": true },
+      "lending_risk": null,
+      "dex_metrics": { "pool_count": 26, "liquidity_usd": 19500000, "depth_at_1pct_usd": null, "depth_at_5pct_usd": null, "top_pairs": ["cbBTC/WBTC", "tBTC/cbBTC", "USDC/cbBTC"] },
+      "wrapper": null,
+      "top_markets": null,
+      "top_pools": [
+        { "pair": "cbBTC/WBTC", "amount": null, "fee": null, "paired_token": "WBTC", "depth_at_1pct_usd": null }
+      ],
+      "meta": { "snapshot_block": null, "snapshot_ts": "2026-06-03", "verifiable_onchain": true, "confidence": "HIGH", "data_source": "cast balanceOf on v4 PoolManager singleton 0x000...08a90 (281 cbBTC); per-pool balances are 0 by v4 singleton architecture" }
+    },
+    {
+      "edge_id": "cbBTC-yield_basis-lp_pair",
+      "source": "token:cbBTC",
+      "target": "protocol:yield_basis",
+      "classification": { "edge_type": "lp_pair", "venue_type": "pool", "protocol_class": "dex" },
+      "core_weight": { "amount_token": 876, "amount_usd": 61000000, "pct_of_supply": 0.0200, "pct_of_protocol_tvl": null },
+      "oracle": { "oracle_type": "MARKET", "oracle_provider": "Curve internal EMA price_oracle", "oracle_address": null, "depeg_sensitive": true },
+      "lending_risk": null,
+      "dex_metrics": { "pool_count": 2, "liquidity_usd": 61000000, "depth_at_1pct_usd": null, "depth_at_5pct_usd": null, "top_pairs": ["crvUSD/cbBTC"] },
+      "wrapper": null,
+      "top_markets": null,
+      "top_pools": [
+        { "pair": "crvUSD/cbBTC (YB-cbBTC)", "amount": 651, "fee": null, "paired_token": "crvUSD", "depth_at_1pct_usd": null },
+        { "pair": "crvUSD/cbBTC (cyb-cbbtc)", "amount": 225, "fee": null, "paired_token": "crvUSD", "depth_at_1pct_usd": null }
+      ],
+      "meta": { "snapshot_block": null, "snapshot_ts": "2026-06-03", "verifiable_onchain": true, "confidence": "HIGH", "data_source": "cast balanceOf on 2 Curve Twocrypto pools (Egorov Yield Basis BTC-yield product)" }
+    }
+  ]
+}

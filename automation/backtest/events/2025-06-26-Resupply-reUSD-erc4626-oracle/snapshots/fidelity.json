@@ -1,0 +1,26 @@
+{
+  "inputs": [
+    {
+      "input": "oracle_probe:reUSD-resupply-wstUSR_market:incident@22785461",
+      "detector": "d04b",
+      "measured": true,
+      "source": "onchain:ResupplyPair.exchangeRateInfo()+ResupplyOracle.getPrices(cvcrvUSD) @ethereum:22785461 oracle=0xcb7e25fbbd8afe4ce73d7dac647dbc3d847f3c82",
+      "getPrices_raw": "2000000000000000000001998001998001998",
+      "exchange_rate_1e36_floordiv": "0",
+      "stored_exchangeRate": "0",
+      "normalised_answer": 0.0,
+      "lastTimestamp": 1750902839
+    },
+    {
+      "input": "oracle_probe:reUSD-resupply-wstUSR_market:control@22785460",
+      "detector": "d04b",
+      "measured": true,
+      "source": "onchain:ResupplyPair.exchangeRateInfo()+ResupplyOracle.getPrices(cvcrvUSD) @ethereum:22785460 oracle=0xcb7e25fbbd8afe4ce73d7dac647dbc3d847f3c82",
+      "getPrices_raw": "1000000000000000",
+      "exchange_rate_1e36_floordiv": "1000000000000000000000",
+      "stored_exchangeRate": "1000000000000000000000",
+      "normalised_answer": 1.0,
+      "lastTimestamp": 1750897127
+    }
+  ]
+}

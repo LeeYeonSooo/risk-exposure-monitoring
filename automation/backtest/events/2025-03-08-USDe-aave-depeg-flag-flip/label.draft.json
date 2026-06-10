@@ -1,0 +1,52 @@
+{
+  "event": "Aave V3 (Ethereum) repointed the USDe price-oracle SOURCE on 2025-03-08 so the resolved feed's DEPEG-SENSITIVITY flipped true -> false. RE-MEASURED ON-CHAIN 2026-06-07: AaveOracle(0x54586bE62E3c3580375aE3723C145253060Ca0C2).getSourceOfAsset(USDe) read at block 22002624 (ts 2025-03-08T14:01:35Z) = OLD 0x55b6c4d3e8a27b8a1f5a263321b602e0fdeecc17 and at block 22002625 (ts 2025-03-08T14:01:47Z) = NEW 0xc26d4a1c46d884cff6de9800b6ae7a8cf48b4ff8 — the source flipped across EXACTLY one block (MEASURED ground truth). OLD = a USDe MARKET-price feed (a real USDe depeg moves it and liquidates USDe/sUSDe borrowers => depeg_sensitive=true); NEW = a hardcoded USDe=USDT 1:1 stable adapter that prices USDe at USDT/USD and IGNORES a USDe depeg => depeg_sensitive=false. NO price/peg moved: USDe was at $0.998857 on the OLD market feed (latestAnswer @22002625) and the NEW adapter returned $0.999800 (USDT/USD ~1.00) — pure config event, no depeg. Per Aave gov (ARFC 'sUSDe and USDe Price Feed Update'), ~1/4 of sUSDe collateral would liquidate on a ~2.5% USDe deviation and >$300M of USDe loans was at risk on a ~5% drop, so Aave moved to a fixed USDe=USDT peg, shifting depeg risk OFF borrowers and ONTO the protocol (latent bad-debt exposure). A depeg-sensitivity flip on a major collateral re-rates depeg exposure and must be surfaced for human review. See EVENT.md.",
+  "source": "On-chain archive reads (re-measured 2026-06-07) of AaveOracle.getSourceOfAsset(0x4c9EDD5852cd905f086C759E8383e09bff1E68B3) @ AaveOracle 0x54586bE62E3c3580375aE3723C145253060Ca0C2 at blocks 22002624/22002625 (source addresses + swap block + block timestamps MEASURED via getSourceOfAsset selector 0x92bf2be0), plus the source-feed latestAnswer (selector 0x50d25bcd) reads pricing USDe at $0.998857 (OLD market feed) / $0.999800 (NEW adapter) at the swap block (MEASURED: confirms NO depeg). Control block 22173916 (2025-04-01T11:59:59Z) source re-read = NEW 0xc26d...4ff8 (UNCHANGED weeks post-migration, MEASURED). Feed-type classification (OLD = USDe MARKET feed depeg_sensitive=true; NEW = hardcoded USDe=USDT 1:1 adapter depeg_sensitive=false) and risk-transfer rationale: Aave governance forum '[ARFC] sUSDe and USDe Price Feed Update' (t/20495), Aave app proposal #262, LlamaRisk research note, Cointelegraph / The Defiant / Cryptopolitan coverage. fidelity.json: 4/4 inputs measured (100%). See EVENT.md.",
+  "closed": false,
+  "cases": [
+    {
+      "id": "usde-aave-depeg-flag-flip",
+      "snapshot": "snapshots/usde_depeg_insensitive.json",
+      "prev": "snapshots/usde_depeg_sensitive.json",
+      "now": "2025-03-08T15:00:00Z",
+      "should_fire": [
+        {
+          "signal_type": "ORACLE_CHANGE",
+          "edge_id": "USDe-aave_v3-collateral",
+          "min_severity": "HIGH"
+        },
+        {
+          "signal_type": "DEPEG_FLAG_FLIP",
+          "edge_id": "USDe-aave_v3-collateral",
+          "min_severity": "WARN"
+        }
+      ],
+      "must_not_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "USDe-aave_v3-collateral"
+        }
+      ],
+      "beta": 2.0,
+      "note": "INCIDENT. ONE Aave governance action (the 2025-03-08 USDe price-feed update; real on-chain oracle source swap at block 22002625, 2025-03-08T14:01:47Z, MEASURED) changed TWO independent, faithful facts at once, so BOTH signals must fire. (1) ORACLE_CHANGE on USDe-aave_v3-collateral at >= HIGH: AaveOracle.getSourceOfAsset(USDe) was repointed from OLD source 0x55b6...cc17 (read @22002624) to NEW source 0xc26d...4ff8 (read @22002625) — the trust-root price feed for a major collateral on a shared-pool (mono_pool) lender genuinely changed ADDRESS across one block (MEASURED on-chain via getSourceOfAsset). Any oracle SOURCE swap on a mono_pool lender is a material trust-root change that must be surfaced for human review (identical treatment to the wstETH-aave-oracle-source-change event), independent of what the new feed happens to price. (2) DEPEG_FLAG_FLIP on USDe-aave_v3-collateral at >= WARN: that SAME swap also flipped the resolved feed's DEPEG-SENSITIVITY true -> false (OLD = USDe MARKET-price feed, oracle.depeg_sensitive=true; NEW = hardcoded USDe=USDT 1:1 stable adapter, oracle.depeg_sensitive=false). This re-rates depeg exposure: BEFORE a USDe depeg liquidated USDe/sUSDe borrowers; AFTER the oracle ignores a USDe depeg, so a genuine depeg drives no liquidation and depeg risk moves from borrowers to the Aave protocol as latent bad-debt exposure (per Aave gov: ~1/4 of sUSDe collateral would have liquidated on a ~2.5% USDe deviation, so Aave moved to a fixed peg). These are NOT duplicates: a source swap can leave depeg-sensitivity unchanged (then only ORACLE_CHANGE would fire), and the depeg-sensitivity flip is an additional, separate property of the new feed; here BOTH changed, so BOTH must fire (ORACLE_CHANGE >= HIGH for the trust-root/source change, DEPEG_FLAG_FLIP >= WARN for the depeg-exposure re-rating). must_not_fire DEPEG: USDe did NOT depeg here — MEASURED on-chain the USDe market price at the swap block was $0.998857 (OLD market feed) and the NEW adapter returned $0.999800 (USDT/USD); no price/peg moved. This is a config/oracle event, not a price event, and raising DEPEG would be a wrong-signal false positive."
+    },
+    {
+      "id": "usde-aave-no-flip-calm",
+      "snapshot": "snapshots/usde_depeg_insensitive.json",
+      "prev": "snapshots/usde_depeg_insensitive.json",
+      "now": "2025-04-01T12:00:00Z",
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "DEPEG_FLAG_FLIP",
+          "edge_id": "USDe-aave_v3-collateral"
+        }
+      ],
+      "max_emitted": {
+        "severity": "WARN",
+        "count": 0
+      },
+      "beta": 2.0,
+      "note": "CONTROL (calm, no flip). prev and snapshot are the SAME file (oracle source 0xc26d...4ff8, oracle.depeg_sensitive=false on BOTH sides) weeks after the migration — the resolved feed did NOT change and the depeg-sensitivity did NOT flip. RE-MEASURED ON-CHAIN 2026-06-07: AaveOracle.getSourceOfAsset(USDe) @ block 22173916 (2025-04-01T11:59:59Z, the block for now=2025-04-01T12:00:00Z) = NEW 0xc26d...4ff8 — UNCHANGED from the post-migration steady state, confirming the control sits in a genuinely calm, no-flip, no-source-change window. No alarm may fire: DEPEG_FLAG_FLIP must_not_fire, with NO WARN-or-above signal on the snapshot (max_emitted WARN/0). This proves the signal keys on an ACTUAL flip of oracle.depeg_sensitive (a prev->curr delta), not merely on the market existing with depeg_sensitive=false, nor on re-observing the post-migration steady state. A monitor that pages every time it re-reads an unchanged, healthy oracle is uselessly noisy."
+    }
+  ]
+}

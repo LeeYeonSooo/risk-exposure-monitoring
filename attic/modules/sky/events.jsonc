@@ -1,0 +1,1127 @@
+// Sky/Maker 의존성 매핑 — events.jsonc v1.0
+// 13 시나리오 학습 + CRITERIA v1.0 + plan v7.3 기반
+//
+// 역할: indexer가 이벤트 X 발견 → event_id로 lookup → produces_edges 자동 매핑
+// 형식: Aave 양식 차용 (event_id = Contract.EventName, produces_edges 명시)
+//
+// 6 type 분류:
+//   Type 1: Standard event (event_name + keccak256 topic0)
+//   Type 2: LibNote anonymous (function_selector + bytes4 sig)
+//   Type 3: Hybrid (standard + LogNote)
+//   Type 4: View-only (이벤트 없음, view function polling)
+//   Type 5: External event ref (외부 노드 emitted_events에서 참조)
+//   Type 6: Callback hook (parent event + atomic_with)
+//
+// produces_edges에서 direction:
+//   - "forward" / "reverse" — 양방향 엣지의 방향
+//   - "directed" — 단방향 엣지
+{
+  "_metadata": {
+    "version": "1.0",
+    "date": "2026-05-28",
+    "total_events": 53,
+    "compatible_with": ["nodes.jsonc v1.0", "edges.jsonc v1.0"]
+  },
+
+  "events": [
+
+    // ===== Type 1: Standard event (~32) =====
+
+    // --- PSM (5) ---
+    {
+      "event_id": "LitePSM.SellGem",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "psm",
+      "signature": "SellGem(address indexed owner, uint256 value, uint256 fee)",
+      "topic0": "<compute:keccak256(SellGem(address,uint256,uint256))>",
+      "triggered_by": "user calls LitePSM.sellGem()",
+      "description": "USDC → USDS swap (양방향 엣지 forward direction)",
+      "produces_edges": [
+        {
+          "edge_type": "psm_swap",
+          "direction": "forward",
+          "from": "user_eoa",
+          "to": "psm + psm_pocket",
+          "asset_in": "tok_usdc",
+          "asset_out": "tok_usds",
+          "amount_in": "value (USDC gem precision)",
+          "amount_out": "value × 10^12 - fee"
+        }
+      ],
+      "related_side_events": ["USDC.Transfer(user→pocket)", "USDS.Transfer(psm→user)"]
+    },
+    {
+      "event_id": "LitePSM.BuyGem",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "psm",
+      "signature": "BuyGem(address indexed owner, uint256 value, uint256 fee)",
+      "topic0": "<compute>",
+      "triggered_by": "user calls LitePSM.buyGem()",
+      "description": "USDS → USDC swap (양방향 엣지 reverse direction)",
+      "produces_edges": [
+        {
+          "edge_type": "psm_swap",
+          "direction": "reverse",
+          "from": "psm + psm_pocket",
+          "to": "user_eoa",
+          "asset_in": "tok_usds",
+          "asset_out": "tok_usdc",
+          "amount_in": "value × 10^12 + fee",
+          "amount_out": "value (USDC gem precision)"
+        }
+      ]
+    },
+    {
+      "event_id": "LitePSM.Fill",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "psm",
+      "signature": "Fill(uint256 wad)",
+      "topic0": "<compute>",
+      "triggered_by": "anyone calls LitePSM.fill() (보통 keeper_cron)",
+      "description": "USDS pre-mint to PSM (keeper 보조 행위)",
+      "produces_edges": [
+        {
+          "edge_type": "psm_keeper_action",
+          "direction": "directed",
+          "from": "keeper_cron",
+          "to": "psm",
+          "action": "fill",
+          "amount": "wad"
+        }
+      ]
+    },
+    {
+      "event_id": "LitePSM.Trim",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "psm",
+      "signature": "Trim(uint256 wad)",
+      "topic0": "<compute>",
+      "triggered_by": "anyone calls LitePSM.trim() (보통 keeper_cron)",
+      "description": "USDS 잉여 burn",
+      "produces_edges": [
+        { "edge_type": "psm_keeper_action", "direction": "directed", "from": "keeper_cron", "to": "psm", "action": "trim", "amount": "wad" }
+      ]
+    },
+    {
+      "event_id": "LitePSM.Chug",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "psm",
+      "signature": "Chug(uint256 wad)",
+      "topic0": "<compute>",
+      "triggered_by": "anyone calls LitePSM.chug()",
+      "description": "swap fee → vow surplus (Smart Burn 연료)",
+      "produces_edges": [
+        { "edge_type": "psm_keeper_action", "direction": "directed", "from": "keeper_cron", "to": "psm", "action": "chug", "amount": "wad" }
+      ]
+    },
+
+    // --- Conversion (3) ---
+    {
+      "event_id": "DaiUsds.DaiToUsds",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "converter",
+      "signature": "DaiToUsds(address indexed caller, address indexed usr, uint256 wad)",
+      "topic0": "<compute>",
+      "triggered_by": "user calls DaiUsds.daiToUsds()",
+      "description": "DAI → USDS 1:1 (양방향 엣지 forward)",
+      "produces_edges": [
+        { "edge_type": "convert_token_bidir", "direction": "forward", "from": "user_eoa", "to": "converter", "asset_in": "tok_dai", "asset_out": "tok_usds", "amount": "wad" }
+      ]
+    },
+    {
+      "event_id": "DaiUsds.UsdsToDai",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "converter",
+      "signature": "UsdsToDai(address indexed caller, address indexed usr, uint256 wad)",
+      "topic0": "<compute>",
+      "triggered_by": "user calls DaiUsds.usdsToDai()",
+      "description": "USDS → DAI 1:1 (양방향 reverse)",
+      "produces_edges": [
+        { "edge_type": "convert_token_bidir", "direction": "reverse", "from": "converter", "to": "user_eoa", "asset_in": "tok_usds", "asset_out": "tok_dai", "amount": "wad" }
+      ]
+    },
+    {
+      "event_id": "MkrSky.MkrToSky",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "converter",
+      "signature": "MkrToSky(address indexed caller, address indexed usr, uint256 mkrAmt, uint256 skyAmt, uint256 skyFee)",
+      "topic0": "<compute>",
+      "triggered_by": "user calls MkrSky.mkrToSky()",
+      "description": "MKR → SKY 1:24000 (단방향)",
+      "produces_edges": [
+        { "edge_type": "convert_token_oneway", "direction": "directed", "from": "user_eoa", "to": "converter", "asset_in": "tok_mkr", "asset_out": "tok_sky", "amount_in": "mkrAmt", "amount_out": "skyAmt", "fee": "skyFee" }
+      ]
+    },
+
+    // --- Savings (4) ---
+    // sUSDS와 stUSDS는 같은 ERC-4626 signature → 1 event type, emitting_contracts: [susds, stusds]
+    {
+      "event_id": "ERC4626.Deposit",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "savings_module",
+      "emitting_contracts": ["susds", "stusds"],
+      "signature": "Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares)",
+      "topic0": "<compute:keccak256(Deposit(address,address,uint256,uint256))>",
+      "triggered_by": "user calls savings_module.deposit() or mint()",
+      "description": "USDS → yield share token (양방향 forward)",
+      "produces_edges": [
+        { "edge_type": "savings_flow", "direction": "forward", "from": "user_eoa", "to": "savings_module", "asset_in": "tok_usds", "asset_out": "tok_susds OR tok_stusds (per emitting contract)", "amount_in": "assets", "amount_out": "shares" }
+      ]
+    },
+    {
+      "event_id": "ERC4626.Withdraw",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "savings_module",
+      "emitting_contracts": ["susds", "stusds"],
+      "signature": "Withdraw(address indexed sender, address indexed receiver, address indexed owner, uint256 assets, uint256 shares)",
+      "topic0": "<compute>",
+      "triggered_by": "user calls savings_module.withdraw() or redeem()",
+      "description": "yield share → USDS (양방향 reverse)",
+      "produces_edges": [
+        { "edge_type": "savings_flow", "direction": "reverse", "from": "savings_module", "to": "user_eoa", "asset_in": "share", "asset_out": "tok_usds", "amount_in": "shares", "amount_out": "assets" }
+      ]
+    },
+    {
+      "event_id": "Savings.Drip",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "savings_module",
+      "emitting_contracts": ["susds", "stusds"],
+      "signature": "Drip(uint256 chi, uint256 diff)",
+      "topic0": "<compute>",
+      "triggered_by": "anyone calls savings_module.drip() (또는 deposit/withdraw 내부 자동)",
+      "description": "yield 누적 — vat.suck(vow, this, diff*RAY) → usdsJoin.exit",
+      "produces_edges": [
+        { "edge_type": "savings_yield_drip", "direction": "directed", "from": "vow (internal)", "to": "savings_module", "amount": "diff", "asset": "tok_usds" }
+      ],
+      "related_side_events": ["Vat.LogNote(suck)", "USDS.Transfer(0x0→savings)"]
+    },
+    {
+      "event_id": "stUSDS.Cut",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "savings_module",
+      "emitting_contracts": ["stusds"],
+      "signature": "Cut(uint256 assets, uint256 oldChi, uint256 newChi)",
+      "topic0": "<compute>",
+      "triggered_by": "LockstakeClipper.take 콜백 (bad debt 발생 시) 또는 governance",
+      "description": "★ bad debt 흡수 — chi 감소로 모든 stUSDS holder 손실 분배. usdsJoin.join(vow) → vow.sin 상쇄",
+      "produces_edges": [
+        { "edge_type": "bad_debt_absorb", "direction": "directed", "from": "clipper (lockstake_clipper)", "to": "savings_module (stusds)", "amount": "assets", "chi_before": "oldChi", "chi_after": "newChi" }
+      ],
+      "atomic_with": ["LockstakeClipper.Take (when sale.lot==0 && due>owe)"]
+    },
+
+    // --- LockStake (10) ---
+    {
+      "event_id": "LockstakeEngine.Open",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "vault_engine",
+      "emitting_contracts": ["lockstake_engine"],
+      "signature": "Open(address indexed owner, uint256 indexed index, address urn)",
+      "topic0": "<compute>",
+      "triggered_by": "user calls LockstakeEngine.open(index)",
+      "description": "LockstakeUrn (minimal proxy clone) 생성 — vault_instance dynamic 노드 발견",
+      "produces_edges": [
+        { "edge_type": "vault_open", "direction": "directed", "from": "user_eoa OR dsproxy", "to": "vault_engine (lockstake)", "creates_instance": "vault_instance with urn=urn" }
+      ],
+      "creates_dynamic_node": "vault_instance"
+    },
+    {
+      "event_id": "LockstakeEngine.Hope",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "vault_engine",
+      "emitting_contracts": ["lockstake_engine"],
+      "signature": "Hope(address indexed owner, uint256 indexed index, address indexed usr)",
+      "topic0": "<compute>",
+      "triggered_by": "owner calls LockstakeEngine.hope(owner, index, usr)",
+      "description": "urn 권한 위임 — usr가 이후 urn 조작 가능",
+      "produces_edges": [
+        { "edge_type": "urn_permission_grant", "direction": "directed", "from": "user_eoa (owner)", "to": "user_eoa (usr)", "scope": "lockstake_urn at index" }
+      ]
+    },
+    {
+      "event_id": "LockstakeEngine.Nope",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "vault_engine",
+      "emitting_contracts": ["lockstake_engine"],
+      "signature": "Nope(address indexed owner, uint256 indexed index, address indexed usr)",
+      "topic0": "<compute>",
+      "triggered_by": "owner calls LockstakeEngine.nope()",
+      "description": "권한 회수",
+      "produces_edges": [
+        { "edge_type": "urn_permission_grant", "direction": "directed", "from": "user_eoa (owner)", "to": "user_eoa (usr)", "action": "revoke" }
+      ]
+    },
+    {
+      "event_id": "LockstakeEngine.SelectVoteDelegate",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "vault_engine",
+      "emitting_contracts": ["lockstake_engine"],
+      "signature": "SelectVoteDelegate(address indexed owner, uint256 indexed index, address indexed voteDelegate)",
+      "topic0": "<compute>",
+      "triggered_by": "user selects vote delegate for urn",
+      "description": "SKY 잠근 voting power 위임 대상 설정",
+      "produces_edges": [
+        { "edge_type": "vote_delegation", "direction": "directed", "from": "user_eoa (urn owner)", "to": "vote_delegate_instance", "via": "vault_engine (lockstake)" }
+      ]
+    },
+    {
+      "event_id": "LockstakeEngine.SelectFarm",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "vault_engine",
+      "emitting_contracts": ["lockstake_engine"],
+      "signature": "SelectFarm(address indexed owner, uint256 indexed index, address indexed farm, uint16 ref)",
+      "topic0": "<compute>",
+      "triggered_by": "user selects farm for LSSKY stake",
+      "description": "LSSKY를 stake할 farm 선택",
+      "produces_edges": [
+        { "edge_type": "farm_selection", "direction": "directed", "from": "user_eoa", "to": "staking_farm", "via": "vault_engine (lockstake)", "ref": "ref" }
+      ]
+    },
+    {
+      "event_id": "LockstakeEngine.Lock",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "vault_engine",
+      "emitting_contracts": ["lockstake_engine"],
+      "signature": "Lock(address indexed owner, uint256 indexed index, uint256 wad, uint16 ref)",
+      "topic0": "<compute>",
+      "triggered_by": "user (or anyone) calls LockstakeEngine.lock()",
+      "description": "★ 4-in-1: SKY 잠금 + Vat collateral + LSSKY mint + farm stake (모두 atomic)",
+      "produces_edges": [
+        { "edge_type": "vault_collateral_flow", "direction": "forward", "from": "user_eoa", "to": "vault_instance + ilk_lse_mkr_a", "asset": "tok_sky", "amount": "wad" }
+      ],
+      "atomic_with": ["VoteDelegate.Lock (via Chief)", "LSSKY.Transfer(0x0→urn)", "staking_farm.Staked"]
+    },
+    {
+      "event_id": "LockstakeEngine.Free",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "vault_engine",
+      "emitting_contracts": ["lockstake_engine"],
+      "signature": "Free(address indexed owner, uint256 indexed index, address to, uint256 wad, uint256 freed)",
+      "topic0": "<compute>",
+      "triggered_by": "owner calls LockstakeEngine.free()",
+      "description": "SKY 회수 — fee% (15%) burn → freed = wad - burn",
+      "produces_edges": [
+        { "edge_type": "vault_collateral_flow", "direction": "reverse", "from": "vault_instance", "to": "user_eoa (to)", "asset": "tok_sky", "amount_requested": "wad", "amount_received": "freed", "burned": "wad - freed" }
+      ]
+    },
+    {
+      "event_id": "LockstakeEngine.Draw",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "vault_engine",
+      "emitting_contracts": ["lockstake_engine"],
+      "signature": "Draw(address indexed owner, uint256 indexed index, address to, uint256 wad)",
+      "topic0": "<compute>",
+      "triggered_by": "owner calls LockstakeEngine.draw()",
+      "description": "USDS 차입 (양방향 vault_debt_flow forward)",
+      "produces_edges": [
+        { "edge_type": "vault_debt_flow", "direction": "forward", "from": "vault_instance", "to": "user_eoa (to)", "asset": "tok_usds", "amount": "wad" }
+      ]
+    },
+    {
+      "event_id": "LockstakeEngine.Wipe",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "vault_engine",
+      "emitting_contracts": ["lockstake_engine"],
+      "signature": "Wipe(address indexed owner, uint256 indexed index, uint256 wad)",
+      "topic0": "<compute>",
+      "triggered_by": "anyone (자기 자금이면) calls LockstakeEngine.wipe()",
+      "description": "USDS 상환 (양방향 reverse)",
+      "produces_edges": [
+        { "edge_type": "vault_debt_flow", "direction": "reverse", "from": "user_eoa", "to": "vault_instance", "asset": "tok_usds", "amount": "wad" }
+      ]
+    },
+    {
+      "event_id": "LockstakeEngine.GetReward",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "vault_engine",
+      "emitting_contracts": ["lockstake_engine"],
+      "signature": "GetReward(address indexed owner, uint256 indexed index, address indexed farm, address to, uint256 amt)",
+      "topic0": "<compute>",
+      "triggered_by": "owner calls LockstakeEngine.getReward()",
+      "description": "farm reward 회수",
+      "produces_edges": [
+        { "edge_type": "farm_reward_distribute", "direction": "directed", "from": "staking_farm", "to": "user_eoa (to)", "amount": "amt", "via": "vault_engine (lockstake)" }
+      ]
+    },
+
+    // --- Liquidation (6) ---
+    {
+      "event_id": "Dog.Bark",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "liquidation_router",
+      "signature": "Bark(bytes32 indexed ilk, address indexed urn, uint256 ink, uint256 art, uint256 due, address clip, uint256 indexed id)",
+      "topic0": "<compute>",
+      "triggered_by": "anyone (MEV bot) calls Dog.bark()",
+      "description": "★ 청산 시작 — Vat.grab + Clipper.kick 호출. 가장 강한 의존성 엣지의 trigger",
+      "produces_edges": [
+        { "edge_type": "liquidation_kick", "direction": "directed", "from": "liquidator_bot", "to": "vault_instance + clipper", "ilk": "ilk", "tab": "due (chop 적용 전)" }
+      ],
+      "atomic_with": ["Vat.LogNote(grab)", "Clipper.Kick"]
+    },
+    {
+      "event_id": "Clipper.Kick",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "clipper",
+      "emitting_contracts": ["per_ilk_clippers", "lockstake_clipper"],
+      "signature": "Kick(uint256 indexed id, uint256 top, uint256 tab, uint256 lot, address indexed usr, address indexed kpr, uint256 coin)",
+      "topic0": "<compute>",
+      "triggered_by": "Dog.bark calls Clipper.kick (auth)",
+      "description": "Dutch auction 시작 — LockstakeClipper은 추가로 engine.onKick + cuttee.drip 호출",
+      "produces_edges": [
+        { "edge_type": "liquidation_kick", "direction": "directed", "from": "liquidation_router (Dog)", "to": "clipper (per ilk)", "auction_id": "id" }
+      ],
+      "callback_hook": "LockstakeClipper: engine.onKick + cuttee.drip"
+    },
+    {
+      "event_id": "Clipper.Take",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "clipper",
+      "emitting_contracts": ["per_ilk_clippers", "lockstake_clipper"],
+      "signature": "Take(uint256 indexed id, uint256 max, uint256 price, uint256 owe, uint256 tab, uint256 lot, address indexed usr)",
+      "topic0": "<compute>",
+      "triggered_by": "anyone calls Clipper.take() (입찰)",
+      "description": "입찰 — 담보 받고 USDS 지불. LockstakeClipper은 마지막에 cuttee.cut (bad debt 시)",
+      "produces_edges": [
+        { "edge_type": "liquidation_take", "direction": "directed", "from": "liquidator_bot (caller)", "to": "clipper", "auction_id": "id", "amount_paid": "owe", "amount_received": "lot purchased" }
+      ],
+      "callback_hook": "LockstakeClipper.take: engine.onTake + (sale.lot==0 && due>owe) → cuttee.cut → bad_debt_absorb edge"
+    },
+    {
+      "event_id": "Clipper.Redo",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "clipper",
+      "signature": "Redo(uint256 indexed id, uint256 top, uint256 tab, uint256 lot, address indexed usr, address indexed kpr, uint256 coin)",
+      "topic0": "<compute>",
+      "triggered_by": "anyone calls Clipper.redo() (시간 초과 OR 가격 cusp 도달)",
+      "description": "경매 리셋",
+      "produces_edges": [],
+      "node_update": "clipper의 sales[id].top, tic 갱신"
+    },
+    {
+      "event_id": "Clipper.Yank",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "clipper",
+      "signature": "Yank(uint256 id)",
+      "topic0": "<compute>",
+      "triggered_by": "ClipperMom or governance",
+      "description": "경매 강제 종료",
+      "produces_edges": []
+    },
+    {
+      "event_id": "Flop.Kick",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "(no_node — bad_debt_mint internal)",
+      "signature": "Kick(uint256 id, uint256 lot, uint256 bid, address indexed gal)",
+      "topic0": "<compute>",
+      "triggered_by": "Vow.flop() 호출 (sin > sump 시)",
+      "description": "★ DORMANT — bad debt 너무 클 때 SKY mint해서 시장에 판매",
+      "produces_edges": [
+        { "edge_type": "bad_debt_mint", "direction": "directed", "from": "(vow internal)", "to": "tok_sky", "amount": "lot (initial mkr/sky)", "tab": "bid" }
+      ],
+      "activity_label": "dormant"
+    },
+
+    // --- D3M (4) ---
+    {
+      "event_id": "D3MHub.Wind",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "d3m_module",
+      "signature": "Wind(bytes32 indexed ilk, uint256 amt)",
+      "topic0": "<compute>",
+      "triggered_by": "anyone calls D3MHub.exec(ilk) — 자동화 keeper_cron",
+      "description": "Sky → 외부 풀 자본 공급 (양방향 forward)",
+      "produces_edges": [
+        { "edge_type": "d3m_capital_flow", "direction": "forward", "from": "d3m_module", "to": "external_protocol_pool (per ilk)", "asset": "tok_usds OR tok_dai (per ilk)", "amount": "amt" }
+      ]
+    },
+    {
+      "event_id": "D3MHub.Unwind",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "d3m_module",
+      "signature": "Unwind(bytes32 indexed ilk, uint256 amt)",
+      "topic0": "<compute>",
+      "triggered_by": "anyone calls D3MHub.exec(ilk)",
+      "description": "Sky 회수 (양방향 reverse)",
+      "produces_edges": [
+        { "edge_type": "d3m_capital_flow", "direction": "reverse", "from": "external_protocol_pool", "to": "d3m_module", "amount": "amt" }
+      ]
+    },
+    {
+      "event_id": "D3MHub.Fees",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "d3m_module",
+      "signature": "Fees(bytes32 indexed ilk, uint256 amt)",
+      "topic0": "<compute>",
+      "triggered_by": "D3MHub.exec 내부에서 currentAssets > ink 감지 시",
+      "description": "외부 풀 이자가 Sky vow surplus로 환수 — Smart Burn 연료",
+      "produces_edges": [
+        { "edge_type": "system_rate_accrue", "direction": "directed", "from": "external_protocol_pool", "to": "d3m_module", "amount": "amt", "destination": "vow surplus" }
+      ],
+      "atomic_with": ["Vat.LogNote(slip)", "Vat.LogNote(frob)", "Vat.LogNote(suck vow,vow)"]
+    },
+    {
+      "event_id": "D3MHub.Emergency",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "d3m_module",
+      "signature": "Cage(bytes32) | Cull(bytes32,uint256,uint256) | Uncull(bytes32,uint256) | Exit(bytes32,address,uint256)",
+      "topic0": "<compute multi>",
+      "triggered_by": "governance OR (cull: anyone after tau)",
+      "description": "D3M emergency 정리 cycle — 4 events 통합 1 edge",
+      "produces_edges": [
+        { "edge_type": "d3m_emergency_cycle", "direction": "directed", "from": "governance OR keeper", "to": "d3m_module", "action": "cage|cull|uncull|exit (per event)" }
+      ]
+    },
+
+    // --- Allocator (4) ---
+    {
+      "event_id": "AllocatorVault.Draw",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "allocator_vault",
+      "signature": "Draw(address indexed sender, uint256 wad)",
+      "topic0": "<compute>",
+      "triggered_by": "Star operator calls AllocatorVault.draw()",
+      "description": "Vat에서 USDS 발행 → Buffer로",
+      "produces_edges": [
+        { "edge_type": "vault_debt_flow", "direction": "forward", "from": "allocator_vault (per Star)", "to": "allocator_buffer (per Star)", "asset": "tok_usds", "amount": "wad" }
+      ]
+    },
+    {
+      "event_id": "AllocatorVault.Wipe",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "allocator_vault",
+      "signature": "Wipe(address indexed sender, uint256 wad)",
+      "topic0": "<compute>",
+      "triggered_by": "Star operator calls AllocatorVault.wipe()",
+      "description": "Buffer USDS로 부채 상환",
+      "produces_edges": [
+        { "edge_type": "vault_debt_flow", "direction": "reverse", "from": "allocator_buffer", "to": "allocator_vault", "asset": "tok_usds", "amount": "wad" }
+      ]
+    },
+    {
+      "event_id": "AllocatorBuffer.Approve",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "allocator_buffer",
+      "signature": "Approve(address indexed asset, address indexed spender, uint256 amount)",
+      "topic0": "<compute>",
+      "triggered_by": "Star operator calls AllocatorBuffer.approve()",
+      "description": "Buffer가 funnel에게 자산 권한 부여",
+      "produces_edges": [
+        { "edge_type": "allocator_capital_flow", "direction": "forward", "from": "allocator_buffer", "to": "allocator_funnel (spender)", "asset": "asset", "amount": "amount", "action": "approve_for_funnel" }
+      ]
+    },
+    {
+      "event_id": "AllocatorRoles.PermissionChange",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "allocator_roles_module",
+      "signature": "SetIlkAdmin(bytes32 indexed ilk, address user) | SetUserRole(bytes32 indexed ilk, address indexed who, uint8 indexed role, bool enabled) | SetRoleAction(bytes32 indexed ilk, uint8 indexed role, address indexed target, bytes4 sig, bool enabled)",
+      "topic0": "<compute multi>",
+      "triggered_by": "Sky (SetIlkAdmin) OR Star ilkAdmin (SetUserRole/SetRoleAction)",
+      "description": "bit-packed 권한 시스템 변경 — Allocator 모든 Star 권한",
+      "produces_edges": [],
+      "node_update": "allocator_roles_module의 ilkAdmins/userRoles/actionsRoles 변경"
+    },
+
+    // --- IAllocatorConduit (funnel) (2) ---
+    {
+      "event_id": "IAllocatorConduit.Deposit",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "allocator_funnel",
+      "signature": "Deposit(bytes32 indexed ilk, address indexed asset, address origin, uint256 amount)",
+      "topic0": "<compute>",
+      "triggered_by": "Star operator calls funnel.deposit()",
+      "description": "Star가 외부 풀에 자본 공급 (양방향 forward)",
+      "produces_edges": [
+        { "edge_type": "allocator_capital_flow", "direction": "forward", "from": "allocator_funnel", "to": "external_protocol_pool", "asset": "asset", "amount": "amount" }
+      ]
+    },
+    {
+      "event_id": "IAllocatorConduit.Withdraw",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "allocator_funnel",
+      "signature": "Withdraw(bytes32 indexed ilk, address indexed asset, address destination, uint256 amount)",
+      "topic0": "<compute>",
+      "triggered_by": "Star operator calls funnel.withdraw()",
+      "description": "Star 회수 (양방향 reverse)",
+      "produces_edges": [
+        { "edge_type": "allocator_capital_flow", "direction": "reverse", "from": "external_protocol_pool", "to": "allocator_funnel", "asset": "asset", "amount": "amount" }
+      ]
+    },
+
+    // --- Smart Burn (2) ---
+    {
+      "event_id": "Splitter.Kick",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "smart_burn_engine",
+      "signature": "Kick(uint256 tot, uint256 lot, uint256 pay)",
+      "topic0": "<compute>",
+      "triggered_by": "Vow.flap() OR Kicker.flap()",
+      "description": "vow surplus → split (burn + farm)",
+      "produces_edges": [
+        { "edge_type": "surplus_to_burn", "direction": "directed", "from": "(vow internal)", "to": "smart_burn_engine", "amount": "tot (RAD)", "burn_lot": "lot", "farm_pay": "pay" }
+      ]
+    },
+    {
+      "event_id": "FlapperUniV2.Exec",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "smart_burn_engine",
+      "signature": "Exec(uint256 lot, uint256 sell, uint256 buy, uint256 liquidity)",
+      "topic0": "<compute>",
+      "triggered_by": "Splitter.kick calls FlapperUniV2.exec",
+      "description": "USDS-SKY pair swap + LP mint → LP 토큰 receiver로",
+      "produces_edges": [
+        { "edge_type": "burn_swap_external", "direction": "directed", "from": "smart_burn_engine", "to": "external_protocol_pool (uniswap_v2_usds_sky_pair)", "usds_in": "lot", "sky_out": "buy", "lp_minted": "liquidity" }
+      ],
+      "atomic_with": ["UniswapV2.Swap", "UniswapV2.Mint", "LP.Transfer(0x0→receiver)"]
+    },
+
+    // --- Flash (2) ---
+    {
+      "event_id": "DssFlash.FlashLoan",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "flash_mint",
+      "signature": "FlashLoan(address indexed receiver, address token, uint256 amount, uint256 fee)",
+      "topic0": "<compute>",
+      "triggered_by": "anyone calls DssFlash.flashLoan() (EIP-3156)",
+      "description": "DAI atomic loan (fee=0 현재)",
+      "produces_edges": [
+        { "edge_type": "flash_callback", "direction": "directed", "from": "flash_mint", "to": "user_eoa OR external_contract (receiver)", "asset": "token (DAI)", "amount": "amount", "fee": "fee", "atomic": true }
+      ]
+    },
+    {
+      "event_id": "DssFlash.VatDaiFlashLoan",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "flash_mint",
+      "signature": "VatDaiFlashLoan(address indexed receiver, uint256 amount, uint256 fee)",
+      "topic0": "<compute>",
+      "triggered_by": "Vat-native contracts (Clipper) calls vatDaiFlashLoan",
+      "description": "Vat dai direct flash loan (daiJoin 안 거침, 가스 효율)",
+      "produces_edges": [
+        { "edge_type": "flash_callback", "direction": "directed", "from": "flash_mint", "to": "external_contract (receiver, vat-native)", "asset": "vat_dai", "amount": "amount", "fee": "fee", "mode": "vat_internal" }
+      ]
+    },
+
+    // --- Multichain (2) ---
+    {
+      "event_id": "OFT.Send",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "bridge",
+      "emitting_contracts": ["usds_oft", "susds_oft"],
+      "signature": "OFTSent(bytes32 indexed guid, uint32 dstEid, address indexed fromAddress, uint256 amountSentLD, uint256 amountReceivedLD)",
+      "topic0": "<compute>",
+      "triggered_by": "user calls OFT.send() (LayerZero V2)",
+      "description": "USDS or sUSDS L1 → remote chain (양방향 forward)",
+      "produces_edges": [
+        { "edge_type": "bridge_flow", "direction": "forward", "from": "user_eoa", "to": "remote_chain (per dstEid)", "asset": "tok_usds OR tok_susds (per emitting)", "amount": "amountSentLD" }
+      ]
+    },
+    {
+      "event_id": "NativeBridge.ERC20BridgeInitiated",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "bridge",
+      "emitting_contracts": ["optimism_token_bridge", "arbitrum_token_bridge", "base_token_bridge", "unichain_token_bridge"],
+      "signature": "ERC20BridgeInitiated(address indexed localToken, address indexed remoteToken, address indexed from, address to, uint256 amount, bytes extraData)",
+      "topic0": "<compute>",
+      "triggered_by": "user calls native bridge",
+      "description": "Native L2 bridge (양방향 forward)",
+      "produces_edges": [
+        { "edge_type": "bridge_flow", "direction": "forward", "from": "user_eoa (from)", "to": "remote_chain (per emitting bridge)", "asset": "localToken (tok_usds)", "amount": "amount" }
+      ]
+    },
+
+    // --- Governance entry (5) ---
+    {
+      "event_id": "ESM.Join",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "emergency_module",
+      "signature": "Join(address indexed usr, uint256 wad)",
+      "topic0": "<compute>",
+      "triggered_by": "user calls ESM.join()",
+      "description": "사용자가 SKY 잠금 → emergency 임계 (50k)에 기여",
+      "produces_edges": [
+        { "edge_type": "emergency_join", "direction": "directed", "from": "user_eoa", "to": "emergency_module", "amount": "wad", "asset": "tok_sky" }
+      ]
+    },
+    {
+      "event_id": "ESM.Fire",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "emergency_module",
+      "signature": "Fire()",
+      "topic0": "<compute>",
+      "triggered_by": "anyone when sum > min (50k SKY)",
+      "description": "★ 시스템 cage trigger — end_global_settlement 시작",
+      "produces_edges": [
+        { "edge_type": "end_global_settlement_action", "direction": "directed", "from": "emergency_module (ESM)", "to": "end_module (Vat.cage 등)", "action": "fire" }
+      ]
+    },
+    {
+      "event_id": "DSPause.Plot",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "(no_node — pause_proxy 내부)",
+      "signature": "Plot(address indexed usr, bytes32 indexed tag, bytes fax, uint256 eta)",
+      "topic0": "<compute>",
+      "triggered_by": "chief.hat (winning spell) calls pause.plot",
+      "description": "★ spell instance 발견 — dynamic node 생성",
+      "produces_edges": [
+        { "edge_type": "spell_execute", "direction": "directed", "from": "gov_chief", "to": "spell_instance (dynamic)", "stage": "queued", "eta": "eta" }
+      ],
+      "creates_dynamic_node": "spell_instance"
+    },
+    {
+      "event_id": "DSPause.Exec",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "(no_node — pause_proxy 내부)",
+      "signature": "Exec(address indexed usr, bytes32 indexed tag, bytes fax, uint256 eta, bytes out)",
+      "topic0": "<compute>",
+      "triggered_by": "after eta passed, anyone calls pause.exec",
+      "description": "spell 실행 → PauseProxy delegatecall → 시스템 변경",
+      "produces_edges": [
+        { "edge_type": "spell_execute", "direction": "directed", "from": "pause_proxy", "to": "spell_instance + (target system contracts)", "stage": "executed" }
+      ]
+    },
+    {
+      "event_id": "VoteDelegateFactory.Created",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "vote_delegate_factory",
+      "signature": "Created(address indexed delegate, address indexed voteDelegate)",
+      "topic0": "<compute>",
+      "triggered_by": "delegate calls factory.create()",
+      "description": "vote_delegate_instance dynamic 노드 발견",
+      "produces_edges": [],
+      "creates_dynamic_node": "vote_delegate_instance"
+    },
+
+    // --- VoteDelegate (2) ---
+    {
+      "event_id": "VoteDelegate.Lock",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "(via vote_delegate_instance, dynamic)",
+      "signature": "Lock(address indexed usr, uint256 wad)",
+      "topic0": "<compute>",
+      "triggered_by": "user calls VoteDelegate.lock() (또는 LockstakeEngine.lock 내부)",
+      "description": "SKY voting power 잠금",
+      "produces_edges": [
+        { "edge_type": "gov_lock_sky", "direction": "directed", "from": "user_eoa", "to": "gov_chief", "via": "vote_delegate_instance", "amount": "wad", "asset": "tok_sky" }
+      ]
+    },
+    {
+      "event_id": "VoteDelegate.Free",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "(via vote_delegate_instance, dynamic)",
+      "signature": "Free(address indexed usr, uint256 wad)",
+      "topic0": "<compute>",
+      "triggered_by": "user calls VoteDelegate.free() (또는 LockstakeEngine.free 내부)",
+      "description": "SKY voting power 회수",
+      "produces_edges": [
+        { "edge_type": "gov_lock_sky", "direction": "directed", "from": "gov_chief", "to": "user_eoa", "via": "vote_delegate_instance", "amount": "wad", "asset": "tok_sky", "action": "free" }
+      ]
+    },
+
+    // --- Mom emergency (2 active) ---
+    {
+      "event_id": "ClipperMom.SetBreaker",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "breaker_mom",
+      "signature": "SetBreaker(address indexed clip, uint256 level)",
+      "topic0": "<compute>",
+      "triggered_by": "anyone (tripBreaker if oracle drop) OR governance (setBreaker)",
+      "description": "Clipper 정지 — permissionless 자동 trip 가능",
+      "produces_edges": [
+        { "edge_type": "mom_breaker_trigger", "direction": "directed", "from": "breaker_mom (ClipperMom)", "to": "clipper", "level": "level (0~3)" }
+      ]
+    },
+    {
+      "event_id": "OSM_MOM.Stop",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "breaker_mom",
+      "signature": "Stop(bytes32 indexed ilk)",
+      "topic0": "<compute>",
+      "triggered_by": "governance",
+      "description": "OSM 정지 — 가격 업데이트 차단",
+      "produces_edges": [
+        { "edge_type": "mom_breaker_trigger", "direction": "directed", "from": "breaker_mom (OSM_MOM)", "to": "osm_wrapper (per ilk)", "action": "stop" }
+      ]
+    },
+
+    // --- Vault management (2) ---
+    {
+      "event_id": "CDPManager.NewCdp",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "vault_engine",
+      "emitting_contracts": ["cdp_manager"],
+      "signature": "NewCdp(address indexed usr, address indexed own, uint256 indexed cdp)",
+      "topic0": "<compute>",
+      "triggered_by": "user (via DSProxy) calls CDPManager.open()",
+      "description": "CDP vault 인스턴스 생성 — vault_instance dynamic 노드 발견",
+      "produces_edges": [
+        { "edge_type": "vault_open", "direction": "directed", "from": "user_eoa OR dsproxy", "to": "vault_engine (cdp_manager)", "owner": "own", "cdp_id": "cdp" }
+      ],
+      "creates_dynamic_node": "vault_instance (cdp_id, ilk)"
+    },
+    {
+      "event_id": "End.GlobalSettlement",
+      "type": 1,
+      "filter_mode": "event_name",
+      "source_contract_role": "end_module",
+      "signature": "Cage() | Cage(bytes32) | Snip(bytes32,uint256,address,uint256,uint256,uint256) | Skim(bytes32,address,uint256,uint256) | Pack(address,uint256) | Cash(bytes32,address,uint256)",
+      "topic0": "<compute multi>",
+      "triggered_by": "ESM.Fire OR governance",
+      "description": "★ DORMANT — Global Settlement 9단계 통합",
+      "produces_edges": [
+        { "edge_type": "end_global_settlement_action", "direction": "directed", "from": "end_module", "to": "all_modules (cage targets)", "stage": "cage|skim|snip|pack|cash" }
+      ],
+      "activity_label": "dormant"
+    },
+
+
+    // ===== Type 2: LibNote (~7) =====
+
+    {
+      "event_id": "Vat.LogNote.frob",
+      "type": 2,
+      "filter_mode": "function_selector",
+      "source_contract_role": "(no_node — vat internal)",
+      "anonymous": true,
+      "function": "frob(bytes32,address,address,address,int256,int256)",
+      "topic0": "0x76088703",
+      "triggered_by": "Vat.frob() called by CDPManager OR LockstakeEngine OR PSM OR D3M OR Allocator OR ProxyActions",
+      "description": "★ Sky 모든 vault 수정의 핵심. 4 방향 동시 표현 (lock/free/draw/wipe)",
+      "decoded_inputs": "ilk, u (urn), v (gem src), w (dai dst), dink, dart",
+      "produces_edges": [
+        { "edge_type": "vault_collateral_flow", "direction": "forward", "when": "dink > 0", "asset": "ilk_underlying", "amount": "dink" },
+        { "edge_type": "vault_collateral_flow", "direction": "reverse", "when": "dink < 0", "asset": "ilk_underlying", "amount": "abs(dink)" },
+        { "edge_type": "vault_debt_flow", "direction": "forward", "when": "dart > 0", "asset": "stablecoin (USDS/DAI)", "amount": "dart × rate" },
+        { "edge_type": "vault_debt_flow", "direction": "reverse", "when": "dart < 0", "asset": "stablecoin", "amount": "abs(dart) × rate" }
+      ]
+    },
+    {
+      "event_id": "Vat.LogNote.grab",
+      "type": 2,
+      "filter_mode": "function_selector",
+      "source_contract_role": "(no_node — vat internal)",
+      "anonymous": true,
+      "function": "grab(bytes32,address,address,address,int256,int256)",
+      "topic0": "<compute:bytes4 of grab>",
+      "triggered_by": "Dog.bark calls Vat.grab (청산)",
+      "description": "vault 압류 — ink → Dog, sin → Vow",
+      "produces_edges": [
+        { "edge_type": "liquidation_kick", "direction": "directed", "from": "liquidation_router (Dog)", "to": "vault_instance + clipper" }
+      ]
+    },
+    {
+      "event_id": "Vat.LogNote.suck",
+      "type": 2,
+      "filter_mode": "function_selector",
+      "source_contract_role": "(no_node — vat internal)",
+      "anonymous": true,
+      "function": "suck(address,address,uint256)",
+      "topic0": "<compute>",
+      "triggered_by": "Vow.flap (vow→vow neutral), savings_module.drip (vow→savings), DssFlash, etc.",
+      "description": "dai/sin 동시 생성 — neutral (vat 내부 회계용)",
+      "decoded_inputs": "u (sin recipient), v (dai recipient), rad",
+      "produces_edges": [
+        { "edge_type": "savings_yield_drip", "direction": "directed", "when": "u == vow && v == savings_module", "from": "vow (internal)", "to": "savings_module" }
+      ],
+      "note": "u==v면 neutral (flash, fees 처리). u!=v면 자산 흐름 형성."
+    },
+    {
+      "event_id": "Vat.LogNote.heal",
+      "type": 2,
+      "filter_mode": "function_selector",
+      "source_contract_role": "(no_node — vat internal)",
+      "anonymous": true,
+      "function": "heal(uint256)",
+      "topic0": "<compute>",
+      "triggered_by": "Vow.heal (sin/dai 상쇄) OR DssFlash.flashLoan (자체)",
+      "description": "vat sin과 dai 상쇄",
+      "produces_edges": []
+    },
+    {
+      "event_id": "Vat.LogNote.move",
+      "type": 2,
+      "filter_mode": "function_selector",
+      "source_contract_role": "(no_node — vat internal)",
+      "anonymous": true,
+      "function": "move(address,address,uint256)",
+      "topic0": "<compute>",
+      "triggered_by": "PSM, Splitter, Vow, etc. (vat dai 이동)",
+      "description": "vat dai src → dst (내부 회계 이동, 외부 노드 흐름은 standard event로)",
+      "produces_edges": []
+    },
+    {
+      "event_id": "Vat.LogNote.slip",
+      "type": 2,
+      "filter_mode": "function_selector",
+      "source_contract_role": "(no_node — vat internal)",
+      "anonymous": true,
+      "function": "slip(bytes32,address,int256)",
+      "topic0": "<compute>",
+      "triggered_by": "GemJoin.join/exit, LockstakeEngine, D3M",
+      "description": "vat.gem[ilk][user] += wad (담보 회계)",
+      "produces_edges": []
+    },
+    {
+      "event_id": "Jug.LogNote.drip",
+      "type": 2,
+      "filter_mode": "function_selector",
+      "source_contract_role": "(no_node — jug internal)",
+      "anonymous": true,
+      "function": "drip(bytes32)",
+      "topic0": "0x44e2a5a8",
+      "triggered_by": "anyone (또는 draw 내부 자동)",
+      "description": "ilk rate 누적 (SF 적용)",
+      "produces_edges": [
+        { "edge_type": "system_rate_accrue", "direction": "directed", "from": "rate_setter (SPBEAM)", "to": "ilk", "via": "jug" }
+      ]
+    },
+
+
+    // ===== Type 3: Hybrid (3) =====
+
+    {
+      "event_id": "Spot.Poke",
+      "type": 3,
+      "filter_mode": "event_name",
+      "source_contract_role": "(no_node — spot internal, but oracle 의존성)",
+      "signature": "Poke(bytes32 ilk, bytes32 val, uint256 spot)",
+      "topic0": "<compute>",
+      "triggered_by": "anyone calls Spot.poke(ilk)",
+      "description": "ilk의 spot price 업데이트 — OSM → Vat",
+      "produces_edges": [
+        { "edge_type": "price_dependency", "direction": "directed", "from": "ilk", "to": "osm_wrapper", "action": "poke" }
+      ]
+    },
+    {
+      "event_id": "OSM.LogValue",
+      "type": 3,
+      "filter_mode": "event_name",
+      "source_contract_role": "osm_wrapper",
+      "signature": "LogValue(bytes32 val)",
+      "topic0": "<compute>",
+      "triggered_by": "osm.poke() — 1h delay 후 새 값 노출",
+      "description": "OSM의 1h delayed price"
+    },
+    {
+      "event_id": "Median.LogMedianPrice",
+      "type": 3,
+      "filter_mode": "event_name",
+      "source_contract_role": "(no_node — median upstream)",
+      "signature": "LogMedianPrice(uint256 val, uint256 age)",
+      "topic0": "<compute>",
+      "triggered_by": "feeders poke median",
+      "description": "Sky Median 가격 업데이트 — OSM의 upstream"
+    },
+
+
+    // ===== Type 4: View-only (이벤트 없음, polling) (4) =====
+
+    {
+      "event_id": "CDPManager.view_only",
+      "type": 4,
+      "filter_mode": "view_polling",
+      "source_contract_role": "vault_engine",
+      "view_functions": ["owns(uint256 cdp)", "cdpCan(address owner, uint256 cdp, address usr)", "urnCan(address urn, address usr)"],
+      "poll_interval": "every_block",
+      "triggered_by": "CDPManager.give() OR cdpAllow() OR urnAllow() (이벤트 없음)",
+      "description": "★ Type 4 — vault 소유권 이전, urn 권한 위임 추적 (이벤트 X). view diff로 감지",
+      "produces_edges": [
+        { "edge_type": "vault_transfer_ownership", "direction": "directed", "when": "owns(cdp) changed", "from": "previous_owner", "to": "new_owner" },
+        { "edge_type": "urn_permission_grant", "direction": "directed", "when": "cdpCan or urnCan changed", "from": "owner", "to": "delegated_usr" }
+      ]
+    },
+    {
+      "event_id": "D3MOperatorPlan.view_only",
+      "type": 4,
+      "filter_mode": "view_polling",
+      "source_contract_role": "d3m_module",
+      "view_function": "targetAssets()",
+      "poll_interval": "every_block",
+      "triggered_by": "external_protocol_admin (Spark SubProxy) calls setTargetAssets() (이벤트 없음)",
+      "description": "★ Type 4 — Spark가 D3M에 원하는 USDS 양 변경. 다음 D3MHub.exec에서 Wind/Unwind 발생",
+      "produces_edges": [
+        { "edge_type": "external_operator_delegation", "direction": "directed", "from": "external_protocol_admin (Spark SubProxy)", "to": "d3m_module", "action": "set_target_assets" }
+      ]
+    },
+    {
+      "event_id": "VoteDelegateFactory.view_only",
+      "type": 4,
+      "filter_mode": "view_polling",
+      "source_contract_role": "vote_delegate_factory",
+      "view_function": "created(address voteDelegate)",
+      "poll_interval": "on_demand",
+      "description": "vote_delegate_instance 유효성 검증 (LockstakeEngine.selectVoteDelegate 시)",
+      "produces_edges": []
+    },
+    {
+      "event_id": "Pot.view_only",
+      "type": 4,
+      "filter_mode": "view_polling",
+      "source_contract_role": "savings_module (dormant)",
+      "view_functions": ["chi()", "pie(address)", "Pie()"],
+      "poll_interval": "every_hour",
+      "triggered_by": "Pot.drip/join/exit (이벤트 없음 — LibNote 제거됨)",
+      "description": "★ Type 4 — Pot은 dormant. chi/pie view로 활동 추론",
+      "produces_edges": [
+        { "edge_type": "savings_flow", "direction": "varies", "when": "pie[user] changed" },
+        { "edge_type": "savings_yield_drip", "direction": "directed", "when": "chi changed" }
+      ]
+    },
+
+
+    // ===== Type 5: External event ref (5) =====
+
+    {
+      "event_id": "Spark.Borrow",
+      "type": 5,
+      "external_protocol": "spark",
+      "source_contract_role": "external_protocol_pool",
+      "emitting_contracts": ["ext_spark_lending_pool"],
+      "description": "Spark 사용자가 USDS/DAI 빌림 — D3M 자본이 사용됨 (Sky 입장)",
+      "produces_edges": [],
+      "note": "Sky가 직접 emit 안 함. 외부 노드 emitted_events에 ref."
+    },
+    {
+      "event_id": "Aave.Supply",
+      "type": 5,
+      "external_protocol": "aave_v3",
+      "source_contract_role": "external_protocol_pool",
+      "emitting_contracts": ["ext_aave_v3_lido_usds_pool"],
+      "description": "Aave V3 사용자/Sky D3M이 자산 공급"
+    },
+    {
+      "event_id": "Morpho.Withdraw",
+      "type": 5,
+      "external_protocol": "morpho",
+      "source_contract_role": "external_protocol_pool",
+      "emitting_contracts": ["ext_morpho_metamorpho"],
+      "description": "Morpho MetaMorpho vault 활동"
+    },
+    {
+      "event_id": "UniswapV2.Swap",
+      "type": 5,
+      "external_protocol": "uniswap_v2",
+      "source_contract_role": "external_protocol_pool",
+      "emitting_contracts": ["ext_uniswap_v2_usds_sky_pair"],
+      "description": "USDS-SKY swap (Smart Burn 실행 + 일반 거래)"
+    },
+    {
+      "event_id": "Chainlink.AnswerUpdated",
+      "type": 5,
+      "external_protocol": "chainlink",
+      "source_contract_role": "price_feed",
+      "description": "Chainlink Aggregator 가격 업데이트 — Sky OSM의 upstream"
+    },
+
+
+    // ===== Type 6: Callback hook (5) =====
+
+    {
+      "event_id": "LockstakeClipper.Take.with_cut",
+      "type": 6,
+      "parent_event": "Clipper.Take",
+      "callback_target": "savings_module (stusds via cuttee)",
+      "source_contract_role": "clipper (lockstake_clipper)",
+      "triggered_by": "anyone calls LockstakeClipper.take() (sale.lot==0 && due>owe)",
+      "description": "★ 가장 중요한 Callback — bad debt 자동 흡수",
+      "produces_edges": [
+        { "edge_type": "bad_debt_absorb", "direction": "directed", "from": "clipper (lockstake_clipper)", "to": "savings_module (stusds)", "amount": "due - owe" }
+      ],
+      "atomic_with": ["Clipper.Take (LockstakeClipper instance)", "stUSDS.Cut"]
+    },
+    {
+      "event_id": "DssFlash.onFlashLoan",
+      "type": 6,
+      "parent_event": "DssFlash.FlashLoan",
+      "callback_target": "receiver (user provided)",
+      "source_contract_role": "(receiver, external)",
+      "triggered_by": "DssFlash.flashLoan → receiver.onFlashLoan",
+      "description": "flash loan callback — receiver가 임의 행위 가능 (차익거래, refinance 등)",
+      "produces_edges": [],
+      "note": "callback 내부 활동은 flash_callback edge metadata로 흡수"
+    },
+    {
+      "event_id": "Clipper.clipperCall",
+      "type": 6,
+      "parent_event": "Clipper.Take",
+      "callback_target": "buyer (user provided)",
+      "source_contract_role": "(buyer, external)",
+      "triggered_by": "Clipper.take with data param → buyer.clipperCall",
+      "description": "flash buy 패턴 — 담보 받고 콜백에서 매도 후 USDS 지불 (자본 0)",
+      "produces_edges": []
+    },
+    {
+      "event_id": "LockstakeEngine.OnKick",
+      "type": 6,
+      "parent_event": "LockstakeClipper.Kick",
+      "callback_target": "vault_engine (lockstake)",
+      "source_contract_role": "vault_engine",
+      "triggered_by": "LockstakeClipper.kick → engine.onKick",
+      "description": "청산 시작 시 SKY를 vote_delegate/farm에서 unstake + LSSKY burn + urnAuctions++",
+      "produces_edges": [],
+      "atomic_with": ["LockstakeClipper.Kick"]
+    },
+    {
+      "event_id": "LockstakeEngine.OnRemove",
+      "type": 6,
+      "parent_event": "LockstakeClipper.Take (sale.lot==0 OR sale.tab==0)",
+      "callback_target": "vault_engine (lockstake)",
+      "source_contract_role": "vault_engine",
+      "triggered_by": "LockstakeClipper.take 종료 시 engine.onRemove",
+      "description": "남은 SKY 환불 (fee burn 후 urn으로 LSSKY 재발행)",
+      "produces_edges": []
+    }
+  ]
+}

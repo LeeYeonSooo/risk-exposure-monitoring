@@ -1,0 +1,50 @@
+{
+  "nodes": {
+    "market_registry": "protocol",
+    "protocol_pool": "protocol",
+    "protocol_admin": "protocol",
+    "access_control": "protocol",
+    "oracle": "oracle",
+    "treasury": "protocol",
+    "underlying_asset": "token",
+    "stable_token": "token",
+    "a_token": "token",
+    "variable_debt_token": "token",
+    "price_feed": "oracle",
+    "price_adapter": "oracle",
+    "lst_token": "token",
+    "yield_share_token": "token",
+    "governance_token": "token",
+    "lockstake_share": "token",
+    "converter": "protocol",
+    "vault_engine": "protocol",
+    "liquidation_router": "protocol",
+    "d3m_module": "protocol",
+    "smart_burn_engine": "protocol",
+    "flash_mint": "protocol",
+    "pause_proxy": "protocol",
+    "emergency_module": "protocol",
+    "external_protocol_pool": "protocol",
+    "allocator_vault": "protocol",
+    "pt_token": "token",
+    "sy_token": "token",
+    "yt_token": "token",
+    "amm_pool": "protocol",
+    "vault": "protocol"
+  },
+  "edges": {
+    "mint_wrapper": "issued_by",
+    "cdp_mint": "issued_by",
+    "delegation": "protocol",
+    "burn_wrapper": "issued_by",
+    "vault_allocation": "protocol",
+    "collateral": "collateral",
+    "yield_split": "yield",
+    "dex": "dex",
+    "protocol": "protocol"
+  },
+  "summary": {
+    "auto_mapped_node_types": 31,
+    "auto_mapped_edge_types": 9
+  }
+}

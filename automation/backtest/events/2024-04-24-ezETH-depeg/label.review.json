@@ -1,0 +1,5 @@
+{
+  "verdict": "APPROVE",
+  "summary": "Data-only on-chain backfill: should_fire/must_not_fire/severities + edge_id/peg/asset_class/beta/now byte-identical to prior label.json (only price+source+note changed); measured UniV3 ezETH/WETH reads (trough 0.88326 ~12% partly-recovered, LLTV 0.85629 exactly on the 0.86 line, benign 1.00631 near-parity 2 days pre-event) consistent with EVENT.md depeg framing and realized-liquidation CRITICAL anchor; fidelity marks all three swapped inputs measured=true with matching on-chain sources; edge exists in snapshot (oracle_type MARKET, depeg_sensitive, lt 0.86) so cases do not pass vacuously.",
+  "draft_sha256": "3f6e349a8751e7c945a7cb6a4a12e31d421a0ae4b6c178cca0e6fb41eac367e5"
+}

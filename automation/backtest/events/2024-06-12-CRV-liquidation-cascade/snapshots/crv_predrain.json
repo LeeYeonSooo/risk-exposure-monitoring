@@ -1,0 +1,93 @@
+{
+  "_invariant": "Pre-cascade poll (2024-06-13 00:00, block 20079184): Fraxlend CRV/FRAX pair held 57,927,278.35 CRV (MEASURED on-chain Alchemy archive read) before the 24h liquidation wipe to 931,126 CRV. Used as prev for the d06/d07 snapshot-diff whale-unwind / liquidity-drop test. Decisive numbers all measured @ block 20079184: CRV.balanceOf(pair) = 57,927,278.347339; CRV.totalSupply = 2,129,568,512.92; Chainlink CRV/USD = $0.3621; Fraxlend utilization = totalBorrow.amount/totalAsset.amount = 0.8322 (totalAsset.amount 17.84M FRAX, totalBorrow.amount 14.84M FRAX).",
+  "meta": {
+    "token": "CRV",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2024-06-13T00:00:00Z",
+    "snapshot_block": 20079184,
+    "node_count": 2,
+    "edge_count": 1,
+    "data_source": "on-chain Alchemy archive @ block 20079184: CRV 0xD533…cd52 totalSupply = 2129568512.919813; CRV.balanceOf(Fraxlend CRV/FRAX pair 0x3835a58CA93Cdb5f912519ad366826aC9a752510) = 57,927,278.347339 CRV; Chainlink CRV/USD 0xCd627aA160A6fA45Eb793D19Ef54f5062F20f33f = 0.362104; Fraxlend totalAsset.amount = 17,836,550.18 FRAX / totalBorrow.amount = 14,843,386.44 FRAX -> utilization 0.832189",
+    "coverage_pct": 0.5
+  },
+  "nodes": [
+    {
+      "node_id": "token:CRV",
+      "type": "Token",
+      "label": "Curve DAO Token",
+      "address": "0xD533a949740bb3306d119CC777fa900bA034cd52",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "CRV",
+        "decimals": 18,
+        "total_supply": 2129568512919813321218736638,
+        "holders": null,
+        "market_cap_usd": 771200000,
+        "paused": false,
+        "_note": "MEASURED Chainlink CRV/USD = $0.3621 at block 20079184 (pre-cascade). market_cap_usd ≈ totalSupply 2.130B × $0.3621. Free-floating governance/utility token, NO peg/backing — its drop is a market sell-off, not a depeg."
+      }
+    },
+    {
+      "node_id": "protocol:fraxlend",
+      "type": "DefiProtocol",
+      "label": "Fraxlend",
+      "address": "0x3835a58CA93Cdb5f912519ad366826aC9a752510",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "isolated_markets",
+        "core_contract": "0x3835a58CA93Cdb5f912519ad366826aC9a752510",
+        "_note": "Fraxlend CRV/FRAX isolated pair — a primary June-2024 CRV liquidation venue."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "CRV-fraxlend-collateral",
+      "source": "token:CRV",
+      "target": "protocol:fraxlend",
+      "classification": {
+        "edge_type": "collateral_isolated",
+        "venue_type": "isolated_market",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 57927278,
+        "amount_usd": 20975699,
+        "pct_of_supply": 0.0272,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "Fraxlend dual-oracle (Chainlink CRV/USD + Uniswap TWAP)",
+        "oracle_address": null,
+        "depeg_sensitive": false
+      },
+      "lending_risk": {
+        "ltv": null,
+        "lt": 0.75,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": null,
+        "utilization": 0.8322,
+        "is_frozen": false,
+        "emode_category": null
+      },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        {
+          "loan_asset": "FRAX",
+          "collateral_asset": "CRV",
+          "lltv": 0.75,
+          "market_size_usd": 20975699,
+          "oracle_address": null,
+          "utilization": 0.8322
+        }
+      ]
+    }
+  ]
+}

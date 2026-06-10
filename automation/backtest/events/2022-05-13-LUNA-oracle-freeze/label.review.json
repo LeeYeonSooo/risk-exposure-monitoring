@@ -1,0 +1,5 @@
+{
+  "verdict": "APPROVE",
+  "summary": "Data-only re-capture: should_fire/must_not_fire/severities are IDENTICAL to prior label.json (judgment preserved); the oracle probe values were KEPT ASSERTED (frozen feed lived on BSC, unreachable; no canonical ETH LUNA/USD feed) and are consistent with EVENT.md and each case premise — case1 staleness 107400s=29.83h (4.26x the 7h altcoin limit) + 90.7% answer-vs-reference divergence => ORACLE_FREEZE HIGH-floor crosses the band; case2 0s-stale, 0.235% divergence stays benign => silence; fidelity.json correctly marks both oracle_probe inputs measured=false ('asserted (no feed given)') as faithful degradation, not fabrication. Firewall honored: risk_rules/ not opened.",
+  "draft_sha256": "ec66aeac481461f102290aee90c295a1e8e1f940d0654c9ae200c51301404f40"
+}

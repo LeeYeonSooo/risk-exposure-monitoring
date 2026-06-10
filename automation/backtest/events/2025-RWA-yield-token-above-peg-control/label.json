@@ -1,0 +1,70 @@
+{
+  "event": "RWA YIELD TOKEN accrues ABOVE $1 by design \u2014 FP-discipline + sign-direction control (USYC, dated 2025-06-01). USYC (Hashnote US Yield Coin) 0x136471a34f6ef19fE571EFFC1CA711fdb8E49f2b (6 dp, Ethereum) is the on-chain form of Hashnote's Short Duration Yield Fund (short US T-bills + reverse-repo). Yield is NOT a coupon/rebase: the fund NAV accrues daily and the USYC token price tracks NAV (price = NAV/supply, published on-chain via a Chainlink-interface oracle), so USYC LEGITIMATELY trades ABOVE $1 and redeems at NAV. MEASURED on-chain @ Ethereum block 22606143 (first block >= 2025-06-01T00:00:00Z): the USYC/USD NAV oracle 0x4c48bcb2160F8e0aDbf9D4F3B034f1e36d1f8b3e (8dp, Chainlink aggregator interface, description 'USYC / USD') reports answer = 1.08863422 (the 18dp sibling oracle 0x74f2199AEb743f68f05943e5715A33EaF2b61f53 agrees: 1.0886342286), last published 2025-05-30 (the daily ~9am ET NAV report; 2025-06-01 is a Sunday). So the MEASURED NAV is ~$1.0886 (+8.86% above $1), replacing the earlier representative ~$1.127. The benign premise is PRESERVED: the token trades ABOVE $1 by design, an UPWARD excursion of a COLLATERAL token (worth MORE than par) \u2014 the SAFE direction that raises over-collateralization and lowers liquidation risk; only a DOWNWARD break threatens lenders. CASE 1 (correct modeling): peg=NAV(measured 1.08863422) -> price==peg -> no deviation -> fully SILENT. CASE 2 (naive $1 peg): a +8.86% UPWARD excursion SHOULD surface a WARN config-hygiene review-nudge but must NEVER produce a catastrophic HIGH/CRITICAL page. Pure FP-discipline; depeg severity must be sign-aware. See EVENT.md.",
+  "source": "USYC docs https://usyc.docs.hashnote.com/ ; USYC smart contracts (Oracle 0x74f2199AEb743f68f05943e5715A33EaF2b61f53, Teller 0xeE35F963BFC71b51eC95147f26c030D674ea30e6) https://usyc.docs.hashnote.com/overview/smart-contracts ; USYC token-price / NAV oracle 0x4c48bcb2160F8e0aDbf9D4F3B034f1e36d1f8b3e https://usyc.docs.hashnote.com/overview/token-price ; Circle USYC https://www.circle.com/usyc ; CoinGecko Circle USYC (ATH $1.12) https://www.coingecko.com/en/coins/hashnote-usyc ; Nansen 'What is Hashnote USYC' https://nansen.ai/post/what-is-hashnote-usyc ; Ondo USDY (premium-above-$1 grows, not a stablecoin) https://ondo.finance/usdy ; Ondo OUSG yield-via-NAV (OUSG holds BUIDL+USYC) https://docs.ondo.finance/qualified-access-products/ousg/yield . Snapshot snapshots/usyc.json (host-fed graph). MEASURED price: USYC/USD NAV oracle latestRoundData() read on-chain @ ethereum:22606143 = 1.08863422 (fidelity measured=true; see snapshots/fidelity.json). See EVENT.md.",
+  "closed": true,
+  "cases": [
+    {
+      "id": "usyc-nav-peg-quiet",
+      "snapshot": "snapshots/usyc.json",
+      "prev": null,
+      "now": "2025-06-01T00:00:00Z",
+      "peg_probes": {
+        "USYC-morpho-collateral": {
+          "price": 1.08863422,
+          "peg": 1.08863422,
+          "asset_class": "rwa",
+          "by_design_discount": false,
+          "source": "onchain:chainlink 0x4c48bcb2160F8e0aDbf9D4F3B034f1e36d1f8b3e @ethereum:22606143"
+        }
+      },
+      "oracle_probes": {},
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "USYC-morpho-collateral",
+          "why": "CORRECT MODELING. USYC is a yield-bearing RWA whose NAV accrues above $1 by design (MEASURED on-chain ~$1.0886 @ ethereum:22606143), and the correct peg for such a token IS its NAV. Here the peg is set to the NAV (peg = price = 1.08863422, the measured oracle answer), so the deviation is EXACTLY ZERO \u2014 there is no peg to break. A DEPEG signal must therefore stay SILENT. This is the right way to model an accruing T-bill token: a flat-'$1' scan that called this 'off-peg' is the false positive being guarded against. Any DEPEG emission on this edge (at any severity) is wrong because price==peg."
+        }
+      ],
+      "max_emitted": {
+        "severity": "WARN",
+        "count": 0
+      },
+      "beta": 2.0,
+      "note": "CONTROL / CORRECT-MODELING. snapshot snapshots/usyc.json, no prev, now 2025-06-01T00:00:00Z. peg_probes model the peg as the NAV (price 1.08863422 == peg 1.08863422, asset_class rwa, by_design_discount false). The price is MEASURED on-chain: USYC/USD NAV oracle 0x4c48bcb2160F8e0aDbf9D4F3B034f1e36d1f8b3e latestRoundData() @ ethereum:22606143 = 1.08863422 (fidelity measured=true). Asserts the noise ceiling: ZERO WARN-or-above (INFO housekeeping tolerable). When the accruing RWA's peg is correctly its NAV there is no deviation at all, so the monitor must be fully silent \u2014 proving the depeg path does not false-fire on a token that trades above $1 by design. Backfill: only the price/peg input swapped modelled 1.127 -> measured 1.08863422; the judgment (silent) is unchanged because price==peg keeps deviation at exactly zero."
+    },
+    {
+      "id": "usyc-naive-1dollar-peg-no-catastrophe",
+      "snapshot": "snapshots/usyc.json",
+      "prev": null,
+      "now": "2025-06-01T00:00:00Z",
+      "peg_probes": {
+        "USYC-morpho-collateral": {
+          "price": 1.08863422,
+          "peg": 1.0,
+          "asset_class": "rwa",
+          "by_design_discount": false,
+          "source": "onchain:chainlink 0x4c48bcb2160F8e0aDbf9D4F3B034f1e36d1f8b3e @ethereum:22606143"
+        }
+      },
+      "oracle_probes": {},
+      "should_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "USYC-morpho-collateral",
+          "min_severity": "WARN",
+          "why": "EXPECTED REVIEW-NUDGE. With a NAIVE flat $1 peg set against the MEASURED price 1.08863422 (on-chain NAV @ ethereum:22606143), the collateral sits +8.86% off the $1 reference. That off-band excursion legitimately surfaces a DEPEG at WARN \u2014 'trading 8.86% above the $1 reference, a NAV-accrual / peg-misconfig to review'. This WARN is the CORRECT, expected behavior, NOT a false positive: a config-hygiene nudge that asks an operator to look (the peg is likely misconfigured to a flat $1 instead of NAV, or the token is accruing as designed) without paging anyone. The discipline being locked in is the SEVERITY of that surfacing \u2014 a review-nudge (WARN), never a catastrophic liquidation page (HIGH/CRITICAL)."
+        }
+      ],
+      "must_not_fire": [],
+      "max_emitted": {
+        "severity": "HIGH",
+        "count": 0
+      },
+      "closed": false,
+      "beta": 2.0,
+      "note": "INCIDENT-FAMILY EXPECTATION (closed=false) / SIGN-DIRECTION + CATASTROPHE-CEILING. snapshot snapshots/usyc.json, no prev, now 2025-06-01T00:00:00Z. peg_probes naively misconfigure the peg to a flat $1.00 while price is the MEASURED on-chain NAV 1.08863422 (USYC/USD oracle 0x4c48bcb2160F8e0aDbf9D4F3B034f1e36d1f8b3e @ ethereum:22606143) \u2014 a +8.86% UPWARD deviation of a yield-bearing RWA COLLATERAL token (asset_class rwa, by_design_discount false). With a NAIVE $1 peg, this upward +8.86% deviation SHOULD surface a DEPEG at WARN \u2014 a legitimate config-hygiene review-nudge ('trading 8.86% above the $1 reference \u2014 a NAV-accrual / peg-misconfig to review'). That WARN is the CORRECT expected behavior, NOT an FP, which is why this case is closed=false (a WARN SHOULD fire \u2014 an incident-family expectation, not a pure silent control). BUT max_emitted {HIGH, 0} = ZERO HIGH-or-above: the upward excursion must NEVER raise a catastrophic HIGH/CRITICAL liquidation page. An upward move means the collateral is worth MORE than par, which INCREASES over-collateralization and REDUCES liquidation risk \u2014 the SAFE direction; only a DOWNWARD break threatens lenders, so depeg severity must be sign-aware. should_fire demands the WARN; must_not_fire empty; only HIGH-or-above is forbidden. Load-bearing assertion: surface a WARN review-nudge on the upward move, but NEVER catastrophically page on a collateral token moving UP. beta 2.0. Backfill: only the price input swapped modelled 1.127 -> measured 1.08863422 (deviation +12.7% -> +8.86%); the judgment is unchanged because the move stays UPWARD and well within the by-design above-$1 accrual band \u2014 the benign/non-catastrophe premise is preserved at the measured value."
+    }
+  ],
+  "ratified": "auto(reviewer)"
+}

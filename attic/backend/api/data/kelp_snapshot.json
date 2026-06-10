@@ -1,0 +1,38 @@
+{
+  "ground_truth": {
+    "headline": "KelpDAO LayerZero hack: rsETH effectively worthless -> ~$123M bad debt on Aave (system BROKE). 99.9% concentrated on Aave WETH; Morpho isolated ~$1M.",
+    "aave_bad_debt_usd": 123035641,
+    "morpho_bad_debt_usd_est": 1000000,
+    "distribution_note": "Aave ~99%, Morpho ~$1M, Compound surplus (0). Source: kelp on-chain post-mortem."
+  },
+  "event": {
+    "id": "kelp_2026_contagion",
+    "date": "2026-04-18",
+    "pre_shock_date": "2026-04-17",
+    "shock_node": "rsETH",
+    "root_label": "KelpDAO hack",
+    "delta": 0.99,
+    "description": "LayerZero DVN \uce68\ud574 \u2192 rsETH \ubb34\ub2f4\ubcf4 \ubbfc\ud305 \u2192 \ub2f4\ubcf4 \ubb34\uac00\uce58\ud654 \u2192 cross-protocol bad debt",
+    "source": "Aave cached archive snapshot + Morpho API historicalState"
+  },
+  "aave": {
+    "venue": "Aave V3",
+    "market": "rsETH(eMode)/WETH",
+    "pre_collateral_usd": 113182077,
+    "pre_borrow_usd": 105259332,
+    "pre_supply_usd": 105259332,
+    "actual_bad_debt_usd": 123035641,
+    "actual_source": "Aave V3.1 getReserveDeficit(WETH) @ block 25,040,000"
+  },
+  "morpho_markets": [
+    {
+      "venue": "Morpho Blue",
+      "marketId": "0xba761af4134efb0855adfba638945f454f0a704af11fc93439e20c7c5ebab942",
+      "market": "rsETH/WETH",
+      "lltv": 0.945,
+      "pre_collateral_usd": 1236659,
+      "pre_supply_usd": 1263546,
+      "pre_borrow_usd": 1090211
+    }
+  ]
+}

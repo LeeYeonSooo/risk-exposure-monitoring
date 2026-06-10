@@ -1,0 +1,5 @@
+{
+  "verdict": "APPROVE",
+  "summary": "Re-captured crvUSD spot-vs-EMA FP control faithful: should_fire [] / must_not_fire DEPEG on crvUSD-llamalend-collateral / max_emitted {WARN,0} UNCHANGED vs prior label.json (only the probe price refined from rounded 0.9984 to full on-chain precision 0.9984275998425247). MEASURED aggregator EMA price() = $0.99842760 raw 998427599842524685/1e18, deviation -0.1572% well inside stable band, no liquidation/floor crossed -> control stays benign. fidelity.json marks both peg_probe (d08) and totalSupply (d05) measured=true, raws match on-chain bit-for-bit; edge has depeg_sensitive=true MARKET oracle so DEPEG path is live (silence non-vacuous).",
+  "draft_sha256": "604eeaae82beafa941e43bd203956915a5f028bd5df89f58ed15ddab94250d59"
+}

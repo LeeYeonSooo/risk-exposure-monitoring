@@ -1,0 +1,71 @@
+{
+  "_invariant": "NEGATIVE CONTROL. Real GHO (Aave native CDP stablecoin) exposure at 2023-11-18. GHO totalSupply is REAL on-chain: 32,540,788.80 GHO @ block 18600000 (2023-11-18T16:45:59Z, 18dp, Alchemy eth archive, capture.total_supply). GHO traded a persistent ~$0.975 (a structural sub-par soft-peg, fully backed by over-collateralized Aave debt — NOT a reserve failure or run). One Morpho Blue GHO/USDC collateral edge with a market GHO/USD oracle. The depeg price (0.975) and by_design_discount flag are injected per-case via peg_probes. The monitor MUST stay quiet (no HIGH/CRITICAL distress DEPEG): a fully-backed CDP stable's known structural discount is not an actionable exposure event.",
+  "meta": {
+    "token": "GHO",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2023-11-18",
+    "snapshot_block": 18600000,
+    "node_count": 2,
+    "edge_count": 1,
+    "data_source": "on-chain Alchemy archive (GHO 0x40D1…6C2f @ block 18600000, totalSupply 32,540,788.80, 18dp) + a representative Morpho Blue GHO/USDC collateral market for the era",
+    "coverage_pct": 0.6
+  },
+  "nodes": [
+    {
+      "node_id": "token:GHO",
+      "type": "Token",
+      "label": "Aave GHO (native CDP soft-peg stablecoin)",
+      "address": "0x40D16FC0246aD3160Ccc09B8D0D3A2cD28aE6C2f",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "GHO",
+        "decimals": 18,
+        "total_supply": 32540788,
+        "holders": null,
+        "market_cap_usd": 31700000000,
+        "paused": false,
+        "_note": "Over-collateralized CDP stablecoin minted against Aave V3 debt. No 1:1 fiat redemption floor, so the open-market price floated ~$0.96-0.98 through H2-2023 — a STRUCTURAL soft-peg discount, fully backed by Aave debt positions. No unbacked supply, no insolvency. Aave gov treated the sub-peg as a known mechanism gap (later addressed via GSM + rate policy).",
+        "bridges": {}
+      }
+    },
+    {
+      "node_id": "protocol:morpho_blue",
+      "type": "DefiProtocol",
+      "label": "Morpho Blue",
+      "address": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "isolated_markets",
+        "core_contract": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+        "governance": "immutable",
+        "_note": "Representative GHO/USDC isolated collateral market for the era. Healthy, well-collateralized; the $0.975 mark sits comfortably above the liquidation line."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "GHO-morpho_blue-collateral_isolated",
+      "source": "token:GHO",
+      "target": "protocol:morpho_blue",
+      "classification": { "edge_type": "collateral_isolated", "venue_type": "isolated_market", "protocol_class": "lending" },
+      "core_weight": { "amount_token": 4000000, "amount_usd": 3900000, "pct_of_supply": 0.123, "pct_of_protocol_tvl": null },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "Market GHO/USD (tracks the real ~$0.975 soft-peg discount)",
+        "oracle_address": null,
+        "depeg_sensitive": true
+      },
+      "lending_risk": { "ltv": null, "lt": 0.77, "liquidation_bonus": null, "supply_cap": null, "borrow_cap": null, "reserve_factor": null, "utilization": 0.5, "is_frozen": false, "emode_category": null },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        { "loan_asset": "USDC", "collateral_asset": "GHO", "lltv": 0.77, "market_size_usd": 3900000, "oracle_address": null, "utilization": 0.5, "ouroboros_risk": false, "vault_funded": false, "vault_funded_share_of_supply": null, "funding_vaults": [] }
+      ],
+      "top_pools": null,
+      "meta": { "snapshot_block": 18600000, "snapshot_ts": "2023-11-18", "verifiable_onchain": true, "confidence": "HIGH", "data_source": "GHO/USDC Morpho collateral, LT 0.77. At a $0.975 mark the position is ~21% above the liquidation line — a healthy soft-peg discount, not a liquidation event." }
+    }
+  ]
+}

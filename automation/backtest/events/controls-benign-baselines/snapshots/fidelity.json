@@ -1,0 +1,33 @@
+{
+  "inputs": [
+    {
+      "input": "peg_probe:CTRL-USDC-aave_v3-collateral@25252231",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:chainlink 0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6 @ethereum:25252231",
+      "price": 0.99964571
+    },
+    {
+      "input": "peg_probe:CTRL-USDT-aave_v3-collateral@25252231",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:chainlink 0x3E7d1eAB13ad0104d2750B8863b489D65364e32D @ethereum:25252231",
+      "price": 0.99882932
+    },
+    {
+      "input": "peg_probe:CTRL-wstETH-morpho_blue-collateral_isolated@25252231",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:chainlink 0x86392dC19c0b719886221c78AB11eb8Cf5c52812 @ethereum:25252231",
+      "price": 0.99971156
+    },
+    {
+      "input": "peg_probe:CTRL-ptUSDe-morpho_blue-collateral_isolated",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:pendle PendlePYLpOracle(0x9a9Fa8338dd5E5B2188006f1Cd2Ef26d921650C2).getPtToAssetRate(market=0x43c97094da0e894d3af2fda6f507d59a29888251 [PT-USDe-13AUG2026], 900s TWAP) @ethereum:25252231",
+      "price": 0.9938676,
+      "note": "oldestObservationSatisfied=True (TWAP valid); increaseCardinalityRequired=True (buffer<83 recommended, read still resolved). PT pre-maturity (matures 13AUG2026, ~69d out); 0.99387 is the on-curve accretion mark (implied APY ~3.3%), NOT a depeg."
+    }
+  ]
+}

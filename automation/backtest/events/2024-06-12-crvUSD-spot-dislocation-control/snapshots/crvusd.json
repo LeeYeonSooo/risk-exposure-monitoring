@@ -1,0 +1,107 @@
+{
+  "_invariant": "FALSE-POSITIVE DISCIPLINE CONTROL. Real crvUSD (Curve's over-collateralized stablecoin) exposure at 2024-06-12. During the 2024-06-12 CRV liquidation cascade, crvUSD SPOT prices in thin individual Curve pools briefly wicked UPWARD toward ~$1.10 as liquidators bought crvUSD to repay debt, and the PegKeeper V2 deviation check (±0.0005 band) reverted / could not act for ~45 minutes. BUT the manipulation-resistant crvUSD AGGREGATOR / price-oracle (the EMA-based price() that Curve LlamaLend markets actually denominate against) HELD AT $0.9984 — REAL on-chain measured: aggregator 0x18672b1b0c623a30089A280Ed9256379fb0E4E62 price() = 998427599842524685 raw / 1e18 = $0.99842759… at block 20075607 (2024-06-12T11:59:59Z, Alchemy eth archive eth_call selector 0xa035b1fe). crvUSD totalSupply at that block = 725,352,070 crvUSD (REAL on-chain, selector 0x18160ddd). The price a lending monitor ingests (the aggregator EMA) NEVER left the peg band; only thin spot pools wicked. One Curve LlamaLend isolated collateral edge with a MARKET (depeg-sensitive) oracle. The depeg price (full-precision 0.9984275998425247) is injected per-case via peg_probes. The monitor MUST stay quiet (no DEPEG): the ingested aggregator price held peg; the transient spot wick is NOT the ingested price. RE-CAPTURE VERIFIED (2026-06): aggregator price() and crvUSD totalSupply re-read on-chain at block 20075607 and matched bit-for-bit (price raw 998427599842524685, totalSupply raw 725352070003569699292264318); measured_pct=100; deviation -0.157% in-band, benign premise preserved (see snapshots/fidelity.json).",
+  "meta": {
+    "token": "crvUSD",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2024-06-12",
+    "snapshot_block": 20075607,
+    "node_count": 2,
+    "edge_count": 1,
+    "data_source": "on-chain Alchemy eth archive (crvUSD 0xf939E0A0…1b4E totalSupply 725,352,070 @ block 20075607, 18dp; crvUSD aggregator 0x18672b1b…4E62 price()=$0.9984 @ block 20075607) + a representative Curve LlamaLend isolated crvUSD-collateral market for the era [RE-CAPTURE 2026-06: both aggregator price() and totalSupply re-read on-chain @ block 20075607, matched bit-for-bit; measured_pct=100; fidelity.json written]",
+    "coverage_pct": 0.6
+  },
+  "nodes": [
+    {
+      "node_id": "token:crvUSD",
+      "type": "Token",
+      "label": "Curve crvUSD (over-collateralized stablecoin, EMA-aggregator priced)",
+      "address": "0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "crvUSD",
+        "decimals": 18,
+        "total_supply": 725352070,
+        "holders": null,
+        "market_cap_usd": 725000000,
+        "paused": false,
+        "_note": "Curve's native over-collateralized (LLAMMA) stablecoin. Lending markets and PegKeepers price crvUSD against a MANIPULATION-RESISTANT EMA aggregator (0x18672b1b…4E62), NOT thin pool spot. On 2024-06-12 the aggregator price() = $0.9984 (REAL on-chain @ block 20075607) while spot in individual pools transiently wicked up toward ~$1.10 during the CRV liquidation cascade. totalSupply 725,352,070 crvUSD is a REAL on-chain point-in-time read @ block 20075607 (18dp, Alchemy eth archive).",
+        "bridges": {}
+      }
+    },
+    {
+      "node_id": "protocol:curve_llamalend",
+      "type": "DefiProtocol",
+      "label": "Curve LlamaLend",
+      "address": "0x100daa78fc509db39ef7d04de0c1abd299f4c6ce",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "architecture": "isolated_markets",
+        "core_contract": "0x100daa78fc509db39ef7d04de0c1abd299f4c6ce",
+        "governance": "immutable",
+        "_note": "Representative Curve LlamaLend isolated market with crvUSD as collateral. LlamaLend markets denominate price against the crvUSD aggregator EMA (not pool spot), so the ingested mark held $0.9984 even while spot wicked to ~$1.10."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "crvUSD-llamalend-collateral",
+      "source": "token:crvUSD",
+      "target": "protocol:curve_llamalend",
+      "classification": {
+        "edge_type": "collateral_isolated",
+        "venue_type": "isolated_market",
+        "protocol_class": "lending"
+      },
+      "core_weight": {
+        "amount_token": 8000000,
+        "amount_usd": 7990000,
+        "pct_of_supply": 0.011,
+        "pct_of_protocol_tvl": null
+      },
+      "oracle": {
+        "oracle_type": "MARKET",
+        "oracle_provider": "crvUSD EMA aggregator (0x18672b1b0c623a30089A280Ed9256379fb0E4E62) — manipulation-resistant, the price LlamaLend actually consumes",
+        "oracle_address": "0x18672b1b0c623a30089A280Ed9256379fb0E4E62",
+        "depeg_sensitive": true
+      },
+      "lending_risk": {
+        "ltv": null,
+        "lt": 0.9,
+        "liquidation_bonus": null,
+        "supply_cap": null,
+        "borrow_cap": null,
+        "reserve_factor": null,
+        "utilization": 0.5,
+        "is_frozen": false,
+        "emode_category": null
+      },
+      "dex_metrics": null,
+      "wrapper": null,
+      "top_markets": [
+        {
+          "loan_asset": "crvUSD",
+          "collateral_asset": "crvUSD",
+          "lltv": 0.9,
+          "market_size_usd": 7990000,
+          "oracle_address": "0x18672b1b0c623a30089A280Ed9256379fb0E4E62",
+          "utilization": 0.5,
+          "ouroboros_risk": false,
+          "vault_funded": false,
+          "vault_funded_share_of_supply": null,
+          "funding_vaults": []
+        }
+      ],
+      "top_pools": null,
+      "meta": {
+        "snapshot_block": 20075607,
+        "snapshot_ts": "2024-06-12",
+        "verifiable_onchain": true,
+        "confidence": "HIGH",
+        "data_source": "Curve LlamaLend isolated crvUSD-collateral market, LT 0.90, MARKET oracle = the crvUSD EMA aggregator. The aggregator price() = $0.9984 @ block 20075607 (REAL on-chain). The price the lending market ingests held peg even as thin pool spot transiently wicked to ~$1.10. RE-CAPTURE 2026-06: aggregator price() = 998427599842524685/1e18 = $0.99842759842524685 confirmed on-chain @ block 20075607 (selector 0xa035b1fe), deviation -0.157% in-band."
+      }
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "event": "2024-09\u219211 cbBTC rapid concentration as Aave V3 collateral (COLLATERAL-ADOPTION incident). cbBTC launched 2024-09-12 (Coinbase, 1:1 BTC, Ethereum 0xcbB7\u202633Bf, 8 dp); Aave V3 listed it ~late Sep 2024 (pre-listing block 20780000 MEASURED: Aave-held cbBTC = 0, reserve is_active=false). On-chain MEASURED ramp culminating @ block 21089068 (2024-10-31 23:59:59Z): Aave aEthcbBTC held 7567.35 cbBTC = 71.56% of cbBTC totalSupply (10574.57) \u2014 a SINGLE venue holding ~72% of all cbBTC ~1.5 month after listing = systemic collateral concentration (~$530M @ cbBTC~$70k). COLLATERAL_ADOPTION must fire HIGH on the structural 0\u2192~72%-of-supply ramp; a later stable already-adopted position (calm control, block 21948291 MEASURED: 8021.42 cbBTC = 45.15% of supply 17765.93, +0.90% step from prev) must NOT re-alarm. ALL decisive inputs (amount_token, pct_of_supply, ltv/lt/frozen/supply_cap) re-measured on-chain at the labelled blocks \u2014 anchor blocks UNCHANGED, premise holds at the measured value. See EVENT.md.",
+  "source": "On-chain Alchemy archive (MEASURED, fidelity 100%): cbBTC 0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf balanceOf(aEthcbBTC 0x5c647ce0ae10658ec44fa4e11a51c96e94efd1dd) & cbBTC totalSupply + Aave v3 Pool.getConfiguration at blocks 20780000 (pre-listing, 2024-09-18), 21089068 (incident, 2024-10-31 \u2192 7567.35 cbBTC / 71.56%), 21912000 (calm prev, 2025-02-23 \u2192 46.78%) and 21948291 (calm, 2025-02-28 \u2192 45.15%). cbBTC launch CoinDesk 2024-09-12; Aave V3 onboarding ARFC governance.aave.com/t/.../18988 (2024-09-10) + supply-cap-increase ARFC .../19304 (2024-10-04); custody-centralization concern cryptoslate.com. cbBTC amounts, %-of-supply, and reserve config MEASURED; USD uses cbBTC~$70k. See EVENT.md.",
+  "closed": true,
+  "cases": [
+    {
+      "id": "cbbtc-aave-rapid-adoption-concentration",
+      "snapshot": "snapshots/cbbtc_adopted.json",
+      "prev": "snapshots/cbbtc_prelisting.json",
+      "now": "2024-10-31T23:59:59Z",
+      "should_fire": [
+        {
+          "signal_type": "COLLATERAL_ADOPTION",
+          "edge_id": "cbBTC-aave_v3-collateral",
+          "min_severity": "HIGH"
+        }
+      ],
+      "must_not_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "cbBTC-aave_v3-collateral"
+        }
+      ],
+      "max_emitted": null,
+      "beta": 2.0,
+      "note": "Structural collateral adoption from a MEASURED ZERO base (prev = pre-listing block 20780000, Aave-held cbBTC = 0, reserve is_active=false) to 7567.35 cbBTC = 71.56% of cbBTC total supply (10574.57) at block 21089068 (2024-10-31 23:59:59Z) \u2014 a single venue holding ~72% of the token's entire supply ~1.5 month after listing. ALL decisive inputs re-measured on-chain at the labelled block (balanceOf/totalSupply for amount_token + pct_of_supply=0.715618; aave.getConfiguration for ltv=0.73, lt=0.78, is_frozen=false, supply_cap=10000, reserve_factor=0.2). COLLATERAL_ADOPTION must fire, escalated to HIGH because the concentration is systemic: a localized problem at this one Aave market (oracle, liquidation cascade, freeze, misconfig) would hit ~72% of all cbBTC at once, and conversely a cbBTC-specific shock concentrates almost entirely inside this one market. HIGH (not WARN) because of the systemic %-of-supply concentration; not CRITICAL because nothing has broken (no depeg/bad-debt/insolvency) \u2014 it is a standing structural/contagion risk to surface. amount_token and pct_of_supply (0.715618) are on-chain MEASURED at this exact block; USD ~$530M uses cbBTC~$70k. DEPEG must NOT fire: this is a quantity/concentration event, cbBTC held its BTC peg throughout (no price probe, oracle MARKET, depeg_sensitive false). RE-ANCHOR OUTCOME: measured-clean \u2014 anchor block UNCHANGED; labelled 71.6% premise holds exactly at the measured value (71.56%)."
+    },
+    {
+      "id": "cbbtc-calm-stable-no-adoption",
+      "snapshot": "snapshots/cbbtc_calm.json",
+      "prev": "snapshots/cbbtc_calm_prev.json",
+      "now": "2025-02-28T23:59:59Z",
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "COLLATERAL_ADOPTION",
+          "edge_id": "cbBTC-aave_v3-collateral"
+        }
+      ],
+      "max_emitted": {
+        "severity": "WARN",
+        "count": 0
+      },
+      "beta": 2.0,
+      "note": "CALM control on the same edge, ALL inputs re-measured on-chain: cbBTC is an already-adopted, mature Aave collateral sitting stably at 7949.82 \u2192 8021.42 cbBTC (a MEASURED +0.90% step, no anomalous inflow) with Aave's share of a now-larger supply at a normal ~45% (prev 46.78% @ block 21912000 \u2192 45.15% @ block 21948291 \u2014 pct-of-supply FLAT/DECLINING, not ramping). There is NO adoption event here \u2014 the large position simply exists and drifts. COLLATERAL_ADOPTION must NOT re-fire: the signal keys on the adoption ramp / abnormal inflow from a low base, not on a big position continuing to exist. A re-alarm here would be the standing-position FP that would make the signal scream on every snapshot forever. Noise ceiling: ZERO WARN-or-above signals (INFO housekeeping tolerable). RE-ANCHOR OUTCOME: measured-clean \u2014 block UNCHANGED; the block is genuinely calm on-chain (+0.90% step, share declining), confirming a faithfully-silent control."
+    }
+  ],
+  "ratified": "auto(reviewer)"
+}

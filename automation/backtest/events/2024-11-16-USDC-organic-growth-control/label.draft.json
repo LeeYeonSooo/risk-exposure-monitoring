@@ -1,0 +1,41 @@
+{
+  "event": "2024-11-16 USDC organic supply expansion (NORMAL-period CONTROL) — Ethereum-mainnet USDC totalSupply grew ~$24.25B -> ~$27.29B over 2024-06..2024-11 via authorized, fully reserve-backed issuance by Circle. Calm, sub-threshold growth (latest-delta robust-z ~1.26 < 6.0). The monitor MUST stay quiet on the supply-side detectors (d05/d10/d11/d09): no SUPPLY_DELTA_ANOMALY, no LARGE_SINGLE_MINT, no UNMATCHED_MINT, no UNBACKED, no DEPEG. Real on-chain supply samples captured at blocks 20.0M-21.2M; authorized mints marked home+allowlisted. See EVENT.md.",
+  "source": "On-chain Alchemy archive: USDC totalSupply @ blocks 20000000..21200000 (qa/backtest/collect/capture.py); Etherscan USDC 0xA0b8..eB48 (FiatToken/MasterMinter issuance model); Circle monthly reserve attestations; CoinGecko/DefiLlama USDC price (held $1.00) + supply history 2024 H2. See EVENT.md.",
+  "closed": true,
+  "measurement": {
+    "measured_pct": 69.2,
+    "measured": "All 7 supply_samples + the final total_supply re-read from the Ethereum archive at blocks 20.0M..21.2M — every one matched the modelled value EXACTLY (delta 0). The 7 block timestamps also match EVENT.md (final block 21200000 = 2024-11-16T11:36:47Z = case `now`). The first mint_event (tx 0xc55c5e61..230b) is a REAL on-chain USDC mint: Transfer(0x0 -> 0xf9a0..a45e) of 38112731531 (38,112.73 USDC) at block 21198496 — amount corrected from the rounded 38112700000 and ts corrected to the measured 1731738887.",
+    "asserted": "The 1.5B over-threshold mint is a LABELED test vector (synthetic, makes the home/allowlist exclusion gate non-vacuous) — stays asserted. authorized_minters is a research/config allowlist (the on-chain isMinter getter returns the minter CONTRACT, not the Transfer recipient, so the recipient allowlist is config like backing). Fiat-reserve backing and the $1.00 peg are off-chain — asserted.",
+    "anomaly": "NONE. Measured supply series is identical to the labelled premise (organic +5.7% over ~5.5 months, latest-delta robust-z ~1.26 < 6.0); the real mint is genuinely authorized and ~14 bps of supply (below the 500-bps single-tx gate even before the home/allowlist exclusion). The measured isMinter(recipient)=False is NOT a contradiction: USDC's FiatToken emits Transfer(0x0, recipient) where recipient is Circle's treasury EOA, not the minter contract — so it confirms the standard authorized-issuance shape, not an anomaly."
+  },
+  "cases": [
+    {
+      "id": "usdc-organic-growth-authorized-home-quiet",
+      "snapshot": "snapshots/usdc.json",
+      "now": "2024-11-16T11:36:47Z",
+      "should_fire": [],
+      "must_not_fire": [
+        {"signal_type": "SUPPLY_DELTA_ANOMALY"},
+        {"signal_type": "LARGE_SINGLE_MINT"},
+        {"signal_type": "UNMATCHED_MINT"},
+        {"signal_type": "UNBACKED"},
+        {"signal_type": "DEPEG"}
+      ],
+      "max_emitted": {"severity": "WARN", "count": 0},
+      "note": "Real on-chain USDC supply series (7 samples MEASURED at blocks 20.0M..21.2M, all matching exactly; 6 deltas >= the 5-sample minimum, so d10's robust-z check is ACTIVE not cold) with the latest delta at robust-z ~1.26, well under the 6.0 anomaly threshold: organic +5.7% over ~5.5 months is demand, not an unbacked mint. mint_event[0] (tx 0xc55c5e61..230b) is a MEASURED real authorized issuance to Circle's treasury (home:true AND 'to' in authorized_minters), ~14 bps of supply; the large 1.5B mint is a labeled authorized-issuance TEST VECTOR (549 bps, > 500-bps single-tx gate) that d10's single-tx check and d11's recon are supposed to EXCLUDE — this case verifies that exclusion holds even for a $1.5B-scale authorized mint. USDC held $1.00 (no DEPEG) and is 1:1 reserve-backed with no remote/bridge wrapper here (d09 trivially silent). Asserts the noise ceiling: ZERO WARN-or-above signals on the snapshot. A WARN+ supply/mint alert here is the exact overnight FP this control guards against; INFO housekeeping is tolerable."
+    },
+    {
+      "id": "usdc-large-mint-allowlist-gate-quiet",
+      "snapshot": "snapshots/usdc_allowlist_only.json",
+      "now": "2024-11-16T11:36:47Z",
+      "should_fire": [],
+      "must_not_fire": [
+        {"signal_type": "LARGE_SINGLE_MINT"},
+        {"signal_type": "UNMATCHED_MINT"},
+        {"signal_type": "SUPPLY_DELTA_ANOMALY"}
+      ],
+      "max_emitted": {"severity": "WARN", "count": 0},
+      "note": "Stresses the AUTHORIZED-MINTER ALLOWLIST gate in isolation: same large 1.5B test-vector mint but WITHOUT the home:true flag, recipient still in authorized_minters. d10 single-tx (>=5% of supply) and d11 unmatched-mint must both exclude it on the allowlist alone. The real measured mint_event[0] and the measured supply series are identical to the home case. Verifies the allowlist branch, not just the home-mint branch, suppresses a legitimate large issuance by the known issuer. Same noise ceiling (zero WARN+)."
+    }
+  ]
+}

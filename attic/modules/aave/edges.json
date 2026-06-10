@@ -1,0 +1,211 @@
+{
+  "_description": "Aave V3 분석 모듈이 생성하는 모든 엣지 타입 정의. 19개.",
+  "_format": "각 엣지는 nodes.json의 노드 사이를 연결. from→to로 그래프 형성.",
+
+  "edges": {
+    "supply": {
+      "category": "direct_flow",
+      "from_role": "user",
+      "to_role": "protocol_pool",
+      "asset_required": true,
+      "amount_required": true,
+      "source_event": "Pool.Supply",
+      "meaning": "사용자가 자산을 Pool에 예치",
+      "metadata_fields": ["onBehalfOf", "referralCode"]
+    },
+    "withdraw": {
+      "category": "direct_flow",
+      "from_role": "protocol_pool",
+      "to_role": "user",
+      "asset_required": true,
+      "amount_required": true,
+      "source_event": "Pool.Withdraw",
+      "meaning": "Pool이 사용자에게 자산 인출",
+      "metadata_fields": ["user (aToken burn된 사람)"]
+    },
+    "borrow": {
+      "category": "direct_flow",
+      "from_role": "protocol_pool",
+      "to_role": "user",
+      "asset_required": true,
+      "amount_required": true,
+      "source_event": "Pool.Borrow (or Pool.FlashLoan with mode=2)",
+      "meaning": "Pool이 사용자에게 자산 빌려줌",
+      "metadata_fields": ["onBehalfOf", "rateMode", "borrowRate", "triggered_by_flashloan?"]
+    },
+    "repay": {
+      "category": "direct_flow",
+      "from_role": "user (repayer)",
+      "to_role": "protocol_pool",
+      "asset_required": true,
+      "amount_required": true,
+      "source_event": "Pool.Repay",
+      "meaning": "사용자가 Pool에 빚 상환",
+      "metadata_fields": ["user (빚 줄어든 사람)", "useATokens"]
+    },
+    "atoken_transfer": {
+      "category": "direct_flow",
+      "from_role": "user",
+      "to_role": "user",
+      "asset_required": true,
+      "amount_required": true,
+      "source_event": "aToken.Transfer (일반 전송만, from/to 둘 다 ≠0x0)",
+      "meaning": "사용자 간 직접 aToken 이동 = 숨은 예치 권리 이동",
+      "important": "Pool이 모르는 엣지. 분석 모듈의 핵심 보강 포인트.",
+      "metadata_fields": ["atoken_address", "trigger?"]
+    },
+    "flashloan": {
+      "category": "direct_flow",
+      "from_role": "protocol_pool",
+      "to_role": "external_contract (receiver)",
+      "asset_required": true,
+      "amount_required": true,
+      "source_event": "Pool.FlashLoan (mode=0)",
+      "meaning": "한 트랜잭션 안에서 자산 대여 (즉시 상환 + premium)",
+      "metadata_fields": ["initiator", "premium", "atomic=true"]
+    },
+    "treasury_accrual": {
+      "category": "direct_flow",
+      "from_role": "a_token",
+      "to_role": "treasury",
+      "asset_required": true,
+      "amount_required": true,
+      "source_event": "Pool.MintedToTreasury",
+      "meaning": "Reserve Factor 누적 이자가 Collector로 발행",
+      "metadata_fields": ["underlying"]
+    },
+    "gsm_swap": {
+      "category": "direct_flow",
+      "from_role": "user",
+      "to_role": "stability_module",
+      "asset_required": true,
+      "amount_required": true,
+      "source_event": "GSM.SellAsset or GSM.BuyAsset",
+      "meaning": "USDC ↔ GHO 1:1 스왑 (페그 안정화 차익거래)",
+      "metadata_fields": ["asset_in", "asset_out", "fee", "direction"]
+    },
+
+    "supply_on_behalf": {
+      "category": "delegation",
+      "from_role": "user (msg.sender)",
+      "to_role": "user (onBehalfOf)",
+      "asset_required": true,
+      "amount_required": true,
+      "source_event": "Pool.Supply (when msg.sender != onBehalfOf)",
+      "meaning": "A가 B를 위해 예치 (선물, dApp 대행 등)",
+      "note": "위임 케이스에서 자금 흐름 엣지(supply)와 함께 생성"
+    },
+    "debt_to": {
+      "category": "delegation",
+      "from_role": "user (돈 받는 사람)",
+      "to_role": "user (빚 떠안는 사람)",
+      "asset_required": true,
+      "amount_required": true,
+      "source_event": "Pool.Borrow (when msg.sender != onBehalfOf, credit delegation 결과)",
+      "meaning": "신뢰 의존성. B가 A의 신용으로 빌리고 A가 빚 짐.",
+      "note": "사전 credit_delegation 엣지가 있어야 발생 가능"
+    },
+    "debt_reduced_for": {
+      "category": "delegation",
+      "from_role": "user (repayer)",
+      "to_role": "user (빚 줄어든 사람)",
+      "asset_required": true,
+      "amount_required": true,
+      "source_event": "Pool.Repay (when repayer != user)",
+      "meaning": "친구 빚 대신 갚아주기"
+    },
+    "credit_delegation": {
+      "category": "delegation",
+      "from_role": "user (delegator)",
+      "to_role": "user (delegatee)",
+      "asset_required": true,
+      "amount_required": true,
+      "source_event": "variableDebtToken.BorrowAllowanceDelegated",
+      "meaning": "차입 권한 위임. delegatee가 delegator를 onBehalfOf로 borrow 가능.",
+      "metadata_fields": ["asset", "amount (허용 한도)"]
+    },
+    "position_delegation": {
+      "category": "delegation",
+      "from_role": "user",
+      "to_role": "external_contract or user",
+      "asset_required": false,
+      "amount_required": false,
+      "source_event": "Pool.PositionManagerApproved or PositionManagerRevoked",
+      "meaning": "포지션 관리(담보 ON/OFF, eMode) 권한 위임",
+      "metadata_fields": ["action (approved/revoked)"]
+    },
+
+    "liquidation": {
+      "category": "liquidation",
+      "from_role": "user (liquidator)",
+      "to_role": "user (borrower)",
+      "asset_required": false,
+      "amount_required": false,
+      "source_event": "Pool.LiquidationCall",
+      "meaning": "관계 엣지 - 가장 강한 의존성 엣지. 위험 전파 분석의 1순위.",
+      "metadata_fields": ["collateral_asset", "debt_asset", "debt_covered", "collateral_received", "bonus_value", "receive_atoken"]
+    },
+    "repay_via_liquidation": {
+      "category": "liquidation",
+      "from_role": "user (liquidator)",
+      "to_role": "protocol_pool",
+      "asset_required": true,
+      "amount_required": true,
+      "source_event": "Pool.LiquidationCall (자금 흐름 부분)",
+      "meaning": "청산자가 채무자 대신 Pool에 빚 갚음",
+      "metadata_fields": ["borrower"]
+    },
+    "collateral_seized": {
+      "category": "liquidation",
+      "from_role": "protocol_pool",
+      "to_role": "user (liquidator)",
+      "asset_required": true,
+      "amount_required": true,
+      "source_event": "Pool.LiquidationCall (receiveAToken=false)",
+      "meaning": "청산자가 underlying 담보 받음",
+      "note": "receiveAToken=true일 때는 collateral_seized 대신 atoken_transfer 엣지 사용",
+      "metadata_fields": ["borrower"]
+    },
+
+    "gho_facilitator_mint": {
+      "category": "gho",
+      "from_role": "external_contract or protocol_pool (facilitator)",
+      "to_role": "stable_token (GHO)",
+      "asset_required": false,
+      "amount_required": true,
+      "source_event": "GHO.FacilitatorBucketLevelUpdated (newLevel > oldLevel)",
+      "meaning": "facilitator가 GHO 신규 발행",
+      "metadata_fields": ["bucket_used", "bucket_capacity"]
+    },
+    "gho_facilitator_burn": {
+      "category": "gho",
+      "from_role": "external_contract or protocol_pool (facilitator)",
+      "to_role": "stable_token (GHO)",
+      "asset_required": false,
+      "amount_required": true,
+      "source_event": "GHO.FacilitatorBucketLevelUpdated (newLevel < oldLevel)",
+      "meaning": "facilitator가 GHO 소각",
+      "metadata_fields": ["bucket_used"]
+    },
+
+    "price_dependency": {
+      "category": "static",
+      "from_role": "underlying_asset or price_adapter",
+      "to_role": "price_feed or price_adapter",
+      "asset_required": false,
+      "amount_required": false,
+      "source_event": "초기화 시 정적 생성 + AaveOracle.AssetSourceUpdated 시 갱신",
+      "meaning": "자산이 어떤 가격 소스에 의존하는지. 공통 오라클 검출의 기반.",
+      "note": "이벤트가 아닌 정적 의존성. CAPO는 자체적으로 하위 feed들에 또 price_dependency 엣지를 가짐.",
+      "metadata_fields": ["intermediate? (어댑터 중간 단계인지)"]
+    }
+  },
+
+  "_categories_summary": {
+    "direct_flow": ["supply", "withdraw", "borrow", "repay", "atoken_transfer", "flashloan", "treasury_accrual", "gsm_swap"],
+    "delegation": ["supply_on_behalf", "debt_to", "debt_reduced_for", "credit_delegation", "position_delegation"],
+    "liquidation": ["liquidation", "repay_via_liquidation", "collateral_seized"],
+    "gho": ["gho_facilitator_mint", "gho_facilitator_burn"],
+    "static": ["price_dependency"]
+  }
+}

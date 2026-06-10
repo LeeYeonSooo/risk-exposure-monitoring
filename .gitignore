@@ -1,0 +1,36 @@
+# Python
+backend/__pycache__/
+backend/**/__pycache__/
+backend/.venv/
+backend/venv/
+backend/*.pyc
+backend/.env
+backend/data/
+backend/.pytest_cache/
+backend/**/*.sqlite
+backend/**/*.db
+
+# Next.js
+frontend/.next/
+frontend/node_modules/
+frontend/.env*.local
+frontend/tsconfig.tsbuildinfo
+
+# OS
+.DS_Store
+.vercel
+
+# Python (전역)
+__pycache__/
+**/__pycache__/
+*.pyc
+*.env
+**/.env
+
+# Discovery 데이터 스냅샷은 *커밋함* — 협업자가 키 없이도 전체 그래프 보이게 (fixture 역할).
+#   discovered_*.json (발견 원천) + combined/simulator_graph.json (파생) 모두 추적.
+#   주의: 재발견 시 diff 생김 — 의미있게 갱신될 때만 커밋 권장.
+automation/dep-engine/feeder/cache/
+
+# 런타임 로그/프로세스 (start.sh)
+.run/

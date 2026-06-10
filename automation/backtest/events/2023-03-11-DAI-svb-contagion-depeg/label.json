@@ -1,0 +1,73 @@
+{
+  "event": "DAI depeg 2023-03-11 (USDC-SVB contagion; DAI ~73% USDC-backed). RE-ANCHORED to the on-chain DAI/USD floor block 16803316 (2023-03-11T07:19:59Z), where Chainlink DAI/USD = 0.89110864 (-10.89%). The earlier noon anchor (block ~16804702) had already partially recovered to -7.0% and did NOT bear the labelled catastrophic depth; the chain DID reflect the depeg, just earlier in the morning (UTC).",
+  "source": "on-chain Alchemy archive. peg probes MEASURED from Chainlink DAI/USD feed 0xAed0c38402a5d19df6E4c03F4E2DcED6e29c1ee9: depeg @block 16803316 = 0.89110864 (-10.89%, fresh round updated 07:18:47Z), recovery @block 16820707 (2023-03-13T18:00Z) = 0.99775901 (-0.22%, in-band). DAI totalSupply re-measured @16803316. + MakerDAO/Curve/SVB post-mortems for the event narrative.",
+  "cases": [
+    {
+      "id": "dai-sighted-venue",
+      "snapshot": "snapshots/DAI.json",
+      "now": "2023-03-11T07:19:59Z",
+      "peg_probes": {
+        "DAI-lender-sighted": {
+          "price": 0.89110864,
+          "peg": 1.0,
+          "asset_class": "stable",
+          "source": "onchain:chainlink 0xAed0c38402a5d19df6E4c03F4E2DcED6e29c1ee9 @ethereum:16803316 (MEASURED on-chain @block 16803316; -10.89% depeg)"
+        }
+      },
+      "expect": {
+        "should_fire": [
+          {
+            "signal_type": "DEPEG",
+            "edge_id": "DAI-lender-sighted",
+            "min_severity": "CRITICAL"
+          }
+        ]
+      }
+    },
+    {
+      "id": "dai-blind-venue",
+      "snapshot": "snapshots/DAI.json",
+      "now": "2023-03-11T07:19:59Z",
+      "peg_probes": {
+        "DAI-lender-blind": {
+          "price": 0.89110864,
+          "peg": 1.0,
+          "asset_class": "stable",
+          "source": "onchain:chainlink 0xAed0c38402a5d19df6E4c03F4E2DcED6e29c1ee9 @ethereum:16803316 (MEASURED on-chain @block 16803316; -10.89% depeg, but oracle HARDCODED $1.00 -> impairment hidden as bad debt)"
+        }
+      },
+      "expect": {
+        "should_fire": [
+          {
+            "signal_type": "DEPEG",
+            "edge_id": "DAI-lender-blind",
+            "min_severity": "HIGH"
+          }
+        ]
+      }
+    },
+    {
+      "id": "dai-recovered-fp-trap",
+      "snapshot": "snapshots/DAI.json",
+      "now": "2023-03-13T18:00:00Z",
+      "closed": true,
+      "peg_probes": {
+        "DAI-lender-sighted": {
+          "price": 0.99775901,
+          "peg": 1.0,
+          "asset_class": "stable",
+          "source": "onchain:chainlink 0xAed0c38402a5d19df6E4c03F4E2DcED6e29c1ee9 @ethereum:16820707 (MEASURED on-chain @block 16820707; -0.22%, recovered in-band with USDC)"
+        }
+      },
+      "expect": {
+        "must_not_fire": [
+          {
+            "signal_type": "DEPEG",
+            "edge_id": "DAI-lender-sighted"
+          }
+        ]
+      }
+    }
+  ],
+  "ratified": "auto(reviewer)"
+}

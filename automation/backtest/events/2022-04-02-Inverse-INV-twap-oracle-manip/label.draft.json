@@ -1,0 +1,77 @@
+{
+  "event": "Inverse Finance INV TWAP oracle-manipulation + bad-debt (2022-04-02, Ethereum). An attacker pumped INV ~50x on a THIN SushiSwap INV/WETH pool; Inverse's Keep3r 30-min amTWAP sampled the manipulated price only ~15s into the window (a window-size bug bypassed timeElapsed > periodSize), grossly OVER-VALUING INV collateral. The attacker deposited the mis-priced INV and borrowed ~$15.6M (DOLA/ETH/WBTC/YFI), leaving ~$3.65M DOLA BAD DEBT. The oracle answer is a FRESH-but-grossly-WRONG INV price vs the honest market — staleness checks are blind; only a cross-reference vs an honest price catches it. INV is a volatile altcoin governance token -> altcoin (~5%) deviation band. answer/reference_answer are now MEASURED on-chain (Sushi INV/WETH spot @ the manipulation block for the answer; DefiLlama composited honest price @ event ts for the reference) instead of host-modeled stand-ins. KNOWN RECALL GAP: the ~$3.65M DOLA bad-debt aftermath is NOT separately detectable (no bad-debt detector; lending model carries no outstanding-debt field) — only the oracle-manipulation LEG is labeled here. See EVENT.md.",
+  "source": "Inverse Finance DAO post-mortem (inverse.finance/blog/posts/en-US/inv-price-manipulation-incident), CertiK (certik.com/resources/blog/inverse-finance-02-april-2022), RedStone (medium.com/@RedStone_Finance/oracle-attacks-1-inverse-finance-15m-stolen-9fffb03d5171), Inspex, REKT, CoinDesk ($15.6M). MEASURED: manipulated answer = on-chain SushiSwap INV/WETH spot (pair 0x328dfd0139e26cb0fef7b0742b49b0fe4325f821) at the manipulation block 14506358 = $20,926.79 (matches the documented TWAP peak ~$20,926 EXACTLY); honest reference = DefiLlama composited INV/USD at the event ts = $379.59. on-chain anchor block 14506358. See EVENT.md.",
+  "closed": false,
+  "cases": [
+    {
+      "id": "inv-twap-oracle-manipulated",
+      "snapshot": "snapshots/INV.json",
+      "prev": null,
+      "now": "2022-04-02T12:00:00Z",
+      "oracle_probes": {
+        "INV-inverse-collateral": {
+          "updated_at": 1648900500,
+          "answer": 20926.79,
+          "reference_answer": 379.59,
+          "asset_class": "altcoin",
+          "oracle_address": "0xinvkeep3rtwaporacle0000000000000000000a",
+          "market_identity": {
+            "loan_asset": "DOLA",
+            "collateral_asset": "INV",
+            "oracle_address": "0xinvkeep3rtwaporacle0000000000000000000a",
+            "lltv": 0.6667
+          },
+          "_measured": "(MEASURED on-chain @block 14506358) answer = SushiSwap INV/WETH spot * Chainlink ETH/USD @ block 14506358 (pair 0x328dfd0139e26cb0fef7b0742b49b0fe4325f821, the manipulation block) = $20,926.79 (matches documented TWAP peak ~$20,926); reference_answer = DefiLlama composited honest INV/USD @ event ts 1648897434 = $379.59. updated_at kept = label premise (FRESH feed). divergence |20926.79/379.59-1| = +5413%."
+        }
+      },
+      "should_fire": [
+        {
+          "signal_type": "ORACLE_FREEZE",
+          "edge_id": "INV-inverse-collateral",
+          "min_severity": "HIGH",
+          "why": "MEASURED on-chain: the Keep3r INV amTWAP sampled the manipulated SushiSwap INV/WETH spot, which at the manipulation block 14506358 was $20,926.79 (read directly from the Sushi pair 0x328dfd0139e26cb0fef7b0742b49b0fe4325f821 reserves x Chainlink ETH/USD — this MATCHES the documented TWAP peak ~$20,926 EXACTLY). The honest cross-reference (DefiLlama composited INV/USD @ event ts) was $379.59. So |answer/reference_answer - 1| = |20926.79/379.59 - 1| = 54.13 = +5413% (~54x over-valued). INV is a volatile altcoin governance token, so its honest cross-source variance is altcoin-wide (~5% band) — and +5413% is multiple ORDERS of magnitude beyond that honest band (directionally correct: collateral grossly OVER-valued). The feed is FRESH (updated_at 1648900500, ~near now 2022-04-02T12:00:00Z) — this is the crux: the 30-min TWAP window-bug made the oracle sample a fresh manipulated spot only 15s in, so a staleness/heartbeat check is structurally blind. Only the answer-vs-reference deviation check catches this fresh-but-WRONG price. This grossly over-valued INV oracle priced the DOLA/INV market (LLTV 0.6667) and directly enabled the ~$15.6M over-borrow. Floor HIGH (admits HIGH or CRITICAL): a fresh, grossly-wrong price on a live lending oracle that enabled a multi-million-dollar over-borrow is page-worthy for immediate human review."
+        }
+      ],
+      "must_not_fire": [],
+      "beta": 2.0,
+      "note": "INCIDENT (oracle-manipulation LEG only). MEASURED on-chain: answer $20,926.79 (Sushi INV/WETH spot @ manipulation block 14506358, = documented TWAP peak) vs reference_answer $379.59 (DefiLlama honest INV/USD @ event ts) = +5413% divergence, overwhelmingly beyond the altcoin (~5%) deviation band; FRESH feed (updated_at near now) proves staleness can't see it — the cross-reference is the catching mechanism. ORACLE_FREEZE MUST fire on INV-inverse-collateral at >= HIGH; CRITICAL also defensible given this fed a ~$15.6M over-borrow / ~$3.65M DOLA bad debt. The ~$3.65M DOLA bad-debt aftermath is a KNOWN RECALL GAP (no bad-debt detector) and is intentionally NOT a should_fire. NOTE: the previous hand-typed stand-ins (answer 20.0 / reference 8.0, +150%) UNDERSTATED the real dislocation by ~36x — the measured values are far MORE extreme but the verdict tier is UNCHANGED (still grossly over-band, still >= HIGH)."
+    },
+    {
+      "id": "inv-honest-oracle",
+      "snapshot": "snapshots/INV.json",
+      "prev": null,
+      "now": "2022-04-01T12:00:00Z",
+      "oracle_probes": {
+        "INV-inverse-collateral": {
+          "updated_at": 1648814100,
+          "answer": 389.01,
+          "reference_answer": 380.26,
+          "asset_class": "altcoin",
+          "oracle_address": "0xinvkeep3rtwaporacle0000000000000000000a",
+          "market_identity": {
+            "loan_asset": "DOLA",
+            "collateral_asset": "INV",
+            "oracle_address": "0xinvkeep3rtwaporacle0000000000000000000a",
+            "lltv": 0.6667
+          },
+          "_measured": "(MEASURED on-chain @block 14500234) answer = SushiSwap INV/WETH spot * Chainlink ETH/USD @ block 14500234 (2022-04-01T12:00:00Z, the calm day BEFORE the attack) = $389.01; reference_answer = DefiLlama composited honest INV/USD @ ts 1648814418 = $380.26. divergence |389.01/380.26-1| = +2.3%, well INSIDE the altcoin ~5% band — benign honest variance, confirms the calm control premise."
+        }
+      },
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "ORACLE_FREEZE",
+          "edge_id": "INV-inverse-collateral",
+          "why": "FP-TRAP (benign honest cross-source difference / normal altcoin volatility). MEASURED on-chain the DAY BEFORE the attack (block 14500234, 2022-04-01T12:00:00Z): the on-chain SushiSwap INV/WETH spot was $389.01 against an honest DefiLlama composited reference of $380.26: |389.01/380.26 - 1| = 0.023 = ~2.3%. For a volatile altcoin governance token like INV a ~2.3% spread across honest price sources is entirely normal and WELL within the altcoin (~5%) deviation band — this is honest variance, not manipulation. The feed is also FRESH (updated_at 1648814100, near now 2022-04-01T12:00:00Z). A monitor that paged on a benign ~2.3% honest cross-source difference would be a hair-trigger that fires on INV's ordinary price life, so ORACLE_FREEZE MUST stay silent. This proves the manipulation check keys on a divergence beyond the asset-class band, not on the mere existence of any cross-source difference."
+        }
+      ],
+      "max_emitted": {
+        "severity": "WARN",
+        "count": 0
+      },
+      "beta": 2.0,
+      "note": "CONTROL (calm, honest oracle). MEASURED on-chain: answer $389.01 (Sushi INV/WETH spot @ block 14500234, the calm day before) vs reference_answer $380.26 (DefiLlama honest INV/USD) = ~2.3% divergence, well INSIDE the altcoin (~5%) band for volatile INV; fresh feed. ORACLE_FREEZE must_not_fire and NO WARN-or-above on the snapshot (max_emitted WARN/0). A NEW_MARKET INFO signal (first-observation of the DOLA/INV market) is acceptable since it is below WARN. Proves the manipulation check tolerates benign altcoin volatility and only trips on the grossly-manipulated dislocation. NOTE: the previous hand-typed stand-ins (answer 8.1 / reference 8.0, ~1.25%) modeled the same benign-variance premise; the measured ~2.3% is slightly larger but still comfortably inside the 5% band — control verdict UNCHANGED."
+    }
+  ],
+  "ratified": "auto(reviewer)"
+}

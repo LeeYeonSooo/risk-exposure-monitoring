@@ -1,0 +1,66 @@
+{
+  "inputs": [
+    {
+      "input": "aave_v2_paused:USDC-aave_v2-supply@18500000",
+      "detector": "d13",
+      "measured": true,
+      "source": "onchain:aave_v2.LendingPool.paused()@ethereum:18500000",
+      "paused": false,
+      "pool": "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9",
+      "note": "prev/active: pool NOT paused (withdrawable)"
+    },
+    {
+      "input": "aave_v2_paused:USDC-aave_v2-supply@18508000",
+      "detector": "d13",
+      "measured": true,
+      "source": "onchain:aave_v2.LendingPool.paused()@ethereum:18508000",
+      "paused": true,
+      "pool": "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9",
+      "note": "curr/frozen: Guardian PAUSED the V2 pool -> withdrawals blocked (is_frozen=true models this)"
+    },
+    {
+      "input": "aave_v2_config:USDC@18500000",
+      "detector": "d13",
+      "measured": true,
+      "source": "onchain:aave_v2.getConfiguration(USDC)@ethereum:18500000",
+      "ltv": 0.8,
+      "lt": 0.875,
+      "reserve_factor": 0.2,
+      "is_active": true,
+      "reserve_is_frozen_bit": false
+    },
+    {
+      "input": "aave_v2_config:USDC@18508000",
+      "detector": "d13",
+      "measured": true,
+      "source": "onchain:aave_v2.getConfiguration(USDC)@ethereum:18508000",
+      "ltv": 0.8,
+      "lt": 0.875,
+      "reserve_factor": 0.2,
+      "is_active": true,
+      "reserve_is_frozen_bit": false,
+      "note": "ANOMALY: reserve-level isFrozen bit did NOT flip (false on both sides); the withdrawal-block is the POOL paused() flip, not the reserve frozen bit"
+    },
+    {
+      "input": "usdc_total_supply@18500000",
+      "detector": "d13",
+      "measured": true,
+      "source": "onchain:erc20.totalSupply(USDC)@ethereum:18500000",
+      "total_supply": 22548047626677543
+    },
+    {
+      "input": "usdc_total_supply@18508000",
+      "detector": "d13",
+      "measured": true,
+      "source": "onchain:erc20.totalSupply(USDC)@ethereum:18508000",
+      "total_supply": 22615139462607622
+    },
+    {
+      "input": "exposure:USDC-aave_v2-supply",
+      "detector": "d13",
+      "measured": false,
+      "source": "asserted (representative ~$80M fund position; not a wei-level on-chain holding)",
+      "amount_usd": 80000000
+    }
+  ]
+}

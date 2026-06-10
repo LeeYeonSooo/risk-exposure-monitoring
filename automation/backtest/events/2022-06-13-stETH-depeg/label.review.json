@@ -1,0 +1,5 @@
+{
+  "verdict": "APPROVE",
+  "summary": "Re-anchored stETH depeg draft is faithful and premises hold. Verdict skeleton (should_fire DEPEG@WARN x2 troughs, must_not_fire DEPEG on benign, probe keys, by_design_discount=false, asset_class=lst) is byte-identical to prior label.json — the re-anchor moved only the block + measured ratio, not the judgment. The two incident blocks (14955879=0.93501/6.499% @ 2022-06-13T11:59:57Z; 14956535=0.93408/6.592% @ 14:44:56Z) sit inside EVENT.md's documented 0.93-0.935 / ~6.5-7% trough and 12:00-15:00Z window, both above LT 0.90 and below the 10% catastrophic override (WARN holds, not cherry-picked). Benign control re-anchored from the REJECTED post-Terra 2022-05-20 (0.98395, ~1.6%) to genuinely-calm pre-Terra 2022-04-15 (14589816=0.99996/0.004%), far from any actionable floor. All raw get_dy values reproduce the cited ratios exactly; all four fidelity inputs measured=true (measured_pct=100, on-chain Curve get_dy); probe key = the snapshot edge_id (no vacuous attach). Outcome: reanchored-measured. Firewall honored: risk_rules/ NOT read.",
+  "draft_sha256": "50717e430203b98d1f5d2ffbc1509774ee65002400614116c6f062149ff0dc99"
+}

@@ -1,0 +1,160 @@
+{
+  "_description": "Aave 분석 모듈이 검출하는 Layer 2 패턴 시그널 22개. 1차 목표(엣지 매핑) 이후 단계.",
+
+  "signals": {
+    "lst_looping_pattern": {
+      "severity": "medium",
+      "trigger": "eMode=1 활성 + LST 담보(wstETH 등) + ETH 차입 + 레버리지 > 3배",
+      "evidence_from": ["UserEModeSet", "supply", "borrow"],
+      "implication": "LST 디페그 시 청산 cascade 위험 직접 노출",
+      "why_matters": "Aave LST/LRT 비중 40~50%의 대다수가 이 패턴"
+    },
+    "stablecoin_looping_pattern": {
+      "severity": "low",
+      "trigger": "eMode=2(스테이블) + 스테이블 담보 + 스테이블 차입 + 높은 레버리지",
+      "evidence_from": ["UserEModeSet", "supply", "borrow"],
+      "implication": "스테이블 디페그 시 손실"
+    },
+    "isolation_capacity_warning": {
+      "severity": "medium",
+      "trigger": "isolation 자산의 current_debt / debt_ceiling > 0.8",
+      "evidence_from": ["IsolationModeTotalDebtUpdated"],
+      "implication": "위험 자산의 시스템 잠재 손실액 임박"
+    },
+
+    "bad_debt_realized": {
+      "severity": "high",
+      "trigger": "Pool.DeficitCreated 발생",
+      "evidence_from": ["DeficitCreated"],
+      "implication": "회수 불가능한 부채 발생. Reserve Factor/Umbrella/예치자 손실 흡수 시작.",
+      "downstream_signals": ["umbrella 슬래싱 가능성"]
+    },
+    "liquidation_cascade": {
+      "severity": "high",
+      "trigger": "동일 자산에 대해 짧은 시간(예: 100블록) 내 청산 N건 이상",
+      "evidence_from": ["LiquidationCall"],
+      "implication": "시장 충격 진행 중. 후속 청산 예측 가능."
+    },
+
+    "oracle_manipulation_suspect": {
+      "severity": "critical",
+      "trigger": "한 트랜잭션 안에 [flashloan → DEX 큰 스왑 → 다른 프로토콜 활용 → DEX 복구 → flashloan 상환]",
+      "evidence_from": ["FlashLoan", "외부 DEX swap events", "Borrow or LiquidationCall"],
+      "implication": "오라클 조작 공격 시도. 사전 차단 또는 사후 추적용.",
+      "note": "tx 단위 그룹화 분석 필수"
+    },
+    "self_liquidation": {
+      "severity": "low",
+      "trigger": "flashloan + 본인 청산 (liquidator == borrower)",
+      "evidence_from": ["FlashLoan", "LiquidationCall"],
+      "implication": "정상 행위 (포지션 정리). 위험은 아니지만 통계 흥미."
+    },
+    "flashloan_leverage": {
+      "severity": "low",
+      "trigger": "flashloan + 같은 tx 내 supply + borrow 조합",
+      "evidence_from": ["FlashLoan", "Supply", "Borrow"],
+      "implication": "원자적 레버리지 진입/조정"
+    },
+
+    "shared_oracle_risk": {
+      "severity": "high",
+      "trigger": "여러 자산이 같은 price_feed에 의존 (price_dependency 그래프 분석)",
+      "evidence_from": ["price_dependency edges"],
+      "implication": "그 피드 하나 실패 시 다중 자산 동시 영향. 디파이 의존성 허브 식별.",
+      "key_example": "Chainlink ETH/USD 피드는 WETH + 모든 LST/LRT의 의존 허브"
+    },
+    "lst_depeg_risk": {
+      "severity": "critical",
+      "trigger": "LST 시장가가 NAV 대비 X% 이상 하락 (price_feed 모니터링)",
+      "evidence_from": ["AaveOracle 호출 또는 Chainlink 피드"],
+      "implication": "CAPO는 상승만 막아서 하락은 즉시 청산 cascade로 이어짐"
+    },
+    "capo_protected_depeg_exposure": {
+      "severity": "medium",
+      "trigger": "사용자가 CAPO 보호 자산 담보 사용 중",
+      "evidence_from": ["supply (LST/LRT)"],
+      "implication": "사용자에게 CAPO의 비대칭 보호 한계 안내",
+      "note": "정보성 시그널"
+    },
+    "asymmetric_price_exposure": {
+      "severity": "medium",
+      "trigger": "시장가 기반 자산을 담보로 쓰는 사용자",
+      "evidence_from": ["asset 노드 metadata.price_mechanism"],
+      "implication": "redeem 불가/지연 상황에서 시장가 디페그 시 즉시 청산"
+    },
+
+    "gho_depeg_risk": {
+      "severity": "critical",
+      "trigger": "GHO 시장 가격 페그($1) 이탈 X% 이상",
+      "evidence_from": ["DEX 가격 모니터링", "GSM 활동 급증"],
+      "implication": "GHO 의존 모든 프로토콜에 영향 전파"
+    },
+    "gho_facilitator_capacity_warning": {
+      "severity": "medium",
+      "trigger": "facilitator의 bucket_used / capacity > 0.85",
+      "evidence_from": ["FacilitatorBucketLevelUpdated"],
+      "implication": "추가 GHO 발행 한계 임박"
+    },
+    "gho_dependency_cluster": {
+      "severity": "high",
+      "trigger": "GHO를 직간접 보유한 모든 주소 식별",
+      "evidence_from": ["GHO transfers", "다른 프로토콜의 GHO 사용 (cross-protocol)"],
+      "implication": "GHO 디페그 시 영향 받는 사용자 그래프 즉시 출력",
+      "key_value": "본인 도구의 가장 강력한 데모 가능성"
+    },
+
+    "risk_parameter_tightening": {
+      "severity": "medium",
+      "trigger": "PoolConfigurator.CollateralConfigurationChanged에서 LTV 또는 LT 하향",
+      "evidence_from": ["CollateralConfigurationChanged"],
+      "implication": "기존 차입자 중 일부가 즉시 청산 위험 진입 가능"
+    },
+    "asset_paused": {
+      "severity": "critical",
+      "trigger": "PoolConfigurator.ReservePaused(paused=true)",
+      "evidence_from": ["ReservePaused"],
+      "implication": "긴급 상황 신호. 그 자산 사용자 모든 행위 차단."
+    },
+    "new_asset_listed": {
+      "severity": "low",
+      "trigger": "PoolConfigurator.ReserveInitialized",
+      "evidence_from": ["ReserveInitialized"],
+      "implication": "새 자산 모니터링 시작. 잠재적 새 의존성 노드.",
+      "action": "분석 모듈 카탈로그에 새 노드 추가"
+    },
+
+    "multi_market_user": {
+      "severity": "low",
+      "trigger": "같은 EOA가 여러 시장(Main/Lido/EtherFi)에 등장",
+      "evidence_from": ["여러 시장의 edges"],
+      "implication": "공통 자산 디페그 시 다중 시장 동시 청산 위험"
+    },
+    "shared_asset_risk": {
+      "severity": "medium",
+      "trigger": "같은 자산이 여러 시장에서 사용 중 (asset 노드 metadata.used_in_markets)",
+      "evidence_from": ["정적 분석"],
+      "implication": "자산 디페그 시 여러 시장 동시 영향"
+    },
+    "cross_market_parameter_change": {
+      "severity": "medium",
+      "trigger": "거버넌스가 여러 시장의 같은 자산 파라미터를 동시(같은 블록) 변경",
+      "evidence_from": ["CollateralConfigurationChanged (여러 시장)"],
+      "implication": "Cross-chain governance의 일관된 위험 조정"
+    },
+
+    "credit_delegation_abuse": {
+      "severity": "high",
+      "trigger": "credit_delegation 직후 즉시 최대치 borrow + 받은 자금이 delegatee로부터 외부 이동",
+      "evidence_from": ["BorrowAllowanceDelegated", "Borrow", "외부 transfer"],
+      "implication": "사회공학적 사기 검출. 사용자가 악성 컨트랙트에 무제한 위임한 경우.",
+      "note": "사기 검출 도구로서 강한 가치"
+    }
+  },
+
+  "_severity_levels": {
+    "critical": ["oracle_manipulation_suspect", "lst_depeg_risk", "gho_depeg_risk", "asset_paused"],
+    "high": ["bad_debt_realized", "liquidation_cascade", "shared_oracle_risk", "gho_dependency_cluster", "credit_delegation_abuse"],
+    "medium": ["lst_looping_pattern", "isolation_capacity_warning", "capo_protected_depeg_exposure", "asymmetric_price_exposure", "gho_facilitator_capacity_warning", "risk_parameter_tightening", "shared_asset_risk", "cross_market_parameter_change"],
+    "low": ["stablecoin_looping_pattern", "self_liquidation", "flashloan_leverage", "new_asset_listed", "multi_market_user"]
+  }
+}

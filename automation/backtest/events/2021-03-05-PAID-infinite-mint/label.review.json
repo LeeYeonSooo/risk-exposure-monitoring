@@ -1,0 +1,5 @@
+{
+  "verdict": "APPROVE",
+  "summary": "Data-only re-capture: should_fire/must_not_fire/severities UNCHANGED vs prior label.json (LARGE_SINGLE_MINT HIGH; TOTAL_SUPPLY_SPIKE/UNMATCHED_MINT/DEPEG silent; calm control 0 WARN+). MEASURED on-chain confirms premises: mint 59471745571e18 == burn (matched pair) == exactly 10.00%=1000bps of 594717455710e18 supply; net delta prev(11979831)->curr(11979840)=0 (net-flat evasion); trough math 535245710139e18 consistent; recipient 0x18738290 != authorized owner() 0x53bc..44cc; gap 110s; calm supply flat + 0 mints/0 burns (eth_getLogs +/-1000blk). fidelity 10/11 measured=true (90.9%), only off-chain no-peg price measured=false (correctly degraded). token:PAID node exists in all snapshots; no dangling keys. No premise contradiction.",
+  "draft_sha256": "b06c09cb95490aeafba61895faf11b64cd395e8414e203ab0b250c5003904a69"
+}

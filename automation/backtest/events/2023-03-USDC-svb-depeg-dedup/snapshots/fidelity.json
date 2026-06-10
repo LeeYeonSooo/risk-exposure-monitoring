@@ -1,0 +1,32 @@
+{
+  "inputs": [
+    {
+      "input": "peg_probe:USDC-c1-poll1@16801739",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:curve 0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7 get_dy(1,2) @ethereum:16801739",
+      "price": 0.974823
+    },
+    {
+      "input": "peg_probe:USDC-c1-poll2@16803216",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:curve 0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7 get_dy(1,2) @ethereum:16803216",
+      "price": 0.878356
+    },
+    {
+      "input": "peg_probe:USDC-c2-poll1@16801885",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:curve 0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7 get_dy(1,2) @ethereum:16801885",
+      "price": 0.980799
+    },
+    {
+      "input": "peg_probe:USDC-c2-poll2@16802034",
+      "detector": "d08",
+      "measured": true,
+      "source": "onchain:curve 0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7 get_dy(1,2) @ethereum:16802034",
+      "price": 0.978479
+    }
+  ]
+}

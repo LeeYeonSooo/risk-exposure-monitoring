@@ -1,0 +1,5 @@
+{
+  "verdict": "APPROVE",
+  "summary": "Re-anchor is faithful & judgment UNCHANGED vs prior label.json (should_fire COLLATERAL_ADOPTION>=HIGH + must_not_fire DEPEG on incident; control must_not_fire COLLATERAL_ADOPTION, max_emitted {WARN,0}). now-timestamps re-anchored to measured block ts (21089068=2024-10-31T23:59:59Z, 21948291=2025-02-28T23:59:59Z). Incident measured 7567.35 cbBTC = 71.56% of supply 10574.57 (matches EVENT.md 2024-11-01 row exactly, block unchanged) -> systemic 0->72% single-venue concentration, HIGH holds (not CRITICAL: is_frozen=false, oracle MARKET, peg held). Prev block 20780000 measured Aave-held=0 (true zero base; prelisting config honestly measured=false, not decisive). Control block 21948291 measured +0.90% amount step, pct FLAT/DECLINING 46.78->45.15% -> genuinely benign, no ramp, not a disguised incident. edge_id cbBTC-aave_v3-collateral + nodes present in all 4 snapshots; fidelity marks all decisive inputs measured=true. Outcome measured-clean (honest).",
+  "draft_sha256": "29e40f58adba547b9f2f03751924390deba77ea17cc955ade52e77a40812f5ad"
+}

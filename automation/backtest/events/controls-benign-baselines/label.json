@@ -1,0 +1,103 @@
+{
+  "event": "controls-benign-baselines",
+  "source": "Principle-based negative controls derived from normal-time behavior of PT / RWA / stablecoin / LST assets (not a real incident). MEASURED-BACKFILL: peg prices are now READ ON-CHAIN at anchor block 25252231 (2026-06-05T16:00:11Z) on real Ethereum-mainnet tokens \u2014 USDC/USDT/stETH via Chainlink, PT-USDe via Pendle PendlePYLpOracle (see snapshots/fidelity.json, 4/4 inputs measured=true). Judgment (should_fire / must_not_fire / max_emitted) is UNCHANGED; only the prices + notes are backfilled. Silence VERIFIED to hold at the measured values (DEPEG=0 on every edge, WARN+=0 total). DRAFT \u2014 promoted to label.json only via `python3 -m qa.cli ratify` after independent review.",
+  "closed": true,
+  "cases": [
+    {
+      "id": "pt-by-design-discount-quiet",
+      "snapshot": "snapshots/controls.json",
+      "now": "2026-06-05T16:00:00Z",
+      "peg_probes": {
+        "CTRL-ptUSDe-morpho_blue-collateral_isolated": {
+          "price": 0.9938675959871658,
+          "peg": 1.0,
+          "asset_class": "pendle_pt",
+          "by_design_discount": true,
+          "source": "onchain:pendle PendlePYLpOracle(0x9a9Fa8338dd5E5B2188006f1Cd2Ef26d921650C2).getPtToAssetRate(market=0x43c97094da0e894d3af2fda6f507d59a29888251 [PT-USDe-13AUG2026], 900s TWAP) @ethereum:25252231"
+        }
+      },
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "CTRL-ptUSDe-morpho_blue-collateral_isolated"
+        }
+      ],
+      "max_emitted": null,
+      "note": "MEASURED PT-to-asset rate 0.99387 @block 25252231 (Pendle oracle, 900s TWAP; oldestObservationSatisfied=true so the read is valid \u2014 increaseCardinalityRequired=true only flags the buffer is below the recommended 83). A Pendle PT is a zero-coupon claim that accretes to $1.00 ONLY at maturity, so price = PV of future $1 at the implied yield. The measured PT-USDe matures 13AUG2026 (~69 days after the anchor block), so it has already accreted close to par: 0.99387 is the EXPECTED on-curve mark (implied APY ~3.3%, matching the ~3.68% Pendle-quoted APY), converging UPWARD toward par \u2014 the opposite of a depeg. NOTE: this measured mark is SHALLOWER than the modelled 0.86 because the chosen anchor sits near maturity; the judgment is identical (a PT at its accretion mark, on-curve, healthy \u2014 DEPEG silent). The Morpho isolated market sets LT on the PT-aware oracle (lt ~0.82 on the par scale, below the by-design mark), so collateral is not under-water. by_design_discount=true tells the monitor to compare against the accretion curve / NAV, not par. DEPEG must stay silent. Borderline (unchanged): a true PT depeg (PT below its fair-discount curve, or underlying USDe losing backing) is a DIFFERENT condition this control does not immunize."
+    },
+    {
+      "id": "usdc-at-peg-noise-ceiling",
+      "snapshot": "snapshots/controls.json",
+      "now": "2026-06-05T16:00:00Z",
+      "peg_probes": {
+        "CTRL-USDC-aave_v3-collateral": {
+          "price": 0.99964571,
+          "peg": 1.0,
+          "asset_class": "stable_major",
+          "by_design_discount": false,
+          "source": "onchain:chainlink USDC/USD 0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6 @ethereum:25252231"
+        }
+      },
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "CTRL-USDC-aave_v3-collateral"
+        }
+      ],
+      "max_emitted": {
+        "severity": "WARN",
+        "count": 0
+      },
+      "note": "MEASURED Chainlink USDC/USD = 0.99964571 @block 25252231 (modelled was 0.999; the measured value is even closer to par, -0.035%). +-0.1-0.2% around $1.00 is the routine band (DEX micro-spread / routing noise). Asserts the NOISE CEILING: no DEPEG and zero WARN-or-above signals on the whole snapshot. Verified: only INFO NEW_MARKET housekeeping fires, WARN+=0. INFO housekeeping is fine; any WARN+ here is over-firing."
+    },
+    {
+      "id": "wsteth-lst-within-tolerance-quiet",
+      "snapshot": "snapshots/controls.json",
+      "now": "2026-06-05T16:00:00Z",
+      "peg_probes": {
+        "CTRL-wstETH-morpho_blue-collateral_isolated": {
+          "price": 0.9997115587091152,
+          "peg": 1.0,
+          "asset_class": "lst",
+          "by_design_discount": false,
+          "source": "onchain:chainlink stETH/ETH 0x86392dC19c0b719886221c78AB11eb8Cf5c52812 @ethereum:25252231"
+        }
+      },
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "CTRL-wstETH-morpho_blue-collateral_isolated"
+        }
+      ],
+      "max_emitted": null,
+      "note": "MEASURED Chainlink stETH/ETH secondary-market price = 0.99971 @block 25252231 (a -0.029% discount vs the ETH reference; modelled was 0.995). LST steady-state discounts of ~10-60 bps are normal (exit-queue length, yield arb, DEX depth); the measured value is even calmer than modelled. A real stETH depeg (2022 forced unwind) ran to ~0.93-0.95 with collapsing depth \u2014 an order of magnitude worse. -0.03% is well inside LST tolerance and above any liquidation pressure; DEPEG must stay silent. (This was the nearest-to-threshold modelled control; the measured value moves it FURTHER from any band, so the benign premise is strengthened, not at risk.)"
+    },
+    {
+      "id": "usdt-high-but-normal-utilization-quiet",
+      "snapshot": "snapshots/controls.json",
+      "now": "2026-06-05T16:00:00Z",
+      "peg_probes": {
+        "CTRL-USDT-aave_v3-collateral": {
+          "price": 0.99882932,
+          "peg": 1.0,
+          "asset_class": "stable_major",
+          "by_design_discount": false,
+          "source": "onchain:chainlink USDT/USD 0x3E7d1eAB13ad0104d2750B8863b489D65364e32D @ethereum:25252231"
+        }
+      },
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "DEPEG",
+          "edge_id": "CTRL-USDT-aave_v3-collateral"
+        }
+      ],
+      "max_emitted": null,
+      "note": "MEASURED Chainlink USDT/USD = 0.99882932 @block 25252231 (modelled was exactly 1.000; the measured value is -0.117% from par). USDT routinely trades a hair under $1 on Chainlink; -0.117% is well inside the stable noise band and an order of magnitude milder than any depeg. Verified: DEPEG stays silent at the measured value. The market is heavily used (~85% utilization, high but below the pathological 98-100% / withdrawals-failing zone) \u2014 DEMAND, not distress; the rate kink self-corrects and liquidity is withdrawable. A low INFO ('running hot') is acceptable; a WARN+ liquidity/util OR depeg alert here would be a spurious FP. DEPEG kept in must_not_fire."
+    }
+  ],
+  "ratified": "auto(reviewer)"
+}

@@ -1,0 +1,43 @@
+{
+  "_invariant": "CONTROL: AMPL +14.42% POSITIVE REBASE in one day (114.27M -> 130.74M) — by-design supply expansion (rebasing=true), MEASURED on-chain. Must NOT alarm as a supply spike/mint. The +14.42% is the REAL day-over-day rebase (prev blk 10454328 -> curr blk 10460734), and across that window there were 0 mints/0 burns to/from 0x0.",
+  "_measured": {
+    "total_supply": "ethereum totalSupply @ block 10460734 (2020-07-15T00:00Z): 130739374379361927 (9dp) = 130,739,374.38 AMPL",
+    "day_over_day": "prev 114,267,479.71M -> curr 130,739,374.38M = +14.42% in one day (the modelled +11% understated the real rebase; the by-design-rebase premise is STRENGTHENED, not contradicted)",
+    "supply_samples": "ethereum totalSupply @ 00:00 UTC on 2020-07-13 (blk 10447835), 07-14 (blk 10454328), 07-15 (blk 10460734)",
+    "rebase_no_mint": "Transfer logs over [10454328..10460734] (this rebase day, 6406 blocks, 6917 Transfers): 0 mints (from 0x0), 0 burns (to 0x0) — the +14.42% expansion emitted NO zero-address Transfer; mint_events [] is the measured truth.",
+    "asserted": "rebasing:true (host-fed classification)"
+  },
+  "meta": {
+    "token": "AMPL",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2020-07-15T00:00:00Z"
+  },
+  "nodes": [
+    {
+      "node_id": "token:AMPL",
+      "type": "Token",
+      "label": "Ampleforth",
+      "address": "0xD46bA6D942050d489DBd938a2C909A5d5039A161",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "AMPL",
+        "decimals": 9,
+        "total_supply": 130739374379361927,
+        "supply_samples": [
+          89839888949930357,
+          114267479711606026,
+          130739374379361927
+        ],
+        "rebasing": true,
+        "mint_events": [],
+        "authorized_minters": [
+          "0xampl_policy"
+        ],
+        "market_cap_usd": 200000000
+      }
+    }
+  ],
+  "edges": []
+}

@@ -1,0 +1,69 @@
+{
+  "inputs": [
+    {
+      "input": "supply:AMPL:prev@10454328",
+      "detector": "d10/d05",
+      "measured": true,
+      "source": "onchain:erc20.totalSupply@eth:10454328",
+      "value": 114267479711606026,
+      "note": "prev 2020-07-14 00:00Z = 114.27M"
+    },
+    {
+      "input": "supply:AMPL:rebase@10460734",
+      "detector": "d10/d05",
+      "measured": true,
+      "source": "onchain:erc20.totalSupply@eth:10460734",
+      "value": 130739374379361927,
+      "note": "rebase 2020-07-15 00:00Z = 130.74M (+14.42% d/d real rebase)"
+    },
+    {
+      "input": "supply:AMPL:organic@10467200",
+      "detector": "d10/d05",
+      "measured": true,
+      "source": "onchain:erc20.totalSupply@eth:10467200",
+      "value": 139076241299642019,
+      "note": "organic 2020-07-16 00:00Z = 139.08M (real rebase, before synthetic mint)"
+    },
+    {
+      "input": "rebase_zero_address_transfers:AMPL@10454328-10460734",
+      "detector": "d10/d11",
+      "measured": true,
+      "source": "onchain:eth_getLogs Transfer@eth:10454328-10460734",
+      "mints": 0,
+      "burns": 0,
+      "transfers": 6917,
+      "note": "CONTROL load-bearing: +14.42% rebase emitted 0 mints/0 burns to/from 0x0"
+    },
+    {
+      "input": "rebase_zero_address_transfers:AMPL@10460734-10467200",
+      "detector": "d10/d11",
+      "measured": true,
+      "source": "onchain:eth_getLogs Transfer@eth:10460734-10467200",
+      "mints": 0,
+      "burns": 0,
+      "transfers": 4927,
+      "note": "organic window clean: 0 zero-address Transfers, so the 20M mint is the sole synthetic injection"
+    },
+    {
+      "input": "mint_event:AMPL:unauth_20M",
+      "detector": "d10",
+      "measured": false,
+      "source": "asserted:synthetic-adversarial-construct",
+      "note": "20.0M -> 0xattacker tx 0xevil; no such mint occurred historically; placeholder identifiers"
+    },
+    {
+      "input": "rebasing_flag:AMPL",
+      "detector": "filter:rebasing",
+      "measured": false,
+      "source": "asserted:host-fed-classification",
+      "note": "rebasing:true is a host classification of AMPL as elastic-supply, not inferred on-chain"
+    },
+    {
+      "input": "authorized_minters:AMPL",
+      "detector": "d10",
+      "measured": false,
+      "source": "asserted:placeholder",
+      "note": "[0xampl_policy] is a placeholder minter-set identifier for the synthetic case"
+    }
+  ]
+}
