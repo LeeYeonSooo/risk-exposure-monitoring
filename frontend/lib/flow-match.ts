@@ -4,7 +4,7 @@
  * Used by both TxFlowLayer (to draw the particle) and FlowTxPanel (to float those tx to the top),
  * so the two never disagree about which transactions are actually rendered.
  */
-import type { FlowGraph } from "./flow-types";
+import type { FlowEdge, FlowGraph, FlowTx } from "./flow-types";
 
 export function norm(s: string): string { return s.toLowerCase().replace(/[^a-z0-9]/g, ""); }
 
@@ -117,6 +117,7 @@ export function buildRenderRouter<T extends NodeLite>(nodes: T[], edges: EdgeLit
       const mkt = findMarketChild(marketsOfProto.get(dest.id), token, hint);
       if (mkt) dest = mkt;
     }
+    if (edgePair.has(`${src.id}|${dest.id}`)) return [src, dest];
     const route = pathTo(src, dest);
     for (let k = 0; k < route.length - 1; k++) if (edgePair.has(`${route[k].id}|${route[k + 1].id}`)) return route; // >=1 drawable hop
     return null;
@@ -168,6 +169,75 @@ export function buildRenderPlan<
     if (hops.length) plan.push({ tx, hops });
   }
   return plan;
+}
+
+/**
+ * Add only event-discovered trace edges between nodes that already exist in the flow graph.
+ * No nodes are created here. If the current graph can already render a transaction on an
+ * existing route, we leave it alone; trace edges are only for missing relationships revealed
+ * by the live event feed.
+ */
+export function augmentGraphWithEventTraceEdges(graph: FlowGraph, txs: FlowTx[]): FlowGraph {
+  if (!txs.length) return graph;
+  const resolve = buildCpResolver(graph.nodes);
+  const tokenByKey = new Map(graph.nodes.filter((n) => n.kind === "token").map((n) => [`${norm(n.label)}|${n.chain}`, n] as const));
+  const byId = new Map(graph.nodes.map((n) => [n.id, n] as const));
+  const marketsOfProto = new Map<string, FlowGraph["nodes"]>();
+  const existingPair = new Set<string>();
+  for (const e of graph.edges) {
+    existingPair.add(`${e.source}|${e.target}`);
+    existingPair.add(`${e.target}|${e.source}`);
+    if (e.kind === "market") {
+      const t = byId.get(e.target);
+      if (!t) continue;
+      const arr = marketsOfProto.get(e.source);
+      if (arr) arr.push(t);
+      else marketsOfProto.set(e.source, [t]);
+    }
+  }
+
+  const alreadyRendered = new Set<FlowTx>(buildRenderPlan(graph.nodes, graph.edges, txs, Number.MAX_SAFE_INTEGER).map((p) => p.tx));
+  const agg = new Map<string, { source: string; target: string; chain: string; token: string; usd: number; count: number; sampleTx: string | null }>();
+  for (const tx of txs) {
+    if (!tx.counterparty || alreadyRendered.has(tx) || tx.valueUsd <= 0) continue;
+    const src = tokenByKey.get(`${norm(tx.token)}|${tx.chain}`);
+    if (!src) continue;
+    let dest = resolve(tx.counterparty, tx.chain);
+    if (!dest || dest.id === src.id) continue;
+    if (dest.kind === "protocol") {
+      const mkt = findMarketChild(marketsOfProto.get(dest.id), tx.token, tx);
+      if (mkt) dest = mkt;
+    }
+    if (existingPair.has(`${src.id}|${dest.id}`)) continue;
+    const key = `${src.id}|${dest.id}|${tx.token.toUpperCase()}`;
+    const cur = agg.get(key);
+    if (cur) {
+      cur.usd += tx.valueUsd;
+      cur.count += 1;
+      if (!cur.sampleTx) cur.sampleTx = tx.hash;
+    } else {
+      agg.set(key, { source: src.id, target: dest.id, chain: tx.chain, token: tx.token, usd: tx.valueUsd, count: 1, sampleTx: tx.hash });
+    }
+  }
+  const traces = [...agg.values()].sort((a, b) => b.usd - a.usd).slice(0, 32);
+  if (!traces.length) return graph;
+  const maxUsd = Math.max(1, ...traces.map((t) => t.usd));
+  const edges: FlowEdge[] = [...graph.edges];
+  for (const t of traces) {
+    edges.push({
+      id: `event-trace:${t.source}->${t.target}:${t.token}`,
+      source: t.source,
+      target: t.target,
+      kind: "trace",
+      tvlUsd: t.usd,
+      weight: Math.max(0.25, Math.min(1, Math.log10(t.usd + 1) / Math.log10(maxUsd + 1))),
+      chain: t.chain,
+      dir: "forward",
+      label: `이벤트 흐름 ${t.token} ${t.usd >= 1e6 ? `$${(t.usd / 1e6).toFixed(1)}M` : t.usd >= 1e3 ? `$${(t.usd / 1e3).toFixed(0)}K` : `$${t.usd.toFixed(0)}`} ×${t.count}`,
+      trace: { assetSymbol: t.token, amountUsd: t.usd, count: t.count, windowSec: 5 * 60, sampleTx: t.sampleTx, source: "event" },
+    });
+  }
+  return { ...graph, edges, notes: [...(graph.notes ?? []), `event-trace: ${traces.length}개 라이브 이벤트 보강 엣지`] };
 }
 
 /**

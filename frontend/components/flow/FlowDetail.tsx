@@ -12,7 +12,7 @@ import type { FlowEdge, FlowGraph as FlowGraphData, FlowNode } from "@/lib/flow-
  * 주소는 ↗ 링크, 위험은 ⚠·빨강. 엔터티별 행 구성은 사용자 스펙 그대로.
  */
 const EDGE_KIND_LABEL: Record<FlowEdge["kind"], string> = {
-  holds: "예치 / 익스포저", market: "마켓 · 풀", involves: "구성 토큰", vault: "볼트 공급", bridge: "체인간 연결 (브릿지)", sibling: "동일 프로토콜 (타 체인)", oracle: "오라클 의존", trace: "추적 흐름 (Dune 14일)",
+  holds: "예치 / 익스포저", market: "마켓 · 풀", involves: "구성 토큰", vault: "볼트 공급", bridge: "체인간 연결 (브릿지)", sibling: "동일 프로토콜 (타 체인)", oracle: "오라클 의존", trace: "이벤트 보강 흐름",
 };
 const kindKo = (k: FlowNode["kind"]) => (k === "token" ? "토큰" : k === "protocol" ? "프로토콜" : k === "market" ? "마켓/풀" : k === "vault" ? "볼트 (큐레이터 운용)" : k === "bridge" ? "브릿지" : "외부 컨트랙트");
 
@@ -51,6 +51,9 @@ export function FlowDetail({ sel, graph, onClose }: {
   const node = sel.type === "node" ? byId.get(sel.id) ?? null : null;
   const edge = sel.type === "edge" ? graph.edges.find((e) => e.id === sel.id) ?? null : null;
   const protoCounts = useProtocolAlertCounts(node?.kind === "protocol" ? node.id : null);
+  const traceWindow = edge?.kind === "trace" && edge.trace
+    ? edge.trace.windowSec != null ? `${Math.round(edge.trace.windowSec / 60)}분` : edge.trace.windowDays != null ? `${edge.trace.windowDays}일` : null
+    : null;
   if (!node && !edge) return null;
 
   // ── 노드별 스펙 행 ──
@@ -156,7 +159,7 @@ export function FlowDetail({ sel, graph, onClose }: {
               <>
                 <PRow k="자산" v={edge.trace?.assetSymbol ?? "?"} />
                 <PRow k="흐름 금액" v={edge.trace?.amountUsd != null ? formatUsd(edge.trace.amountUsd) : null} />
-                <PRow k="전송" v={edge.trace ? `${edge.trace.count}회 / ${edge.trace.windowDays}일` : null} />
+                <PRow k="전송" v={edge.trace ? `${edge.trace.count}회${traceWindow ? ` / ${traceWindow}` : ""}` : null} />
                 <PRow k="경유" v={edge.trace?.viaCollapsed ? "중간주소 접힘" : null} />
                 <PRow k="샘플 tx" v={edge.trace?.sampleTx ? shortAddr(edge.trace.sampleTx) : null} href={edge.trace?.sampleTx ? TX_EXPLORER[edge.chain]?.(edge.trace.sampleTx) : null} />
               </>

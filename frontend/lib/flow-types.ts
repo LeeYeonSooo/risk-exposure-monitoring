@@ -28,7 +28,7 @@ export interface FlowNode {
   risk?: RiskLevel;
 }
 
-// trace = Dune 트랜잭션 추적(14일 집계)으로 발견된 흐름 — 기존 정적 엣지에 없던 "새 의존성"만 추가.
+// trace = live event feed로 발견된 흐름 — 기존 정적 엣지에 없던 "새 의존성"만 추가.
 export type FlowEdgeKind = "holds" | "market" | "involves" | "vault" | "bridge" | "sibling" | "oracle" | "trace";
 
 /** 마켓 오라클 인텔 — 우리 DB 의 온체인 introspection(edges.attrs.topMarkets[].oracle) 결과. */
@@ -57,8 +57,8 @@ export interface FlowEdge {
   bridge?: { mechanism?: string | null; protocol?: string | null; fromChain: string; toChain: string };
   /** kind=oracle 엣지의 introspection 인텔 (있을 때만 — 우리 DB) */
   oracle?: OracleIntel;
-  /** kind=trace 엣지의 집계 수치 (Dune erc20 Transfer, 14일) */
-  trace?: { assetSymbol: string | null; amountUsd: number | null; count: number; windowDays: number; sampleTx?: string | null; viaCollapsed?: boolean };
+  /** kind=trace 엣지의 집계 수치 (event feed, current live window) */
+  trace?: { assetSymbol: string | null; amountUsd: number | null; count: number; windowDays?: number; windowSec?: number; sampleTx?: string | null; viaCollapsed?: boolean; source?: "event" | "snapshot" };
 }
 
 export interface FlowTokenSummary {

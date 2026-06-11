@@ -210,7 +210,7 @@ function Inner({
           <span className="text-[var(--color-text-secondary)]">프로토콜→토큰 = 출금·스왑 유출</span>
           <span className="text-[var(--color-text-muted)]">실선 두 줄 = 양방향 흐름 차선 · 점선 = 관계만</span>
           <span className="text-[var(--color-text-muted)]">─o─ = 오라클 의존 · <b style={{ color: "#dc2626" }}>빨강!</b> = 자기참조/NAV</span>
-          <span style={{ color: "#c026d3" }}>┈◆┈→ <b>발견</b>(퓨샤·N마커) = 추적이 찾은 새 의존성 (14일)</span>
+          <span style={{ color: "#c026d3" }}>┈◆┈→ <b>발견</b>(퓨샤·N마커) = 이벤트가 찾은 새 연결</span>
         </div>
       </Panel>
       {txs.length > 0 && <TxFlowLayer nodes={positioned} edges={graph.edges} txs={txs} colorByToken={colorByToken} />}

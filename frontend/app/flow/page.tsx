@@ -11,7 +11,7 @@ import { FlowGraph } from "@/components/flow/FlowGraph";
 import { FlowTxPanel } from "@/components/flow/FlowTxPanel";
 import { useFlowData } from "@/components/flow/useFlowData";
 import { chainOptions } from "@/lib/chains-ui";
-import { filterGraphByDetail } from "@/lib/flow-match";
+import { augmentGraphWithEventTraceEdges, filterGraphByDetail } from "@/lib/flow-match";
 
 /**
  * /flow — the 흐름맵 page (its own page, reached from the header). Transaction flow only:
@@ -49,7 +49,10 @@ function FlowPageInner() {
   // share of the token's total exposure (parent eff × share within parent) is ≥1% — so a 2% market
   // inside a 1.2% protocol (= 0.02% overall) stays hidden. tx-active nodes are always pinned.
   const MIN_SHARE = 0.01;
-  const graph = useMemo(() => (flow.graph ? filterGraphByDetail(flow.graph, MIN_SHARE, flow.txs) : flow.graph), [flow.graph, flow.txs]);
+  const graph = useMemo(() => {
+    if (!flow.graph) return flow.graph;
+    return filterGraphByDetail(augmentGraphWithEventTraceEdges(flow.graph, flow.txs), MIN_SHARE, flow.txs);
+  }, [flow.graph, flow.txs]);
 
   // initial view = the REAL top-5 tokens by TVL (always incl. stETH), single chain — unless the user picked ?tokens
   const [autoPicked, setAutoPicked] = useState(initialTokens.length > 0);

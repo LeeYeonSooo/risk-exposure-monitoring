@@ -8,7 +8,7 @@ import { DEX_PROTOS, FLOW_CHAINS, type FlowAction, type FlowEdgeOut, type FlowMa
  * 실시간 상황판 (docs/flow-situation-board.md §3)
  *
  * 동심원 2겹: 안쪽 링=토큰, 바깥 링=프로토콜. 고정 배치(공간 기억).
- * 평시엔 구조 엣지(흐림)만. systemic(다수 주체 비정상)=이상치 발화(빨강 대시),
+ * 평시엔 구조 엣지(흐림)만. systemic(다수 주체 비정상)=이상치 발화(라이브 입자 엣지),
  * whale(단일 주체 대형)=정보(호박색), normal=구조. 분류는 서버(검증된 게이트)가 함.
  * 같은 tx 의 담보예치+차입(레버 페어)은 토큰→프로토콜→토큰 한 붓 보라 경로.
  */
@@ -25,6 +25,7 @@ const W = 980, H = 640, CX = 490, CY = 320, R_TOK = 184, R_PROTO = 272;
 const TOK_STAGGER = 13;  // 토큰 링 홀짝 반지름 스태거 — 59노드 간격 확보
 const BASE_OP = 0.12;    // 평시 구조 엣지 기본 불투명도(더 흐리게 — 발화만 도드라지게)
 const WHALE_BOARD_MAX = 5; // 보드에 색칠하는 whale 상한(레일엔 전부)
+const FLOW_LANE = 3.1;   // 흐름맵 상세 그래프와 맞춘 병렬 차선 간격
 const fmt = (n: number) => n >= 1e9 ? `$${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(0)}K` : `$${n.toFixed(0)}`;
 const pos = (deg: number, r: number) => ({ x: CX + r * Math.cos((deg * Math.PI) / 180), y: CY + r * Math.sin((deg * Math.PI) / 180) });
 const tokenIcon = (addr: string, chainId: number) => `https://token-icons.llamao.fi/icons/tokens/${chainId}/${addr.toLowerCase()}?h=48&w=48`;
@@ -32,6 +33,33 @@ const protoIcon = (slug: string) => `https://icons.llamao.fi/icons/protocols/${s
 
 const edgeKey = (e: FlowEdgeOut) => `${e.token}|${e.proto}|${e.action}`;
 const FLOW_CHAIN_LABEL = (key: string) => FLOW_CHAINS.find((c) => c.key === key)?.label ?? key;
+interface FlowPath { center: string; lanes: [string, string] }
+
+function FlowParticles({ path, color, count = 2, opacity = 0.9, delay = 0, duration = 3.6, radius = 2.1 }: {
+  path: string;
+  color: string;
+  count?: number;
+  opacity?: number;
+  delay?: number;
+  duration?: number;
+  radius?: number;
+}) {
+  return (
+    <g className="pointer-events-none">
+      {Array.from({ length: count }).map((_, i) => (
+        <circle key={i} r={radius} fill={color} opacity={opacity} stroke="var(--color-surface)" strokeWidth={0.8}>
+          <animateMotion
+            path={path}
+            dur={`${duration}s`}
+            begin={`${delay - (duration / count) * i}s`}
+            repeatCount="indefinite"
+            calcMode="linear"
+          />
+        </circle>
+      ))}
+    </g>
+  );
+}
 
 /**
  * railPortal — 주어지면 우측 레일(이상 흐름·대형 단일·레버)을 그 DOM 노드로 포털 렌더.
@@ -77,7 +105,7 @@ export function FlowMapBoard({ sym = "", railPortal }: { sym?: string; railPorta
     return () => clearInterval(id);
   }, []);
 
-  // systemic 엣지 키 집합 (서버 분류) — 발화(빨강 대시) 대상
+  // systemic 엣지 키 집합 (서버 분류) — 발화(입자 엣지) 대상
   const fired = useMemo(() => new Set((data?.edges ?? []).filter((e) => e.kind === "systemic").map(edgeKey)), [data]);
   // 보드에 색칠하는 whale 상한 — 나머지 whale 은 구조선처럼 흐리게 (레일 목록엔 전부)
   const whaleLit = useMemo(() => new Set((data?.edges ?? []).filter((e) => e.kind === "whale").sort((a, b) => b.recentUsd - a.recentUsd).slice(0, WHALE_BOARD_MAX).map(edgeKey)), [data]);
@@ -131,7 +159,7 @@ export function FlowMapBoard({ sym = "", railPortal }: { sym?: string; railPorta
   }, [data]);
 
   // 엣지 곡선: in = 토큰→프로토콜, out = 프로토콜→토큰. 방향별로 수직 오프셋을 줘 한 쌍 분리.
-  const edgePath = useCallback((e: FlowEdgeOut) => {
+  const edgePaths = useCallback((e: FlowEdgeOut): FlowPath | null => {
     if (!layout) return null;
     const t = layout.tokPos.get(e.token), p = layout.protoPos.get(e.proto);
     if (!t || !p) return null;
@@ -142,11 +170,15 @@ export function FlowMapBoard({ sym = "", railPortal }: { sym?: string; railPorta
     const b = { x: to.x - ux * 26, y: to.y - uy * 26 };
     const side = e.dir === "in" ? 1 : -1;
     const c = { x: (a.x + b.x) / 2 - uy * 22 * side, y: (a.y + b.y) / 2 + ux * 22 * side };
-    return `M ${a.x.toFixed(1)} ${a.y.toFixed(1)} Q ${c.x.toFixed(1)} ${c.y.toFixed(1)} ${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
+    const lane = (n: number) => {
+      const ox = uy * FLOW_LANE * n, oy = -ux * FLOW_LANE * n;
+      return `M ${(a.x + ox).toFixed(1)} ${(a.y + oy).toFixed(1)} Q ${(c.x + ox).toFixed(1)} ${(c.y + oy).toFixed(1)} ${(b.x + ox).toFixed(1)} ${(b.y + oy).toFixed(1)}`;
+    };
+    return { center: lane(0), lanes: [lane(1), lane(-1)] };
   }, [layout]);
 
-  // 레버/언와인드: 토큰 → 프로토콜 → 토큰 한 붓 경로
-  const leverPath = useCallback((l: LeverOut) => {
+  // 레버/언와인드: 토큰 → 프로토콜 → 토큰 경로(입자 애니메이션용으로 세그먼트 분리)
+  const leverSegments = useCallback((l: LeverOut): FlowPath[] | null => {
     if (!layout) return null;
     const t1 = layout.tokPos.get(l.collat), p = layout.protoPos.get(l.proto), t2 = layout.tokPos.get(l.debt);
     if (!t1 || !p || !t2) return null;
@@ -155,10 +187,14 @@ export function FlowMapBoard({ sym = "", railPortal }: { sym?: string; railPorta
       const ux = dx / len, uy = dy / len;
       const a = { x: f.x + ux * 22, y: f.y + uy * 22 }, b = { x: g.x - ux * 28, y: g.y - uy * 28 };
       const c = { x: (a.x + b.x) / 2 - uy * 34 * side, y: (a.y + b.y) / 2 + ux * 34 * side };
-      return { a, b, c };
+      const lane = (n: number) => {
+        const ox = uy * FLOW_LANE * n, oy = -ux * FLOW_LANE * n;
+        return `M ${(a.x + ox).toFixed(1)} ${(a.y + oy).toFixed(1)} Q ${(c.x + ox).toFixed(1)} ${(c.y + oy).toFixed(1)} ${(b.x + ox).toFixed(1)} ${(b.y + oy).toFixed(1)}`;
+      };
+      return { center: lane(0), lanes: [lane(1), lane(-1)] as [string, string] };
     };
     const s1 = seg(t1, p, 1), s2 = seg(p, t2, 1);
-    return `M ${s1.a.x.toFixed(1)} ${s1.a.y.toFixed(1)} Q ${s1.c.x.toFixed(1)} ${s1.c.y.toFixed(1)} ${s1.b.x.toFixed(1)} ${s1.b.y.toFixed(1)} M ${s2.a.x.toFixed(1)} ${s2.a.y.toFixed(1)} Q ${s2.c.x.toFixed(1)} ${s2.c.y.toFixed(1)} ${s2.b.x.toFixed(1)} ${s2.b.y.toFixed(1)}`;
+    return [s1, s2];
   }, [layout]);
 
   const onTip = useCallback((ev: React.MouseEvent, lines: string[]) => {
@@ -226,24 +262,14 @@ export function FlowMapBoard({ sym = "", railPortal }: { sym?: string; railPorta
         )}
         <svg viewBox={`0 0 ${W} ${H}`} className="h-full w-full" preserveAspectRatio="xMidYMid meet"
           onClick={(e) => { if ((e.target as Element).tagName === "svg") setPinned(null); }}>
-          <defs>
-            {Object.entries(ACTION_COLOR).map(([a, c]) => (
-              <marker key={a} id={`fm-arr-${a}`} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                <path d="M0,0.6 L7.4,4 L0,7.4 Z" fill={c} />
-              </marker>
-            ))}
-            <marker id="fm-arr-lever" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0.6 L7.4,4 L0,7.4 Z" fill={LEVER_COLOR} /></marker>
-            <marker id="fm-arr-unwind" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0.6 L7.4,4 L0,7.4 Z" fill={UNWIND_COLOR} /></marker>
-          </defs>
-
           {/* 링 가이드 */}
           <circle cx={CX} cy={CY} r={R_TOK} fill="none" stroke="var(--color-border-subtle)" strokeDasharray="2 6" opacity={0.6} />
           <circle cx={CX} cy={CY} r={R_PROTO} fill="none" stroke="var(--color-border-subtle)" strokeDasharray="2 6" opacity={0.6} />
 
           {/* ── 구조/흐름 엣지 ── */}
           {data.edges.map((e) => {
-            const d = edgePath(e);
-            if (!d) return null;
+            const paths = edgePaths(e);
+            if (!paths) return null;
             const k = edgeKey(e);
             const sysm = e.kind === "systemic";
             const whale = e.kind === "whale" && whaleLit.has(k); // 상위 N개 whale 만 색칠(과밀 방지)
@@ -253,49 +279,97 @@ export function FlowMapBoard({ sym = "", railPortal }: { sym?: string; railPorta
             // 격리 중엔 구조선(회색)은 절대 안 띄움 — 발화 엣지만 남김
             const opacity = on === null ? (sysm ? 0.95 : whale ? 0.7 : BASE_OP) : on ? 0.97 : 0.03;
             const width = sysm ? Math.min(8.5, 2.4 + Math.sqrt(e.recentUsd) / 1100) : whale ? Math.min(4, 1.4 + Math.sqrt(e.recentUsd) / 1600) : Math.min(2, 0.6 + e.share * 4);
+            const laneWidth = sysm ? Math.min(3.2, 1.35 + Math.sqrt(e.recentUsd) / 2300) : whale ? Math.min(2.2, 1.05 + Math.sqrt(e.recentUsd) / 2600) : width;
             const tip = [
               `${e.token} ${e.dir === "in" ? "→" : "←"} ${e.proto} · ${ACTION_LABEL[e.action]}`,
               `최근 ${fmt(e.recentUsd)} · 주체 ${e.actors}명 · ${e.txCount}tx${e.poolUsd > 0 ? ` · 풀의 ${(e.pctPool * 100).toFixed(1)}%` : ""}`,
               sysm ? `다수 주체 이상 흐름 (z ${e.z.toFixed(1)})` : e.kind === "whale" ? "단일/소수 주체 대형 이동 — 경보 아님" : `점유율 ${(e.share * 100).toFixed(1)}% · 윈도우 ${fmt(e.windowUsd)}`,
             ];
             return (
-              <path key={k} d={d}
-                stroke={on === false ? BASE_EDGE : color} strokeWidth={width} fill="none"
-                className={sysm ? "fb-dash-f" : undefined}
-                strokeDasharray={sysm ? "7 5" : whale ? "2 3" : undefined} strokeLinecap="round"
-                markerEnd={lit || on === true ? `url(#fm-arr-${e.action})` : undefined}
-                opacity={opacity}
-                onMouseEnter={(ev) => { setHover(k); onTip(ev, tip); }}
-                onMouseLeave={() => { setHover(null); setTip(null); }}
-                onClick={(ev) => { ev.stopPropagation(); if (lit) togglePin(k); }}
-                style={{ transition: "opacity .15s", cursor: lit ? "pointer" : undefined }}
-              />
+              <g key={k}>
+                <path d={paths.center}
+                  stroke="transparent" strokeWidth={lit ? 18 : 10} fill="none"
+                  onMouseEnter={(ev) => { setHover(k); onTip(ev, tip); }}
+                  onMouseLeave={() => { setHover(null); setTip(null); }}
+                  onClick={(ev) => { ev.stopPropagation(); if (lit) togglePin(k); }}
+                  style={{ cursor: lit ? "pointer" : undefined }}
+                />
+                {lit ? paths.lanes.map((lane, i) => (
+                  <path key={i} d={lane}
+                    stroke={on === false ? BASE_EDGE : color} strokeWidth={laneWidth} fill="none"
+                    strokeLinecap="round"
+                    opacity={i === 0 ? opacity : opacity * 0.76}
+                    style={{ transition: "opacity .15s", pointerEvents: "none" }}
+                  />
+                )) : (
+                  <path d={paths.center}
+                    stroke={BASE_EDGE} strokeWidth={width} fill="none"
+                    strokeLinecap="round"
+                    opacity={opacity}
+                    style={{ transition: "opacity .15s", pointerEvents: "none" }}
+                  />
+                )}
+                {lit && on !== false && (
+                  <FlowParticles
+                    path={paths.lanes[0]}
+                    color={color}
+                    count={sysm ? 3 : 2}
+                    duration={sysm ? 2.8 : 4.4}
+                    radius={sysm ? 2.5 : 2.1}
+                    opacity={on === null ? (sysm ? 0.95 : 0.72) : 0.95}
+                  />
+                )}
+              </g>
             );
           })}
 
           {/* ── 레버/언와인드 페어 (같은 tx 원자적 액션 — 추정 아님) ── */}
           {data.levers.slice(0, 4).map((l, i) => {
-            const d = leverPath(l);
-            if (!d) return null;
+            const parts = leverSegments(l);
+            if (!parts) return null;
+            const d = parts.map((p) => p.center).join(" ");
             const k = `lever:${i}`;
             const on = hl ? hl.levers.has(k) : null;
+            const width = Math.min(2.6, 1.3 + Math.sqrt(l.usd) / 2600);
+            const opacity = on === null ? 0.72 : on ? 0.92 : 0.05;
             return (
-              <path key={k} d={d} stroke={LEVER_COLOR} strokeWidth={Math.min(3.5, 1.4 + Math.sqrt(l.usd) / 1800)} fill="none"
-                className="fb-dash-f" strokeDasharray="4 6" strokeLinecap="round" markerEnd="url(#fm-arr-lever)" opacity={on === null ? 0.6 : on ? 0.9 : 0.05}
-                onMouseEnter={(ev) => { setHover(k); onTip(ev, [`↻ 레버 ${l.collat} ↦ ${l.proto} ↦ ${l.debt}`, `같은 tx 담보예치+차입 · ${l.count}건 · ${fmt(l.usd)}`]); }}
-                onMouseLeave={() => { setHover(null); setTip(null); }} style={{ transition: "opacity .15s" }} />
+              <g key={k}>
+                <path d={d} stroke="transparent" strokeWidth={18} fill="none"
+                  onMouseEnter={(ev) => { setHover(k); onTip(ev, [`↻ 레버 ${l.collat} ↦ ${l.proto} ↦ ${l.debt}`, `같은 tx 담보예치+차입 · ${l.count}건 · ${fmt(l.usd)}`]); }}
+                  onMouseLeave={() => { setHover(null); setTip(null); }} />
+                {parts.flatMap((part, partIdx) => part.lanes.map((lane, laneIdx) => (
+                  <path key={`${partIdx}-${laneIdx}`} d={lane} stroke={LEVER_COLOR} strokeWidth={width} fill="none"
+                    strokeLinecap="round" opacity={laneIdx === 0 ? opacity : opacity * 0.74}
+                    style={{ transition: "opacity .15s", pointerEvents: "none" }} />
+                )))}
+                {on !== false && parts.map((p, j) => (
+                  <FlowParticles key={j} path={p.lanes[0]} color={LEVER_COLOR} count={2} duration={3.2} delay={j * 0.25} radius={2.2} opacity={0.85} />
+                ))}
+              </g>
             );
           })}
           {data.unwinds.slice(0, 3).map((l, i) => {
-            const d = leverPath({ ...l, collat: l.debt, debt: l.collat }); // 언와인드는 역방향(상환→담보회수)
-            if (!d) return null;
+            const parts = leverSegments({ ...l, collat: l.debt, debt: l.collat }); // 언와인드는 역방향(상환→담보회수)
+            if (!parts) return null;
+            const d = parts.map((p) => p.center).join(" ");
             const k = `lever:u${i}`;
             const on = hl ? hl.levers.has(k) : null;
+            const width = Math.min(2.5, 1.2 + Math.sqrt(l.usd) / 2600);
+            const opacity = on === null ? 0.66 : on ? 0.88 : 0.05;
             return (
-              <path key={k} d={d} stroke={UNWIND_COLOR} strokeWidth={Math.min(3.5, 1.2 + Math.sqrt(l.usd) / 1800)} fill="none"
-                className="fb-dash-f" strokeDasharray="3 7" strokeLinecap="round" markerEnd="url(#fm-arr-unwind)" opacity={on === null ? 0.55 : on ? 0.85 : 0.05}
-                onMouseEnter={(ev) => { setHover(k); onTip(ev, [`↩ 언와인드 ${l.debt} 상환 → ${l.collat} 회수 · ${l.proto}`, `같은 tx 상환+담보인출 · ${l.count}건 · ${fmt(l.usd)}`]); }}
-                onMouseLeave={() => { setHover(null); setTip(null); }} style={{ transition: "opacity .15s" }} />
+              <g key={k}>
+                <path d={d} stroke="transparent" strokeWidth={18} fill="none"
+                  onMouseEnter={(ev) => { setHover(k); onTip(ev, [`↩ 언와인드 ${l.debt} 상환 → ${l.collat} 회수 · ${l.proto}`, `같은 tx 상환+담보인출 · ${l.count}건 · ${fmt(l.usd)}`]); }}
+                  onMouseLeave={() => { setHover(null); setTip(null); }} />
+                {parts.flatMap((part, partIdx) => part.lanes.map((lane, laneIdx) => (
+                  <path key={`${partIdx}-${laneIdx}`} d={lane} stroke={UNWIND_COLOR} strokeWidth={width} fill="none"
+                    strokeLinecap="round" opacity={laneIdx === 0 ? opacity : opacity * 0.74}
+                    style={{ transition: "opacity .15s", pointerEvents: "none" }} />
+                )))}
+                {on !== false && parts.map((p, j) => (
+                  <FlowParticles key={j} path={p.lanes[0]} color={UNWIND_COLOR} count={2} duration={3.4} delay={j * 0.25} radius={2.1} opacity={0.82} />
+                ))}
+              </g>
             );
           })}
 
@@ -429,7 +503,7 @@ export function FlowMapBoard({ sym = "", railPortal }: { sym?: string; railPorta
             <span className="flex items-center gap-1.5"><span className="inline-block h-[3px] w-4 rounded" style={{ background: LEVER_COLOR }} />레버 페어</span>
             <span className="flex items-center gap-1.5"><span className="inline-block h-[3px] w-4 rounded" style={{ background: BASE_EDGE }} />평시 구조(≥1%)</span>
           </div>
-          <p className="px-3 pb-2 text-[9.5px] leading-relaxed text-[var(--color-text-muted)]">빨강 대시 = 다수 주체 이상 흐름(이상치). 호박 = 단일 주체 대형(정보). 흐린 = 구조(점유율 ≥1%).</p>
+          <p className="px-3 pb-2 text-[9.5px] leading-relaxed text-[var(--color-text-muted)]">빨강 입자선 = 다수 주체 이상 흐름(이상치). 호박 = 단일 주체 대형(정보). 흐린 = 구조(점유율 ≥1%).</p>
         </Section>
 
         {/* 메타 */}

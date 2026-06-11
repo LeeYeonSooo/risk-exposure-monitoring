@@ -21,10 +21,6 @@ interface Alert {
   detail?: { chain?: string } | null;
 }
 interface TokenExposure { usd: number; dbUsd: number; breadthUsd: number; mcapUsd: number | null; source: string; snapshotTs: string | null }
-interface Wallet {
-  wallet: string; label: string | null; kind: string | null; active: boolean;
-  totalUsd: number | null; protocolCount: number | null; source: string | null; dropPct: number | null;
-}
 const SEV_COLOR: Record<string, string> = { critical: "#f87171", warning: "#fbbf24", info: "#60a5fa" };
 const SEV_LABEL: Record<string, string> = { critical: "위험", warning: "경고", info: "정보" };
 const KIND_LABEL: Record<string, string> = {
@@ -64,7 +60,6 @@ export default function MainLanding() {
   const [mcap, setMcap] = useState<Record<string, number>>({}); // 시가총액(순위 기준), 없으면 익스포저 폴백
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
-  const [wallets, setWallets] = useState<Wallet[]>([]);
   const [railEl, setRailEl] = useState<HTMLElement | null>(null); // 상황판 레일 포털 타깃(알림 패널 상단)
   const [searchOpen, setSearchOpen] = useState(false);
   const [chainSel, setChainSel] = useState<string>("전체");
@@ -84,7 +79,6 @@ export default function MainLanding() {
       setExposure(exp);
       setMcap(mc);
     }).catch(() => {});
-    fetch("/api/wallets", { cache: "no-store" }).then((r) => r.json()).then((d) => setWallets((d.wallets ?? []) as Wallet[])).catch(() => {});
     const loadAlerts = () => {
       fetch("/api/alerts?limit=300", { cache: "no-store" }).then((r) => r.json()).then((d) => {
         setAlerts((d.alerts ?? []) as Alert[]);
@@ -131,7 +125,6 @@ export default function MainLanding() {
         >
           <Search size={15} />
           토큰 검색 — wstETH, USDe, WBTC …
-          <span className="ml-auto rounded border border-[var(--color-border-subtle)] px-1.5 py-0.5 text-[10px]">시총 순위</span>
         </button>
         <button
           onClick={() => router.push("/flow")}
@@ -164,20 +157,22 @@ export default function MainLanding() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5 px-5 pb-1.5">
-            <span className="mr-1 text-[10px] uppercase text-[var(--color-text-muted)]">체인</span>
-            {["전체", ...chainChips.map(([c]) => c)].map((c) => {
-              const on = chainSel === c;
-              const n = c === "전체" ? alerts.length : (chainChips.find(([x]) => x === c)?.[1] ?? 0);
-              return (
-                <button key={c} onClick={() => setChainSel(c)}
-                  className={"flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] capitalize transition-colors " + (on ? "bg-[var(--color-accent)]/15 text-[var(--color-text-primary)] ring-1 ring-[var(--color-accent)]/50" : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface-raised)]")}>
-                  {c} <span className="font-mono text-[9px] opacity-70">{n}</span>
-                </button>
-              );
-            })}
+          <div className="overflow-x-auto px-5 pb-2.5 pt-1">
+            <div className="flex w-max min-w-full items-center gap-1.5 whitespace-nowrap">
+              <span className="mr-1 shrink-0 text-[10px] uppercase text-[var(--color-text-muted)]">체인</span>
+              {["전체", ...chainChips.map(([c]) => c)].map((c) => {
+                const on = chainSel === c;
+                const n = c === "전체" ? alerts.length : (chainChips.find(([x]) => x === c)?.[1] ?? 0);
+                return (
+                  <button key={c} onClick={() => setChainSel(c)}
+                    className={"flex min-h-[26px] shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[10px] leading-none capitalize transition-colors " + (on ? "bg-[var(--color-accent)]/15 text-[var(--color-text-primary)] ring-1 ring-[var(--color-accent)]/50" : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface-raised)]")}>
+                    {c} <span className="font-mono text-[9px] opacity-70">{n}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div className="flex items-center gap-1.5 border-b border-[var(--color-border-subtle)] px-5 pb-2">
+          <div className="flex items-center gap-1.5 border-b border-[var(--color-border-subtle)] px-5 pb-2 pt-2">
             <span className="mr-1 text-[10px] uppercase text-[var(--color-text-muted)]">심각도</span>
             {["전체", "critical", "warning", "info"].map((s) => {
               const on = sevSel === s;
@@ -191,31 +186,6 @@ export default function MainLanding() {
               );
             })}
           </div>
-
-          {wallets.length > 0 && (
-            <div className="border-b border-[var(--color-border-subtle)] px-5 py-2">
-              <div className="mb-1.5 flex items-center gap-2 text-[10px] uppercase text-[var(--color-text-muted)]">
-                <span>추적 지갑 · 자금 이탈 감시</span>
-                <span className="font-mono normal-case">{wallets.length}</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {wallets.slice(0, 8).map((w) => {
-                  const drop = w.dropPct != null && w.dropPct >= 0.05;
-                  const col = w.dropPct != null && w.dropPct >= 0.5 ? "#f87171" : w.dropPct != null && w.dropPct >= 0.3 ? "#fbbf24" : "#94a3b8";
-                  return (
-                    <span key={w.wallet} title={`${w.wallet}${w.source ? ` · ${w.source}` : ""}${w.active ? "" : " · 비활성"}`}
-                      className="flex items-center gap-1.5 rounded-md border border-[var(--color-border-subtle)] bg-[var(--color-bg)] px-2 py-1 text-[10px]">
-                      <span className={"size-1.5 rounded-full " + (w.active ? "" : "opacity-40")} style={{ backgroundColor: col }} />
-                      <span className="font-medium text-[var(--color-text-primary)]">{w.label || `${w.wallet.slice(0, 6)}…${w.wallet.slice(-4)}`}</span>
-                      <span className="font-mono text-[var(--color-text-secondary)]">{w.totalUsd != null ? formatUsd(w.totalUsd) : "—"}</span>
-                      {drop && <span className="font-mono" style={{ color: col }}>▼{Math.round((w.dropPct ?? 0) * 100)}%</span>}
-                    </span>
-                  );
-                })}
-                {wallets.length > 8 && <span className="px-2 py-1 text-[10px] text-[var(--color-text-muted)]">외 {wallets.length - 8}개</span>}
-              </div>
-            </div>
-          )}
 
           <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
             {shownAlerts.length === 0 ? (
