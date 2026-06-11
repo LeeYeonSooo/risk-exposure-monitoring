@@ -155,6 +155,8 @@ const BRIDGES: ProtocolRegistryEntry[] = [
   { address: "0x8eb8a3b98659cce290402893d0123abb75e3ab28", protocolNodeId: "bridge:avalanche", family: "bridge", role: "lock" },
   { address: "0xf7a5159085722718dc1276de5979df468975ec11", protocolNodeId: "bridge:gnosis", family: "bridge", role: "lock" },
   { address: "0xc186fa914353c44b2e33ebe05f21846f1048beda", protocolNodeId: "bridge:across", family: "bridge", role: "messaging" },
+  // Across SpokePool — 실제 토큰이 잠기는 유동성 컨트랙트 (HubPool 외 추가 흡수분). Arkham 라벨 "Across Protocol / Ethereum Spoke Pool" 검증.
+  { address: "0x5c7bcd6e7de5423a257d81b442095a1a6ced35c5", protocolNodeId: "bridge:across", family: "bridge", role: "spoke_pool" },
   { address: "0x312e67b47a2a29ae200184949093d92369f80b53", protocolNodeId: "bridge:sui", family: "bridge", role: "lock" },
   { address: "0x4f4495243837681061c4743b74b3eedf548d56a5", protocolNodeId: "bridge:axelar", family: "bridge", role: "lock" },
 ];

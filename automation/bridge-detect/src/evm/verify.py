@@ -64,6 +64,13 @@ def verify_bridge_contract(rpc, addr):
     if st == "OK":
         return {"standard": "Polygon PoS (ChildChainManager)", "detail": None}
 
+    # ⑦-b Across Protocol SpokePool — 유동성/인텐트 브릿지(토큰에 흔적 없음).
+    #     numberOfDeposits()+fillDeadlineBuffer() 조합은 Across SpokePool 고유 지문 → 구조 확정.
+    st1, _ = eth_call(rpc, a, "numberOfDeposits()", [], [], ["uint32"])
+    st2, _ = eth_call(rpc, a, "fillDeadlineBuffer()", [], [], ["uint32"])
+    if st1 == "OK" and st2 == "OK":
+        return {"standard": "Across Protocol (SpokePool)", "detail": None}
+
     # ⑧ 일반 크로스체인 메시저 — endpoint/router 류 (LayerZero EndpointV2 등)
     for sig in ("messageLibManager()", "defaultSendLibrary(uint32)"):
         # 인자 없는 것만 가볍게: messaging 컨트랙트 지문
