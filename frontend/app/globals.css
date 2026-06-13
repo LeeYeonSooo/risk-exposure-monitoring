@@ -123,12 +123,10 @@
   border-radius: 2px;
 }
 
-/* 플로우 상황판 — 유입/유출 대시 흐름(실 tx 합산에서만). f=토큰→프로토콜, r=프로토콜→토큰. */
+/* 대시 흐름 keyframe — 레버리지 루프 링이 사용 (상황판 전용 .fb-dash-f/-r 클래스는 상황판과 함께 제거) */
 @keyframes fb-dash {
   to { stroke-dashoffset: -32; }
 }
-.fb-dash-f { animation: fb-dash 1.3s linear infinite; }
-.fb-dash-r { animation: fb-dash 1.3s linear infinite reverse; }
 
 /* SVG 루프 링(청산임박 루퍼·프로토콜 발화 강조) — 회전하는 점선 오라 */
 .cs-flow-dash {
@@ -137,7 +135,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fb-dash-f, .fb-dash-r, .cs-flow-dash { animation: none; }
+  .cs-flow-dash { animation: none; }
 }
 
 /* Slider accent */

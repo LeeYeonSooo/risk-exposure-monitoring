@@ -3,41 +3,18 @@
  * checkbox list is identical. These are the chains we can actually load real data for
  * (DeFiLlama + Morpho + public-RPC, i.e. flow-core's CHAIN_MAP). A token's own exposure
  * chains are unioned on top so nothing the token is actually on is ever missing.
+ *
+ * **EVM 전용** (팀 결정 2026-06-12, 멘토 피드백 "EVM 우선"): 비-EVM(Solana·Tron·Sui·
+ * Aptos·Starknet)은 선택지·수집 경로에서 제거됨 — 어댑터 코드도 함께 삭제(git 이력에 보존).
+ *
+ * 최종 기준(2026-06-12, 팀 확정): **이더리움 메인넷 · Base · Arbitrum 3개만** — 이 셋을
+ * 확실하게 (그래프·실시간 30분·평소 24h 풀 파이프라인). 다른 체인은 전부 제외.
  */
 export const SUPPORTED_CHAINS: { key: string; label: string }[] = [
   { key: "ethereum", label: "Ethereum" },
-  { key: "solana", label: "Solana" },
-  { key: "tron", label: "Tron" },
-  { key: "sui", label: "Sui" },
-  { key: "aptos", label: "Aptos" },
-  { key: "starknet", label: "Starknet" },
   { key: "base", label: "Base" },
   { key: "arbitrum", label: "Arbitrum" },
-  { key: "optimism", label: "Optimism" },
-  { key: "polygon", label: "Polygon" },
-  { key: "bsc", label: "BSC" },
-  { key: "avalanche", label: "Avalanche" },
-  { key: "gnosis", label: "Gnosis" },
-  { key: "linea", label: "Linea" },
-  { key: "scroll", label: "Scroll" },
-  { key: "sonic", label: "Sonic" },
-  { key: "unichain", label: "Unichain" },
-  { key: "berachain", label: "Berachain" },
-  { key: "mantle", label: "Mantle" },
-  { key: "mode", label: "Mode" },
-  { key: "blast", label: "Blast" },
-  { key: "fraxtal", label: "Fraxtal" },
-  { key: "ink", label: "Ink" },
-  { key: "metis", label: "Metis" },
-  { key: "zksync", label: "ZKsync" },
 ];
-
-/** 라이브 트랜잭션 입자를 지원하는 체인 = /api/transactions 의 ALCHEMY_NET 키와 동일(거울). */
-export const LIVE_TX_CHAINS = new Set([
-  "ethereum", "base", "arbitrum", "optimism", "polygon", "avalanche", "bsc", "gnosis",
-  "linea", "scroll", "unichain", "zksync", "blast", "mantle", "berachain",
-]);
-export const hasLiveTx = (chain: string) => LIVE_TX_CHAINS.has(chain.toLowerCase());
 
 const LABELS = new Map(SUPPORTED_CHAINS.map((c) => [c.key, c.label] as const));
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
