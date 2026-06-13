@@ -1,4 +1,5 @@
 import type { CpTarget } from "./counterparties";
+import { fluidDexSet } from "./fluid-dexes";
 import type { FlowBaselineRow } from "./flow-types";
 import { gatedGql, gatedJsonRpc } from "./rpc-gate";
 
@@ -82,9 +83,16 @@ const LIDO_WD_REQUESTED = "0xf0cb471f23fb74ea44b8252eb1881a2dca546288d9f6e90d1a0
 //    주소로 귀속**하므로 동명 마켓(aave 의 sUSDS 리저브 등) 오귀속이 구조적으로 불가. ──
 const ERC4626_DEPOSIT = "0xdcbc1c05240f31ff3ad067ef1ee35ce4997762752e3a095284754544f4c709d7";
 const ERC4626_WITHDRAW = "0xfbde797d201c681b91056529119e0b02407c7bb96a4a2c75c01fc9667232c8db";
+// vault = ERC-4626 share 토큰 주소, asset = 기초자산, label = DeFiLlama 슬러그(노드 매칭용).
+// 전부 asset()·symbol()·Deposit/Withdraw 이벤트 온체인 검증분(2026-06-13). 신규 추가 시 라벨은
+// 반드시 슬러그와 일치 + flow-adapters.ts COVERED 동반 추가 + counterparties 큐레이트 등록(실시간).
 const ERC4626_SAVINGS: { chain: string; vault: string; asset: string; label: string }[] = [
   { chain: "ethereum", vault: "0xa3931d71877c0e7a3148cb7eb4463524fec27fbd", asset: "0xdc035d45d973e3ec169d2276ddab16f1e407384f", label: "sky-lending" },   // sUSDS·asset()=USDS
   { chain: "ethereum", vault: "0x9d39a5de30e57443bff2a8307a4256c8797a3497", asset: "0x4c9edd5852cd905f086c759e8383e09bff1e68b3", label: "ethena-usde" }, // sUSDe·asset()=USDe (쿨다운 출금도 표준 Withdraw)
+  { chain: "ethereum", vault: "0x80ac24aa929eaf5013f6436cda2a7ba190f5cc0b", asset: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", label: "maple" },        // syrupUSDC·asset()=USDC
+  { chain: "ethereum", vault: "0x356b8d89c1e1239cbbb9de4815c39a1474d5ba7d", asset: "0xdac17f958d2ee523a2206206994597c13d831ec7", label: "maple" },        // syrupUSDT·asset()=USDT
+  { chain: "ethereum", vault: "0x0000000f2eb9f69274678c76222b35eec7588a65", asset: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", label: "yo-protocol" },  // yoUSD·asset()=USDC
+  { chain: "ethereum", vault: "0xd9a442856c234a39a81a089c06451ebaa4306a72", asset: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", label: "puffer-stake" }, // pufETH·asset()=WETH
 ];
 
 // ── ether.fi — eETH 민트(=스테이크 유입)/소각(=출금 유출). 홀드 엣지가 weETH→ether.fi-stake 라
@@ -115,7 +123,7 @@ const MORPHO_CHAIN_ID: Record<string, number> = { ethereum: 1, base: 8453, arbit
 
 /** 이벤트 수집기가 커버하는 카운터파티 라벨 — 전송 스캔의 같은 라벨 행은 드롭(이중 집계 방지).
  *  "fluid" 포함 이유: Fluid 리퀴디티 싱글톤이 스캔에서 "Fluid" 라벨로도 잡혀 이벤트 행과 이중 집계됐던 것 적발. */
-export const LENDING_EVENT_LABELS = ["aave-v3", "spark", "compound-v3", "fluid-lending", "fluid", "morpho-blue", "morpho blue", "lido", "sky-lending", "ethena-usde", "euler-v2", "ether.fi-stake", "etherfi"];
+export const LENDING_EVENT_LABELS = ["aave-v3", "spark", "compound-v3", "fluid-lending", "fluid", "fluid-dex", "morpho-blue", "morpho blue", "lido", "sky-lending", "ethena-usde", "euler-v2", "ether.fi-stake", "etherfi"];
 
 // ── RPC 유틸 ──────────────────────────────────────────────────────────
 interface Log { address: string; topics: string[]; data: string; transactionHash: string }
@@ -256,17 +264,21 @@ export async function lendingEventRows(targets: CpTarget[], prices: Map<string, 
         inc(agg, akey(sym, chain, "compound-v3", ACTION_DIR[map.action], null), usd, l.transactionHash);
       }
     }));
-    // ── Fluid — LogOperate 부호로 supply±/borrow± (token=topic2) ──
+    // ── Fluid — LogOperate 부호로 supply±/borrow± (token=topic2). user(topic1) 가 Fluid DEX 컨트랙트면
+    //    'fluid-dex', 아니면 'fluid-lending' 으로 분기 — 같은 LogOperate 를 공유하므로 DEX 볼륨이
+    //    lending 에 섞이던 오라벨을 푼다(2026-06-13). dexSet 은 DexFactory 온체인 열거(실패 시 전부 lending 폴백). ──
+    const fluidDexes = await fluidDexSet(chain);
     for (const l of await logs24h(chain, FLUID_ADDR, [FLUID_LOGOPERATE])) {
       const asset = topicAddr(l.topics[2]);
       const sym = byChainAddr.get(`${chain}:${asset}`);
       if (!sym) continue;
+      const label = fluidDexes.has(topicAddr(l.topics[1])) ? "fluid-dex" : "fluid-lending";
       const w0 = word(l.data, 0), w1 = word(l.data, 1);
       const pi = prices.get(`${chain}:${asset}`);
       if (!pi || pi.decimals == null) continue;
       const toU = (v: bigint) => (Number(v < 0n ? -v : v) / 10 ** pi.decimals!) * pi.price;
-      if (w0) { const s = asSigned(w0); if (s !== 0n) inc(agg, akey(sym, chain, "fluid-lending", s > 0n ? "in" : "out", null), toU(s), l.transactionHash); }
-      if (w1) { const b = asSigned(w1); if (b !== 0n) inc(agg, akey(sym, chain, "fluid-lending", b > 0n ? "out" : "in", null), toU(b), l.transactionHash); }
+      if (w0) { const s = asSigned(w0); if (s !== 0n) inc(agg, akey(sym, chain, label, s > 0n ? "in" : "out", null), toU(s), l.transactionHash); }
+      if (w1) { const b = asSigned(w1); if (b !== 0n) inc(agg, akey(sym, chain, label, b > 0n ? "out" : "in", null), toU(b), l.transactionHash); }
     }
     // ── Euler v2 — **3체인 전부**: 선택 토큰을 담은 볼트만 주소배열 getLogs(284볼트 전수 스캔 방지).
     //    RPC/한계는 EULER_LOG(메인넷 mevblocker, L2 공식). (배열 배치 × 블록 청크) 4병렬, 실패 청크 스킵. ──

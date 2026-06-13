@@ -1,9 +1,13 @@
 import pg from "pg";
 
 import { aerodromePoolsFor } from "./aerodrome-pools";
+import { centrifugeEscrows } from "./centrifuge-escrows";
+import { curveL2PoolsFor } from "./curve-l2-pools";
 import { curvePoolsFor } from "./curve-pools";
+import { dexForkPoolsFor } from "./dex-fork-pools";
 import { topTokensByTvl } from "./flow-core";
-import { compoundComets, lendingReceiptAddrs, MORPHO_BLUE, UNISWAP_V4_POOL_MANAGER, wrappedUnderlying } from "./lending-pools";
+import { compoundComets, compoundV2Markets, lendingReceiptAddrs, MORPHO_BLUE, UNISWAP_V4_POOL_MANAGER, wrappedUnderlying } from "./lending-pools";
+import { mimswapPoolsFor } from "./mimswap-pools";
 import { gatedJsonRpc } from "./rpc-gate";
 import { uniswapPoolsFor } from "./uniswap-pools";
 
@@ -157,9 +161,13 @@ export async function fetchTransfers(net: string, contract: string, opts?: { max
     // RPC 와 동일한 보호를 받게 한다(2026-06-13 감사: ungated Alchemy 버스트가 429 로 윈도우를 조용히
     // 절단하고, 타임아웃 없는 hung 호출이 Promise.all 통째를 stall 시키던 결함). null = 비결론적
     // 실패/재시도 소진/결론적 에러 → break, covered=false 로 "부분 데이터"임을 호출부에 정직 표기.
+    // attempts=5 (기본 3 대신) — 콜드 첫 폴에서 여러 토큰의 getAssetTransfers 가 동시 버스트로 429 를
+    // 맞을 때, 백오프(250·500·1000·2000·4000ms ≈ 7.7s)로 레이트 윈도우를 타고 넘어가 피드가 비지 않게
+    // 한다. "거래가 있는데 0으로 찍히는" false-empty 방지(2026-06-13).
     const result = await gatedJsonRpc<{ transfers?: AlchemyTransfer[]; pageKey?: string }>(
       url, "alchemy_getAssetTransfers",
       [{ contractAddresses: [contract], category: ["erc20"], order: "desc", maxCount: `0x${maxCount.toString(16)}`, withMetadata: true, excludeZeroValue: true, ...(pageKey ? { pageKey } : {}) }],
+      5,
     );
     if (!result) break; // 실패/소진 — covered=false (이력 소진으로 오판하지 않는다)
     const batch = result.transfers ?? [];
@@ -233,6 +241,11 @@ export async function buildCounterpartyRegistry(targets: CpTarget[], nodesParam:
     const quoteAddrList = quotes.map((q) => q.addr);
     const uniUniverse = chain === "ethereum" ? [...new Set([...chainAddrs, ...quoteAddrList])] : chainAddrs;
     try { for (const { addr, label, pair } of uniswapPoolsFor(uniUniverse, chain)) addKnown(addr, label, true, pair); } catch { /* ignore */ }
+    // Uniswap V2/V3 **포크** (pancakeswap·sushiswap·camelot) — 포크별 factory 에 getPool/getPair 온체인
+    // 조회(주소 추측 0). 고볼륨 DEX 갭(pancakeswap base 일 $105M vol 등)을 색칠. 라벨=슬러그.
+    try { for (const { addr, label, pair } of await dexForkPoolsFor(chainAddrs, chain)) addKnown(addr, label, true, pair); } catch { /* ignore */ }
+    // Curve L2 (arbitrum·base) — MetaRegistry 가 L2 미배포라 api.curve.finance 풀리스트 사용(ethereum 은 위 curvePoolsFor 온체인).
+    if (chain === "arbitrum" || chain === "base") { try { for (const { addr, label, pair } of await curveL2PoolsFor(chainAddrs, chain)) addKnown(addr, label, true, pair); } catch { /* ignore */ } }
     const pm = UNISWAP_V4_POOL_MANAGER[chain];
     if (pm) addKnown(pm, "uniswap-v4", true);
     if (chain === "ethereum") {
@@ -244,14 +257,33 @@ export async function buildCounterpartyRegistry(targets: CpTarget[], nodesParam:
       // Convex Booster 싱글톤 (공식 docs.convexfinance.com 배포 주소, 불변) — Curve LP 의 재예치
       // (steCRV→Convex 머니레고)가 여기로 들어간다. 그래프 노드 라벨(convex-finance)과 일치.
       addKnown("0xf403c135812408bfbe8713b5a23a04b3d48aae31", "convex-finance", false);
+      // 큐레이트 ERC-4626 볼트 — 기초자산이 볼트 컨트랙트로 전송되는 게 예치(실시간 색칠).
+      // 평소(24h) 모드는 lending-events.ts ERC4626_SAVINGS 가 동일 주소로 이벤트 수집 — 두 곳 동기 유지.
+      addKnown("0x80ac24aa929eaf5013f6436cda2a7ba190f5cc0b", "maple", false);        // syrupUSDC
+      addKnown("0x356b8d89c1e1239cbbb9de4815c39a1474d5ba7d", "maple", false);        // syrupUSDT
+      addKnown("0x0000000f2eb9f69274678c76222b35eec7588a65", "yo-protocol", false);  // yoUSD
+      addKnown("0xd9a442856c234a39a81a089c06451ebaa4306a72", "puffer-stake", false); // pufETH
     }
     if (chain === "base") {
       // Aerodrome = base's main DEX — pools read live from the official factories (v1 + Slipstream)
       try { for (const { addr, label, pair } of await aerodromePoolsFor(chainAddrs)) addKnown(addr, label, true, pair); } catch { /* ignore */ }
     }
+    if (chain === "arbitrum") {
+      // GMX V2 공용 Vault 싱글톤 — 포지션 담보/유동성 inflow 가 여기로(134개 GM 마켓 대신 Vault 하나로
+      // 전부 잡음). dataStore() 동일성으로 GMX 소속 온체인 검증(2026-06-13). dex=false(perps 담보, 거래량 아님).
+      addKnown("0x31ef83a530fde1b38ee9a18093a333d8bbbc40d5", "gmx-v2-perps", false); // OrderVault (담보 압도적)
+      addKnown("0xf89e77e8dc11691c9e8757e84aafbcd8a67d7a55", "gmx-v2-perps", false); // DepositVault
+      addKnown("0x0628d46b5d145f183adb6ef1f2c97ed1c4701c55", "gmx-v2-perps", false); // WithdrawalVault
+      // mim-swap (Abracadabra MagicLP) — MagicLPFactory 온체인 열거
+      try { for (const { addr, label, pair } of await mimswapPoolsFor(chainAddrs, chain)) addKnown(addr, label, true, pair); } catch { /* ignore */ }
+    }
+    // Centrifuge V3 풀별 Escrow (eth·base·arb) — 공식 인덱서. 예치 토큰이 share 가 아니라 escrow 로 감.
+    try { for (const { addr, label } of await centrifugeEscrows(chain)) addKnown(addr, label, false); } catch { /* ignore */ }
     try { for (const { addr, label } of await lendingReceiptAddrs(chain, chainAddrs)) addKnown(addr, label, false); } catch { /* ignore */ }
     // Compound V3 comets — official candidates, sanity-checked on-chain (baseToken()) before use
     try { for (const { addr, label } of await compoundComets(chain)) addKnown(addr, label, false); } catch { /* ignore */ }
+    // Compound V2 **포크** cToken (moonwell·compound-v2) — Comptroller.getAllMarkets()→underlying() 검증분만 등록
+    try { for (const { addr, label } of await compoundV2Markets(chain, chainAddrs)) addKnown(addr, label, false); } catch { /* ignore */ }
     const mb = MORPHO_BLUE[chain];
     if (mb) addKnown(mb, "morpho-blue", false);
     // ── 싱글톤 DEX/프로토콜 (멀티체인 동일주소, 불변) — 모든 스왑이 한 컨트랙트를 거치므로

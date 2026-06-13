@@ -57,6 +57,11 @@ const BUILTIN_ADDR: Record<string, Record<string, string>> = {
     LINK: "0x514910771af9ca656af840dff83e8264ecf986ca", XAUT: "0x68749665ff8d2d112fa859aa293f07a622782f38",
     AAVE: "0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9", PAXG: "0x45804880de22913dafe09f4980848ece6ecbaf78",
   },
+  arbitrum: {
+    // MIM 은 DeFiLlama 단일-노출 풀이 없어 주소가 안 풀린다(2026-06-13 확인) — mim-swap 어댑터가
+    // 동작하려면 MIM 이 주소 있는 토큰 노드여야 하므로 검증된 정답지 추가. (온체인 symbol()=MIM)
+    MIM: "0xfea7a6a0b346362bf88a9e4a88416b77a57d6c2a",
+  },
 };
 const REVALIDATE = 600;
 

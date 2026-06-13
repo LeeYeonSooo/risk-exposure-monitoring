@@ -85,13 +85,28 @@ export function useFlowData({ tokens, chains, active, mode }: { tokens: string[]
   useEffect(() => {
     if (!active || mode !== "live" || (!addrs && !tkKey)) return;
     let alive = true;
+    let emptyRetries = 0;            // 콜드 첫 폴이 RPC 버스트로 비면 30초 안 기다리고 빠르게 재폴
+    let fastTimer: ReturnType<typeof setTimeout> | null = null;
+    const MAX_FAST_RETRIES = 4;     // 6초 × 4 ≈ 24초 동안 빠른 재시도 후 30초 폴로 복귀
     const load = () => {
       setTxLoading(true);
       const base = addrs ? `addrs=${encodeURIComponent(addrs)}` : `tokens=${encodeURIComponent(tkKey)}&chains=${encodeURIComponent(chKey)}`;
       const qs = base + (nodeAddrs ? `&nodes=${encodeURIComponent(nodeAddrs)}` : "");
       fetch(`/api/transactions?${qs}`, { cache: "no-store" })
         .then((r) => r.json())
-        .then((d) => { if (alive) { setTxs((d.txs ?? []) as FlowTx[]); setTxError((d as { error?: string }).error ?? null); setTxPartial(((d as { partial?: string[] }).partial ?? [])); setTxLoading(false); setTxAt(Date.now()); } })
+        .then((d) => {
+          if (!alive) return;
+          const txs = (d.txs ?? []) as FlowTx[];
+          setTxs(txs); setTxError((d as { error?: string }).error ?? null); setTxPartial(((d as { partial?: string[] }).partial ?? [])); setTxLoading(false); setTxAt(Date.now());
+          // 결과가 비었는데 에러도 아님 = 콜드 RPC 버스트로 일시 비었을 가능성("거래 있는데 0"). 30초
+          // 안 기다리고 6초 뒤 재폴 — 채워지면 멈춘다. (진짜 활동 없음이면 MAX 회 후 30초 폴로 복귀)
+          if (txs.length === 0 && !(d as { error?: string }).error && emptyRetries < MAX_FAST_RETRIES) {
+            emptyRetries++;
+            fastTimer = setTimeout(() => { if (alive) load(); }, 6000);
+          } else {
+            emptyRetries = 0;
+          }
+        })
         .catch(() => {
           if (!alive) return;
           setTxError("피드 조회 실패");
@@ -103,7 +118,7 @@ export function useFlowData({ tokens, chains, active, mode }: { tokens: string[]
     };
     load();
     const iv = setInterval(load, 30_000);
-    return () => { alive = false; clearInterval(iv); };
+    return () => { alive = false; clearInterval(iv); if (fastTimer) clearTimeout(fastTimer); };
   }, [active, mode, addrs, nodeAddrs, tkKey, chKey]);
 
   // ── baseline: 평소 모드 진입/주소 변경 시 1회 (서버가 20분 캐시 — 폴링 불필요) ──

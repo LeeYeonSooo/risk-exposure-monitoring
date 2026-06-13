@@ -7,7 +7,7 @@
  *     · Aave/Spark aToken · Compound Comet · Morpho 싱글톤 · Convex Booster
  *   · 이벤트 수집기(lib/lending-events.ts): aave·spark·compound·fluid·morpho·euler·lido·sky·ethena·ether.fi
  *
- * 어댑터가 없는 프로토콜(예: pendle·balancer·sushiswap·maple·yearn)은 노드는 떠도 흐름이
+ * 어댑터가 없는 프로토콜(예: yearn·beefy·solv·silo-v2·avantis 등)은 노드는 떠도 흐름이
  * 회색으로만 남는다 — 그건 "조용해서"가 아니라 "측정 수단이 없어서"다. 이 둘을 노드 단에서
  * 구분 표기(meta.flowSupported)하고, 선별 충원에서 어댑터 없는 니치를 더 높은 컷으로 거르는 데
  * 같은 판정을 쓴다. 커버리지는 **체인 의존**이다(Curve=이더리움만, Aerodrome=Base만 등).
@@ -25,10 +25,29 @@ const COVERED: { test: (slug: string) => boolean; chains: readonly string[] }[] 
   { test: (s) => s === "aave-v3", chains: ALL },                            // aToken(getReserveData) + 이벤트 (aave-v2/v4 미지원)
   { test: (s) => s === "compound-v3", chains: ALL },                        // Comet (compound-v2 미지원)
   { test: (s) => s === "morpho-blue", chains: ALL },                        // 싱글톤 + blue-api 이벤트(+볼트)
-  { test: (s) => s === "fluid-lending", chains: ALL },                      // LogOperate 이벤트 (fluid-dex/lite 미지원)
+  { test: (s) => s === "fluid-lending", chains: ALL },                      // LogOperate 이벤트(user∉dexSet) — fluid-dex 는 아래 별도
   { test: (s) => s === "euler-v2" || s === "euler", chains: ALL },          // Goldsky 볼트 + 주소배열 getLogs (L2 포함)
-  { test: (s) => s === "curve-dex" || s === "curve", chains: ["ethereum"] },// MetaRegistry = 메인넷 전용 (curve-llamalend 미지원)
+  { test: (s) => s === "curve-dex" || s === "curve", chains: ALL },         // eth=MetaRegistry · arb/base=api.curve.finance (curve-llamalend 미지원)
   { test: (s) => s.startsWith("convex"), chains: ["ethereum"] },            // Booster 싱글톤
+  // ── DEX 포크 (factory.getPool/getPair 온체인 — lib/dex-fork-pools.ts) — base·arbitrum 전용
+  //    (이더리움은 uniswap/curve/balancer 가 커버 + 파생패밀리 폭증으로 콜드로드 보호 위해 미적용) ──
+  { test: (s) => s === "pancakeswap-amm-v3", chains: ["base", "arbitrum"] },      // PancakeSwap V3 (fee 2500 티어)
+  { test: (s) => s === "pancakeswap-amm", chains: ["base", "arbitrum"] },         // PancakeSwap V2
+  { test: (s) => s === "sushiswap", chains: ["base", "arbitrum"] },               // Sushiswap V2
+  { test: (s) => s === "sushiswap-v3", chains: ["base", "arbitrum"] },            // Sushiswap V3
+  { test: (s) => s === "camelot-v2" || s === "camelot-v3", chains: ["arbitrum"] },// Camelot V2 + V3(Algebra)
+  // ── 하드케이스 해결분 (2026-06-13 라이브 검증) ──
+  { test: (s) => s === "gmx-v2-perps", chains: ["arbitrum"] },                    // GMX V2 OrderVault/Deposit/Withdraw 싱글톤
+  { test: (s) => s === "mim-swap", chains: ["arbitrum"] },                        // Abracadabra MagicLPFactory 열거
+  { test: (s) => s === "centrifuge-protocol", chains: ALL },                      // Centrifuge V3 풀별 Escrow (api.centrifuge.io)
+  { test: (s) => s === "fluid-dex", chains: ALL },                                // Fluid DEX — LogOperate topic1∈dexSet 분기(이벤트)
+  // ── ERC-4626 볼트 (lib/lending-events.ts ERC4626_SAVINGS + counterparties 큐레이트) ──
+  { test: (s) => s === "maple", chains: ["ethereum"] },                     // syrupUSDC/syrupUSDT
+  { test: (s) => s === "yo-protocol", chains: ["ethereum"] },               // yoUSD
+  { test: (s) => s === "puffer-stake", chains: ["ethereum"] },              // pufETH
+  // ── Compound-V2 포크 cToken (lib/lending-pools.ts compoundV2Markets) ──
+  { test: (s) => s === "compound-v2", chains: ["ethereum"] },               // Compound V2 cToken
+  { test: (s) => s === "moonwell-lending", chains: ["base"] },              // Moonwell (Compound-V2 fork)
   { test: (s) => s.startsWith("aerodrome"), chains: ["base"] },             // 팩토리 = Base 전용
   { test: (s) => s === "lido", chains: ["ethereum"] },                      // Submitted/WithdrawalRequested 이벤트
   { test: (s) => s === "spark" || s === "sparklend", chains: ["ethereum"] },// SparkLend 풀 이벤트 (spark-savings 미지원)

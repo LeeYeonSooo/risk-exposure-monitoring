@@ -114,6 +114,22 @@ function decodeAddressWord(hex: string, wordIdx = 0): string | null {
   return /^0x[0-9a-f]{40}$/.test(a) && a !== ZERO40 ? a : null;
 }
 
+/** ABI-decode `address[]` (offset word + length word + N address words). 손상/거대 응답은 빈 배열. */
+function decodeAddressArray(hex: string): string[] {
+  const b = hex.startsWith("0x") ? hex.slice(2) : hex;
+  if (b.length < 128) return [];
+  const len = parseInt(b.slice(64, 128), 16);
+  if (!Number.isFinite(len) || len <= 0 || len > 2000) return []; // sanity cap
+  const out: string[] = [];
+  for (let i = 0; i < len; i++) {
+    const w = b.slice(128 + i * 64, 192 + i * 64);
+    if (w.length < 64 || w.slice(0, 24) !== PAD24) continue;
+    const a = "0x" + w.slice(24).toLowerCase();
+    if (/^0x[0-9a-f]{40}$/.test(a) && a !== ZERO40) out.push(a);
+  }
+  return out;
+}
+
 /**
  * eth_call — 반환 3종을 구별한다 (캐시 오염 방지의 핵심):
  *   string    = 결과 수신
@@ -267,6 +283,53 @@ export async function compoundComets(chain: string): Promise<{ addr: string; lab
       if (hex !== undefined) _cometCache.set(key, !!(hex && hex.length === 2 + 64 && decodeAddressWord(hex)));
     }
     if (_cometCache.get(key)) out.push({ addr: comet, label: "compound-v3" });
+  }));
+  return out;
+}
+
+/**
+ * Compound-V2 **fork** markets (cToken model) — Moonwell(base)·Compound-v2(eth). Each market is a
+ * cToken whose underlying() returns the asset; a supply transfers the underlying INTO the cToken.
+ * We read the official Comptroller.getAllMarkets() then verify each cToken on-chain (comptroller()
+ * back-reference + underlying()), registering only cTokens whose underlying is a SELECTED token.
+ * Wrong/dead addresses self-eliminate (false negatives only). Comptrollers verified 2026-06-13.
+ */
+const COMPOUND_V2_COMPTROLLERS: Record<string, { addr: string; label: string }[]> = {
+  ethereum: [{ addr: "0x3d9819210a31b4961b30ef54be2aed79b9c9cd3b", label: "compound-v2" }],   // Compound Comptroller
+  base: [{ addr: "0xfbb21d0380bee3312b33c4353c8936a0f13ef26c", label: "moonwell-lending" }],   // Moonwell Comptroller
+};
+const SEL_GET_ALL_MARKETS = toFunctionSelector("function getAllMarkets()");
+const SEL_UNDERLYING = toFunctionSelector("function underlying()");
+const _cv2Markets = new Map<string, string[]>();          // `${chain}|${comptroller}` → cToken[]
+const _cv2Underlying = new Map<string, string | null>();  // `${chain}|${cToken}` → underlying (null = native, no underlying())
+
+export async function compoundV2Markets(chain: string, tokenAddrs: string[]): Promise<{ addr: string; label: string }[]> {
+  const rpc = RPC[chain];
+  const comps = COMPOUND_V2_COMPTROLLERS[chain];
+  if (!rpc || !comps?.length) return [];
+  const want = new Set(tokenAddrs.map((a) => a.toLowerCase()).filter((a) => /^0x[0-9a-f]{40}$/.test(a)));
+  if (!want.size) return [];
+  const out: { addr: string; label: string }[] = [];
+  await Promise.all(comps.map(async ({ addr: comptroller, label }) => {
+    const ck = `${chain}|${comptroller}`;
+    let markets = _cv2Markets.get(ck);
+    if (!markets) {
+      const hex = await ethCall(rpc, comptroller, SEL_GET_ALL_MARKETS);
+      if (hex == null) return; // null(revert)·undefined(transport) — 미캐시(다음 빌드 재시도)
+      markets = decodeAddressArray(hex);
+      if (markets.length) _cv2Markets.set(ck, markets);
+    }
+    await Promise.all(markets.map(async (cToken) => {
+      const uk = `${chain}|${cToken}`;
+      let underlying = _cv2Underlying.get(uk);
+      if (underlying === undefined) {
+        const hex = await ethCall(rpc, cToken, SEL_UNDERLYING);
+        if (hex === undefined) return; // 전송 실패 — 미캐시
+        underlying = hex && hex.length === 2 + 64 ? decodeAddressWord(hex) : null; // null hex(=native cEther revert) → null 캐시
+        _cv2Underlying.set(uk, underlying);
+      }
+      if (underlying && want.has(underlying)) out.push({ addr: cToken, label });
+    }));
   }));
   return out;
 }
