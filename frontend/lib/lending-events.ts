@@ -93,6 +93,25 @@ const ERC4626_SAVINGS: { chain: string; vault: string; asset: string; label: str
   { chain: "ethereum", vault: "0x356b8d89c1e1239cbbb9de4815c39a1474d5ba7d", asset: "0xdac17f958d2ee523a2206206994597c13d831ec7", label: "maple" },        // syrupUSDT·asset()=USDT
   { chain: "ethereum", vault: "0x0000000f2eb9f69274678c76222b35eec7588a65", asset: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", label: "yo-protocol" },  // yoUSD·asset()=USDC
   { chain: "ethereum", vault: "0xd9a442856c234a39a81a089c06451ebaa4306a72", asset: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", label: "puffer-stake" }, // pufETH·asset()=WETH
+  { chain: "ethereum", vault: "0x83f20f44975d03b1b09e64809b757c47f942beea", asset: "0x6b175474e89094c44da98b954eedeac495271d0f", label: "spark-savings" }, // sDAI·asset()=DAI
+  { chain: "ethereum", vault: "0xbc65ad17c5c0a2a4d159fa5a503f4992c7b545fe", asset: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", label: "spark-savings" }, // sUSDC·asset()=USDC
+  { chain: "ethereum", vault: "0x696d02db93291651ed510704c9b286841d506987", asset: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", label: "yearn-finance" }, // yvUSD·asset()=USDC (V3)
+  { chain: "ethereum", vault: "0x0e297de4005883c757c9f09fdf7cf1363c20e626", asset: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", label: "yearn-finance" }, // ysUSDC·asset()=USDC (V3)
+];
+
+// LST/RWA 발행 토큰 — mint(from 0x0)=발행 유입, burn(to 0x0)=상환 유출. 토큰이 **선택됐을 때** 그
+// 발행 프로토콜로 귀속(lido/ether.fi 일반화). USD = 금액 × 그 토큰 가격. 라벨=DeFiLlama 슬러그.
+// 전부 표준 ERC20(asset() revert — ERC4626 아님)이라 mint/burn 으로만 귀속(2026-06-13 온체인 검증).
+const LST_ISSUERS: { chain: string; token: string; label: string }[] = [
+  { chain: "ethereum", token: "0xae78736cd615f374d3085123a210448e74fc6393", label: "rocket-pool" },         // rETH
+  { chain: "ethereum", token: "0xa2e3356610840701bdf5611a53974510ae27e2e1", label: "binance-staked-eth" }, // wBETH
+  { chain: "ethereum", token: "0xa1290d69c65a6fe4df752f95823fae25cb99e5a7", label: "kelp" },                // rsETH
+  { chain: "ethereum", token: "0x8236a87084f8b84306f72007f36f2618a5634494", label: "lombard-lbtc" },        // LBTC
+  { chain: "ethereum", token: "0x96f6ef951840721adbf46ac996b59e0235cb985c", label: "ondo-yield-assets" },   // USDY
+  { chain: "ethereum", token: "0x1b19c19393e2d034d8ff31ff34c81252fcbbee92", label: "ondo-yield-assets" },   // OUSG
+  { chain: "ethereum", token: "0x73a15fed60bf67631dc6cd7bc5b6e8da8190acf5", label: "usual-usd0" },          // USD0
+  { chain: "ethereum", token: "0xd5f7838f5c461feff7fe49ea5ebaf7728bb0adfa", label: "meth-protocol" },       // mETH
+  { chain: "ethereum", token: "0xa35b1b31ce002fbf2058d22f30f95d405200a15b", label: "stader" },              // ETHx
 ];
 
 // ── ether.fi — eETH 민트(=스테이크 유입)/소각(=출금 유출). 홀드 엣지가 weETH→ether.fi-stake 라
@@ -123,7 +142,9 @@ const MORPHO_CHAIN_ID: Record<string, number> = { ethereum: 1, base: 8453, arbit
 
 /** 이벤트 수집기가 커버하는 카운터파티 라벨 — 전송 스캔의 같은 라벨 행은 드롭(이중 집계 방지).
  *  "fluid" 포함 이유: Fluid 리퀴디티 싱글톤이 스캔에서 "Fluid" 라벨로도 잡혀 이벤트 행과 이중 집계됐던 것 적발. */
-export const LENDING_EVENT_LABELS = ["aave-v3", "spark", "compound-v3", "fluid-lending", "fluid", "fluid-dex", "morpho-blue", "morpho blue", "lido", "sky-lending", "ethena-usde", "euler-v2", "ether.fi-stake", "etherfi"];
+export const LENDING_EVENT_LABELS = ["aave-v3", "spark", "compound-v3", "fluid-lending", "fluid", "fluid-dex", "morpho-blue", "morpho blue", "lido", "sky-lending", "ethena-usde", "euler-v2", "ether.fi-stake", "etherfi",
+  // LST/RWA 발행 + ERC4626(spark-savings·yearn) — 이벤트 수집 라벨(전송 스캔과 이중집계 방지)
+  "rocket-pool", "binance-staked-eth", "kelp", "lombard-lbtc", "ondo-yield-assets", "usual-usd0", "meth-protocol", "stader", "spark-savings", "yearn-finance"];
 
 // ── RPC 유틸 ──────────────────────────────────────────────────────────
 interface Log { address: string; topics: string[]; data: string; transactionHash: string }
@@ -341,7 +362,24 @@ export async function lendingEventRows(targets: CpTarget[], prices: Map<string, 
         for (const l of burns) { const w = word(l.data, 0); if (w) { const u = toU(w); if (u > 0) inc(agg, akey(efSym, chain, "ether.fi-stake", "out", null), u, l.transactionHash); } }
       }
     }
-    // ── ERC-4626 저축 (sky sUSDS·ethena sUSDe) — 기초자산이 선택 토큰일 때만, 컨트랙트 주소로 귀속 ──
+    // ── LST/RWA 발행 토큰 (rocket-pool·wBETH·kelp·lombard·ondo·usual·meth·stader) — ether.fi 일반화:
+    //    mint(from 0x0)=발행 유입, burn(to 0x0)=상환 유출. 선택된 토큰만, 그 토큰 가격으로 USD 환산. ──
+    for (const it of LST_ISSUERS) {
+      if (it.chain !== chain) continue;
+      const sym = byChainAddr.get(`${chain}:${it.token}`);
+      if (!sym) continue;
+      const pi = prices.get(`${chain}:${it.token}`);
+      if (!pi || pi.decimals == null) continue;
+      const dec = pi.decimals, px = pi.price;
+      const [mints, burns] = await Promise.all([
+        logs24h(chain, it.token, [TRANSFER_TOPIC, ZERO_TOPIC]),       // from = 0x0 (발행)
+        logs24h(chain, it.token, [TRANSFER_TOPIC, null, ZERO_TOPIC]), // to   = 0x0 (상환/소각)
+      ]);
+      const toU = (w: string) => (Number(BigInt(w) & ((1n << 255n) - 1n)) / 10 ** dec) * px;
+      for (const l of mints) { const w = word(l.data, 0); if (w) { const u = toU(w); if (u > 0) inc(agg, akey(sym, chain, it.label, "in", null), u, l.transactionHash); } }
+      for (const l of burns) { const w = word(l.data, 0); if (w) { const u = toU(w); if (u > 0) inc(agg, akey(sym, chain, it.label, "out", null), u, l.transactionHash); } }
+    }
+    // ── ERC-4626 저축 (sky sUSDS·ethena sUSDe·maple·spark-savings·yearn 등) — 기초자산이 선택 토큰일 때만, 컨트랙트 주소로 귀속 ──
     for (const sv of ERC4626_SAVINGS) {
       if (sv.chain !== chain) continue;
       const sym = byChainAddr.get(`${chain}:${sv.asset}`);

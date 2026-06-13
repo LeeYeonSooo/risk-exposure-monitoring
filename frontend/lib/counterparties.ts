@@ -263,10 +263,20 @@ export async function buildCounterpartyRegistry(targets: CpTarget[], nodesParam:
       addKnown("0x356b8d89c1e1239cbbb9de4815c39a1474d5ba7d", "maple", false);        // syrupUSDT
       addKnown("0x0000000f2eb9f69274678c76222b35eec7588a65", "yo-protocol", false);  // yoUSD
       addKnown("0xd9a442856c234a39a81a089c06451ebaa4306a72", "puffer-stake", false); // pufETH
+      addKnown("0x83f20f44975d03b1b09e64809b757c47f942beea", "spark-savings", false); // sDAI (ERC4626, 평소=lending-events 동기)
+      addKnown("0xbc65ad17c5c0a2a4d159fa5a503f4992c7b545fe", "spark-savings", false); // sUSDC
+      addKnown("0x696d02db93291651ed510704c9b286841d506987", "yearn-finance", false); // yvUSD (V3)
+      addKnown("0x0e297de4005883c757c9f09fdf7cf1363c20e626", "yearn-finance", false); // ysUSDC (V3)
+      // Dolomite — DolomiteMargin 싱글톤이 기초 ERC20 직접 수탁(GMX/Morpho형, 영수증토큰 없음). dex=false.
+      addKnown("0x003ca23fd5f0ca87d01f6ec6cd14a8ae60c2b97d", "dolomite", false);
     }
     if (chain === "base") {
       // Aerodrome = base's main DEX — pools read live from the official factories (v1 + Slipstream)
       try { for (const { addr, label, pair } of await aerodromePoolsFor(chainAddrs)) addKnown(addr, label, true, pair); } catch { /* ignore */ }
+      // Avantis(perps) — 담보 싱크 TradingStorage·VaultManager + avUSDC LP 볼트(온체인 검증). dex=false.
+      addKnown("0x8a311d7048c35985aa31c131b9a13e03a5f7422d", "avantis", false); // TradingStorage (트레이더 담보)
+      addKnown("0xe9fb8c70af1b99f2baaa07aa926fcf3d237348dd", "avantis", false); // VaultManager (LP)
+      addKnown("0x944766f715b51967e56afde5f0aa76ceacc9e7f9", "avantis", false); // avUSDC LP 볼트
     }
     if (chain === "arbitrum") {
       // GMX V2 공용 Vault 싱글톤 — 포지션 담보/유동성 inflow 가 여기로(134개 GM 마켓 대신 Vault 하나로
