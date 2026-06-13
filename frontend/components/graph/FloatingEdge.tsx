@@ -3,12 +3,12 @@
 import {
   type Edge,
   type EdgeProps,
-  getStraightPath,
   useInternalNode,
 } from "@xyflow/react";
 
 import { edgeColor } from "@/lib/edge-colors";
 import { getEdgeParams } from "@/lib/floating-edge";
+import { oracleClassOf, ORACLE_COLORS } from "@/lib/oracle";
 
 export interface FloatingEdgeData extends Record<string, unknown> {
   edgeType: string;
@@ -23,6 +23,14 @@ export interface FloatingEdgeData extends Record<string, unknown> {
   tier?: string;
   bridge?: boolean;
   sharedWhales?: number;
+  /** 레이아웃 중심(토큰) — 파생↔수용처 교차 엣지를 이 점에서 먼 쪽(바깥)으로 크게 휘게. */
+  cx?: number;
+  cy?: number;
+  /** 외곽 반지름(최외곽 노드까지) — 교차 엣지 호의 정점을 이 밖으로 보내 모든 노드를 둘러 가게. */
+  rp?: number;
+  /** 엣지 위 오라클 원 — 한쪽 끝 마켓이 쓰는 오라클 종류(MARKET/EXCHANGE_RATE/NONE/ORACLE_FREE …)·심볼. */
+  oracleType?: string;
+  oracleSymbol?: string;
 }
 
 export type FloatingEdgeType = Edge<FloatingEdgeData, "floating">;
@@ -40,13 +48,34 @@ export function FloatingEdge({
 
   const { sx, sy, tx, ty } = getEdgeParams(sourceNode, targetNode);
 
-  // 직선 엣지 (tiger-research 스타일) — bezier 의 "구불구불함" 제거.
-  const [path] = getStraightPath({
-    sourceX: sx,
-    sourceY: sy,
-    targetX: tx,
-    targetY: ty,
-  });
+  // 기본은 직선(동심원). 단 **파생↔수용처 교차 엣지**(collateral_at/staked_in)는 중앙을 직선
+  // 관통하지 않게 중심(토큰)에서 먼 쪽으로 크게 휘어 바깥을 둘러 잇는다(길수록 더 큰 호).
+  const et = data?.edgeType;
+  const isCross = et === "collateral_at" || et === "staked_in";
+  const cx = data?.cx, cy = data?.cy, rp = data?.rp;
+  let path: string;
+  const dx = tx - sx, dy = ty - sy, len = Math.hypot(dx, dy) || 1;
+  if (isCross && typeof cx === "number" && typeof cy === "number" && typeof rp === "number") {
+    // 최적(낭비 최소): 직선이 **중앙 클러스터를 실제로 가로지를 때만** 휜다. 그것도 외곽 전체가
+    // 아니라 클러스터 가장자리까지만 부풀려 짧은 쪽으로 돌아간다.
+    const h = Math.abs(dx * (cy - sy) - dy * (cx - sx)) / len; // 중심→코드 수직거리
+    const Rcluster = rp * 0.6; // 프로토콜·마켓 밀집 영역 반지름(근사)
+    if (h >= Rcluster) {
+      path = `M ${sx} ${sy} L ${tx} ${ty}`; // 코드가 클러스터 밖 → 직선
+    } else {
+      const angS = Math.atan2(sy - cy, sx - cx), angT = Math.atan2(ty - cy, tx - cx);
+      let diff = angT - angS;
+      while (diff > Math.PI) diff -= 2 * Math.PI;
+      while (diff < -Math.PI) diff += 2 * Math.PI;
+      const bis = angS + diff / 2; // 짧은 쪽 각이등분
+      const apexR = Rcluster + rp * 0.1 + 22; // 클러스터 가장자리 살짝 밖까지만
+      const apexX = cx + Math.cos(bis) * apexR, apexY = cy + Math.sin(bis) * apexR;
+      const m0x = (sx + tx) / 2, m0y = (sy + ty) / 2;
+      path = `M ${sx} ${sy} Q ${2 * apexX - m0x} ${2 * apexY - m0y} ${tx} ${ty}`;
+    }
+  } else {
+    path = `M ${sx} ${sy} L ${tx} ${ty}`;
+  }
 
   const active = data?.active ?? false;
   const danger = data?.danger ?? false;
@@ -56,6 +85,11 @@ export function FloatingEdge({
 
   // 엣지 타입별 색. 위험(danger)일 때만 빨강으로 override (라이브에선 거의 없음).
   const stroke = danger ? "var(--color-danger)" : edgeColor(data?.edgeType);
+
+  // 엣지 위 오라클 원 — 마켓이 쓰는 오라클 종류를 색으로(시장가/환율/풀현물/하드코딩). 엣지 중점에.
+  const oracleType = data?.oracleType as string | undefined;
+  const oracleCls = oracleType ? oracleClassOf(oracleType, null, data?.oracleSymbol as string | undefined) : null;
+  const mx = (sx + tx) / 2, my = (sy + ty) / 2;
 
   return (
     <g>
@@ -83,6 +117,12 @@ export function FloatingEdge({
           pointerEvents: "none",
         }}
       />
+      {/* 오라클 원 — 엣지 중점에 작은 원(오라클 종류 색). 하드코딩·고정은 위험색이라 한눈에 보임. */}
+      {oracleCls && !faded && (
+        <circle cx={mx} cy={my} r={5.5} fill={ORACLE_COLORS[oracleCls]} stroke="var(--color-surface)" strokeWidth={1.5} opacity={0.95} style={{ pointerEvents: "none" }}>
+          <title>{`오라클: ${oracleCls}`}</title>
+        </circle>
+      )}
     </g>
   );
 }

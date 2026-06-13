@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import { Search, ArrowRight, Bell, Waves, X } from "lucide-react";
 
 import { AlertDock } from "@/components/AlertDock";
-import { FlowMapBoard } from "@/components/flowmap/FlowMapBoard";
 import { alertFlowHref } from "@/lib/alert-link";
 import { formatUsd } from "@/lib/api";
 
 /**
- * 메인화면 — 헤더(로고·검색바·흐름맵 버튼) + 실시간 상황판(이벤트 기반 동심원: 안=토큰,
- * 밖=프로토콜, 이상 흐름만 발화 — docs/flow-situation-board.md) + 우측 실시간 모니터링 알림.
+ * 메인화면 — 헤더(로고·검색바·흐름맵 버튼) + 중앙 토큰 순위(시가총액, 클릭 = 관계맵)
+ * + 우측 실시간 모니터링 알림. (2026-06-12) 실시간 상황판은 내부 피드백으로 메인에서 제거 —
+ * 실시간 시각화는 토큰 페이지의 "실시간 상황판" 탭과 /flow 흐름맵이 담당.
  * 검색바 클릭 → 반투명 오버레이로 시총 순위 토큰 리스트(클릭 = 그 토큰의 관계맵 페이지).
  */
 
@@ -60,7 +60,6 @@ export default function MainLanding() {
   const [mcap, setMcap] = useState<Record<string, number>>({}); // 시가총액(순위 기준), 없으면 익스포저 폴백
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
-  const [railEl, setRailEl] = useState<HTMLElement | null>(null); // 상황판 레일 포털 타깃(알림 패널 상단)
   const [searchOpen, setSearchOpen] = useState(false);
   const [chainSel, setChainSel] = useState<string>("전체");
   const [sevSel, setSevSel] = useState<string>("전체");
@@ -110,6 +109,12 @@ export default function MainLanding() {
 
   const go = (sym: string) => router.push(`/token/${encodeURIComponent(sym)}`);
 
+  // 중앙 = 시총 순위 (검색 오버레이와 같은 기준 — 시총 없으면 익스포저 폴백)
+  const rankedTokens = useMemo(() => {
+    const rv = (t: string) => mcap[t] ?? exposure[t] ?? 0;
+    return [...tokens].sort((a, b) => rv(b) - rv(a)).slice(0, 80);
+  }, [tokens, mcap, exposure]);
+
   return (
     <div className="flex h-screen flex-col bg-[var(--color-bg)]">
       <AlertDock />
@@ -135,16 +140,31 @@ export default function MainLanding() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        {/* ── 중앙: 실시간 상황판 (이벤트 기반 — 안=토큰, 밖=프로토콜, 이상 흐름만 발화).
-              레일(이상 흐름·레버)은 railPortal 로 우측 알림 패널에 합쳐 렌더 — 겹침 방지 + 한 패널. ── */}
-        <div className="relative min-h-0 min-w-0 flex-1">
-          <FlowMapBoard railPortal={railEl} />
+        {/* ── 중앙: 토큰 순위 (시가총액 — 클릭 = 그 토큰의 관계맵) ── */}
+        <div className="relative min-h-0 min-w-0 flex-1 overflow-y-auto">
+          <div className="mx-auto w-full max-w-2xl px-4 py-6">
+            <div className="flex items-center justify-between px-1 text-[10px] font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
+              <span>토큰 순위 · 시가총액</span>
+              <span className="normal-case">{tokens.length}개 추적 · 클릭 = 관계맵</span>
+            </div>
+            <div className="mt-1.5 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
+              {rankedTokens.length === 0 ? (
+                <div className="px-5 py-4 text-sm text-[var(--color-text-muted)]">로딩…</div>
+              ) : rankedTokens.map((t, i) => (
+                <button key={t} onClick={() => go(t)}
+                  className="group flex w-full items-center gap-2.5 px-5 py-2.5 text-left transition-colors hover:bg-[var(--color-surface-raised)]">
+                  <span className="w-6 shrink-0 text-right font-mono text-[11px] text-[var(--color-text-muted)]">{i + 1}</span>
+                  <span className="flex-1 truncate text-[14px] font-medium text-[var(--color-text-primary)]">{t}</span>
+                  {mcap[t] ? <span className="font-mono text-[12px] text-[var(--color-text-secondary)]" title="시가총액">{formatUsd(mcap[t])}</span> : exposure[t] ? <span className="font-mono text-[12px] text-[var(--color-text-muted)]" title="익스포저 (시총 미상)">{formatUsd(exposure[t])}</span> : null}
+                  <ArrowRight size={14} className="shrink-0 text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100" />
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* ── 우: 상황판 레일 + 실시간 모니터링 알림 (한 패널) ── */}
+        {/* ── 우: 실시간 모니터링 알림 ── */}
         <aside className="flex w-[420px] shrink-0 flex-col border-l border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
-          {/* 상황판 레일 포털 타깃 — 보드가 이상 흐름/대형 단일/레버를 여기로 렌더(호버 연동 유지) */}
-          <div ref={setRailEl} className="max-h-[42%] shrink-0 overflow-y-auto border-b border-[var(--color-border-subtle)] empty:hidden" />
           <div className="flex flex-wrap items-center gap-2.5 px-5 pb-2 pt-4">
             <Bell size={16} className="text-[var(--color-accent)]" />
             <span className="text-[15px] font-bold text-[var(--color-text-primary)]">실시간 모니터링 알림</span>

@@ -9,7 +9,7 @@ import type { FlowGraph as FlowGraphData, FlowTx } from "@/lib/flow-types";
  * the near-real-time (≈1 min) real transfer feed using the graph's REAL token addresses
  * (every token node, every chain) so we don't miss transactions. Only runs while `active`.
  */
-export function useFlowData({ tokens, chains, active }: { tokens: string[]; chains: string[]; active: boolean }) {
+export function useFlowData({ tokens, chains, active, estimated = false }: { tokens: string[]; chains: string[]; active: boolean; estimated?: boolean }) {
   const [graph, setGraph] = useState<FlowGraphData | null>(null);
   const [loading, setLoading] = useState(false);
   const [txs, setTxs] = useState<FlowTx[]>([]);
@@ -33,12 +33,14 @@ export function useFlowData({ tokens, chains, active }: { tokens: string[]; chai
     // request a GENEROUS candidate set (incl. lower-rank protocols like Uniswap V4) — the client's
     // fixed individual-share filter (flow-match filterGraphByDetail) trims it, and tx-active nodes
     // below the share floor still need to be IN the payload to be pinned.
-    fetch(`/api/flow?tokens=${encodeURIComponent(tkKey)}&chains=${encodeURIComponent(chKey)}&topPct=0.998&maxProto=24&maxMkt=14`, { cache: "no-store" })
+    // estimated → mint_event(추정) 브릿지 노드도 받음(기본 꺼짐 — 검증/탐지된 것만).
+    const estParam = estimated ? "&estimated=1" : "";
+    fetch(`/api/flow?tokens=${encodeURIComponent(tkKey)}&chains=${encodeURIComponent(chKey)}&topPct=0.998&maxProto=24&maxMkt=14${estParam}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((g) => { if (alive) { setGraph(g); setLoading(false); } })
       .catch(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [active, tkKey, chKey]);
+  }, [active, tkKey, chKey, estimated]);
 
   // real token addresses (chain:addr:symbol) straight from the graph — every token node, every chain
   const addrs = useMemo(() => {
@@ -47,9 +49,7 @@ export function useFlowData({ tokens, chains, active }: { tokens: string[]; chai
     const out: string[] = [];
     for (const n of graph.nodes) {
       if (n.kind !== "token" || !n.address) continue;
-      // 비-EVM 주소는 케이스 보존(base58/타입경로), aptos·sui 의 "::" 는 URI 인코딩으로 구분자 충돌 방지
-      const NONEVM = new Set(["solana", "tron", "sui", "aptos", "starknet"]);
-      const a = NONEVM.has(n.chain) ? n.address : n.address.toLowerCase();
+      const a = n.address.toLowerCase();
       const key = `${n.chain}:${a}`;
       if (seen.has(key)) continue;
       seen.add(key);

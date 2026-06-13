@@ -8,14 +8,19 @@ import { Activity, X } from "lucide-react";
 import { AlertDock } from "@/components/AlertDock";
 import { SiteHeader } from "@/components/SiteHeader";
 import { chainOptions } from "@/lib/chains-ui";
-import { FlowMapBoard } from "@/components/flowmap/FlowMapBoard";
+import { BridgeView } from "@/components/bridge/BridgeView";
 import { GraphCanvas } from "@/components/graph/GraphCanvas";
-import { LeverageLoopGraph } from "@/components/looping/LeverageLoopGraph";
 import { TokenDossier, type DossierData } from "@/components/graph/TokenDossier";
 import { ADDR_EXPLORER, PRow, TokenSpecRows, pct1, sevDots, shortAddr, useNodeAlertCounts } from "@/components/panel/spec";
 import { SAFE_NODE_STATE, formatUsd, type GraphEdge, type GraphNode, type NodeTickState } from "@/lib/api";
+import { normalizeToBoost, pageRank, usdLogWeight } from "@/lib/centrality";
 import { applyConcentricLayout, type PoolLike, type MorphoMkt, type EulerVault } from "@/lib/concentric-layout";
-import { EDGE_TYPE_COLORS, EDGE_TYPE_LABELS } from "@/lib/edge-colors";
+import { overlayLego, type LegoApiEdge, type LegoApiNode } from "@/lib/lego-overlay";
+import { mapAlertsToNodeRisk, type RiskAlertLike } from "@/lib/alert-link";
+import { deOverlapConcentric } from "@/lib/deoverlap-layout";
+import { relayoutConcentric } from "@/lib/concentric-relayout";
+import { applyTreeLayout } from "@/lib/tree-layout";
+import { EDGE_GROUPS, EDGE_TYPE_COLORS, EDGE_TYPE_LABELS } from "@/lib/edge-colors";
 
 interface Relation { edge: GraphEdge; otherId: string; otherLabel: string; direction: "out" | "in" }
 interface BreadthItem { chain: string; project: string; tvlUsd: number; category: string | null; pools: PoolLike[] }
@@ -30,9 +35,10 @@ export default function TokenPage() {
   const sym = decodeURIComponent(params.symbol);
   // 탭 → 직교 컨트롤(깊이·형태). 스코프(체인내부/체인간)는 하나로 합침 — 여러 체인이면 자동으로
   // 컴팩트+브릿지(매크로), 한 체인만 보면 풀 디테일(마이크로). 멘탈모델 1개.
-  const [depth, setDepth] = useState<"protocol" | "market" | "curator">("market"); // 기본은 체인→프로토콜→마켓 분포.
-  // 보기: 관계맵(정적 구조) / 실시간 상황판(이벤트 기반 — 시장 전체, 페이지 토큰 강조) / 레버리지 루프(Morpho 포지션)
-  const [view, setView] = useState<"map" | "live" | "lev">("map");
+  const [depth, setDepth] = useState<"protocol" | "market" | "curator">("curator"); // 기본 = +큐레이터 고정 (머니레고 끝단까지)
+  // 보기: 관계맵(단일 체인 머니레고) / 브릿지 뷰(크로스체인 브릿지 + 실시간 트랜잭션 입자)
+  const [view, setView] = useState<"map" | "bridge">("map");
+  const [shape, setShape] = useState<"tree" | "concentric">("tree"); // 관계맵 형태: 트리(위→아래) 기본 / 동심원
   const [panelOpen, setPanelOpen] = useState(true);             // 우측 상세 패널 토글 (관계맵 전용)
   const [hiddenChains, setHiddenChains] = useState<Set<string>>(new Set());        // 체크 해제된(숨긴) 체인
   const [dbNodes, setDbNodes] = useState<Map<string, GraphNode>>(new Map());
@@ -47,6 +53,9 @@ export default function TokenPage() {
   const [supplyByChain, setSupplyByChain] = useState<Record<string, { supply: number; supplyUsd: number }>>({});
   const [bridgeAuth, setBridgeAuth] = useState<Record<string, { bridgeAddr: string; authType: string; mintLimit: number | null; note: string | null }[]>>({});
   const [breadthLoading, setBreadthLoading] = useState(false); // 라이브 데이터 수집 중
+  // 머니레고 레이어 — 파생토큰(PT/YT/LP/aToken) + 구조 엣지 (snapshot-lego 적재분)
+  const [lego, setLego] = useState<{ nodes: LegoApiNode[]; edges: LegoApiEdge[] }>({ nodes: [], edges: [] });
+  const [showDerivs, setShowDerivs] = useState(true);
 
   useEffect(() => {
     // 이 토큰의 정밀(DB) 서브그래프만 온디맨드로 — 전체 스냅샷(/api/graph) 통째로 받지 않음.
@@ -63,6 +72,9 @@ export default function TokenPage() {
     setBreadth([]); setTokenAddr({}); setMorphoByChain({}); setEulerByChain({}); setSupplyByChain({}); setBridgeAuth({}); setBreadthLoading(true);
     fetch(`/api/breadth/${encodeURIComponent(sym)}`, { cache: "no-store" }).then((r) => r.json()).then((d) => { setBreadth(d.items ?? []); setTokenAddr(d.tokenAddrByChain ?? {}); setMorphoByChain(d.morphoMarkets ?? {}); setEulerByChain(d.eulerVaults ?? {}); setSupplyByChain(d.supplyByChain ?? {}); }).catch(() => {}).finally(() => setBreadthLoading(false));
     fetch(`/api/bridge-authority/${encodeURIComponent(sym)}`, { cache: "no-store" }).then((r) => r.json()).then((d) => setBridgeAuth(d.byChain ?? {})).catch(() => {});
+    // 머니레고 구조 (파생토큰·수용처) — 없으면 빈 배열(레이어 안 그림)
+    setLego({ nodes: [], edges: [] });
+    fetch(`/api/lego/${encodeURIComponent(sym)}`, { cache: "no-store" }).then((r) => r.json()).then((d) => setLego({ nodes: d.nodes ?? [], edges: d.edges ?? [] })).catch(() => {});
     setPicked(null);
   }, [sym]);
 
@@ -170,13 +182,53 @@ export default function TokenPage() {
     () => applyConcentricLayout({ symbol: sym, tokenIds: tokenIdSet, relations: mergedRelations, dbNodes: mergedNodes, hiddenChains, poolsByKey, tokenAddrByChain: tokenAddr, includeMarkets, includeVaults, morphoByChain, eulerByChain, supplyByChain, bridgeAuthByChain: bridgeAuth, bridgeHub }),
     [sym, tokenIdSet, mergedRelations, mergedNodes, hiddenChains, poolsByKey, tokenAddr, includeMarkets, includeVaults, morphoByChain, eulerByChain, supplyByChain, bridgeAuth, bridgeHub],
   );
-  const subNodeById = useMemo(() => { const m = new Map<string, GraphNode>(); for (const n of subTopology.nodes) m.set(n.id, n); return m; }, [subTopology]);
+  // 머니레고 오버레이 — 동심원 위에 파생토큰 노드·구조 엣지를 얹음 (토글로 끔/켬, B11 때 정식 레이아웃)
+  const legoTopology = useMemo(() => {
+    const base = showDerivs ? overlayLego(subTopology, lego, hiddenChains) : subTopology;
+    // C14/C15→C1: 노드 크기 = 규모(TVL) 단일이 아니라 "연결성"도 반영. 단순 차수 대신 진짜 PageRank
+    // (엣지 방향 그대로 + log1p(USD) 가중) — 많은 파생/토큰이 거쳐가는 허브일수록 크게 (멘토 §6).
+      const deg = new Map<string, number>(); // 무방향 차수 — 제외 규칙(연결 2 미만)용으로만 유지
+    for (const e of base.edges) { deg.set(e.source, (deg.get(e.source) ?? 0) + 1); deg.set(e.target, (deg.get(e.target) ?? 0) + 1); }
+    // USD 추출: attrs.core.amountUsd 우선, 없으면 weight(>1 만 — 0.2/0.3/1 류는 구조 상수라 USD 아님)
+    const pr = pageRank(base.nodes, base.edges.map((e) => ({
+      source: e.source, target: e.target,
+      weight: usdLogWeight(e.attrs?.core?.amountUsd ?? (typeof e.weight === "number" && e.weight > 1 ? e.weight : null)),
+    })));
+    // 제외 규칙 유지: Token/체인라벨/파생토큰(40px 고정 디자인) + 연결 2 미만은 boost 없음.
+    // 나머지 후보의 PR 점수만 [1.0, 1.7] 로 정규화 → 기존 캡(1.7x) 의미 보존.
+    const eligible = new Map<string, number>();
+    for (const n of base.nodes) {
+      if ((deg.get(n.id) ?? 0) < 2 || n.type === "Token" || n.type === "IslandHandle" || n.type === "DerivativeToken") continue;
+      eligible.set(n.id, pr.get(n.id) ?? 0);
+    }
+    const boostById = normalizeToBoost(eligible, 1, 1.4); // 최저=1.0, 최고=1.4 (1.7→1.4: 부스트가 큰 프로토콜에 곱해져 크기 차이를 키우던 것 완화 — 사용자 2026-06-13)
+    const nodes = base.nodes.map((n) => {
+      const boost = boostById.get(n.id);
+      return boost === undefined ? n : { ...n, metadata: { ...n.metadata, connImportance: boost } };
+    });
+    // 형태: 트리(토큰 root 최상단, 위→아래 계층) 또는 동심원(토큰 중심 링).
+    if (shape === "tree") return applyTreeLayout({ ...base, nodes }, hiddenChains);
+    // 동심원: 브릿지 허브가 아니면 역할 기반 동심원 재배치(합성 프로토콜 포함 전부 링1, 마켓은 부모 wedge 링2 동심 arc)
+    //   → 마켓 많은 합성 프로토콜이 한쪽 부챗살로 뻗던 것 제거. 그 뒤 deOverlap 으로 잔여 겹침만 미세 조정.
+    const ring = bridgeHub ? { ...base, nodes } : relayoutConcentric({ ...base, nodes }, hiddenChains);
+    return deOverlapConcentric(ring);
+  }, [subTopology, lego, hiddenChains, showDerivs, shape, bridgeHub]);
+  const subNodeById = useMemo(() => { const m = new Map<string, GraphNode>(); for (const n of legoTopology.nodes) m.set(n.id, n); return m; }, [legoTopology]);
   const subNodeStates = useMemo(() => {
-    // ouroboros(같은 계열 담보↔대출) 신호 전면 제외 — "같은 계열이면 레버리지 가능"은 약한 추정 휴리스틱.
+    // 노드 위험색 — 엔진이 이미 판정해 적재한 알림(dossier.alerts)을 노드에 결정론적으로 매핑(alert-link 순수 함수).
+    //   ouroboros(같은 계열 담보↔대출) 류 추정 휴리스틱은 쓰지 않음. critical→danger(빨강)·warning→caution(노랑).
+    const riskById = mapAlertsToNodeRisk(
+      (dossier?.alerts ?? []) as RiskAlertLike[],
+      // _market(loan·lltv) 도 넘겨 마켓 단위 조인(같은 프로토콜이라도 알림이 가리킨 그 마켓만 위험색).
+      legoTopology.nodes.map((n) => ({ id: n.id, metadata: { venue: n.metadata.venue, brandSlug: n.metadata.brandSlug, _market: n.metadata._market } })),
+    );
     const m: Record<string, NodeTickState> = {};
-    for (const n of subTopology.nodes) m[n.id] = SAFE_NODE_STATE;
+    for (const n of legoTopology.nodes) {
+      const risk = riskById.get(n.id);
+      m[n.id] = risk ? { ...SAFE_NODE_STATE, riskLevel: risk } : SAFE_NODE_STATE;
+    }
     return m;
-  }, [subTopology]);
+  }, [legoTopology, dossier]);
 
   const distributionRows = useMemo(() => {
     const grouped = new Map<string, { label: string; usd: number; pct: number; chain: string }>();
@@ -268,6 +320,13 @@ export default function TokenPage() {
       setPicked({ kind: "bridge", ...md, label: node?.label });
     } else if (node?.type === "Token") {
       setPicked({ kind: "token", symbol: (md?.symbol as string) ?? node.label });
+    } else if (node?.type === "DerivativeToken") {
+      // 파생토큰 — 역할·출처 프로토콜·기초토큰·수용처(레고 엣지) 모아 상세
+      const accepts = (legoTopology.edges ?? [])
+        .filter((e) => e.source === id && (e.type === "collateral_at" || e.type === "staked_in"))
+        .map((e) => ({ rel: e.type, to: legoTopology.nodes.find((n) => n.id === e.target)?.label ?? e.target, evidence: (e.attrs as { legoEvidence?: Record<string, unknown> } | undefined)?.legoEvidence ?? null }));
+      setPicked({ kind: "derivative", label: node.label, role: md?.derivRole, source: md?.venue, address: md?.address, chain: md?.chain, evidence: md?.legoEvidence, accepts,
+        terminal: md?.terminal, terminalReason: md?.terminalReason, rewardSource: md?.rewardSource });
     } else if (id && node) {
       // 프로토콜 — 전 체인 관계의 topMarkets 를 모아 스펙 행 입력으로
       const realId = id.replace(/^c:[^:]+:/, "");
@@ -311,8 +370,7 @@ export default function TokenPage() {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-4 py-2 lg:px-5">
         <ControlGroup label="보기">
           <Seg active={view === "map"} onClick={() => setView("map")}>관계맵</Seg>
-          <Seg active={view === "live"} onClick={() => setView("live")}>실시간 상황판</Seg>
-          <Seg active={view === "lev"} onClick={() => setView("lev")}>레버리지 루프</Seg>
+          <Seg active={view === "bridge"} onClick={() => setView("bridge")}>브릿지 맵</Seg>
         </ControlGroup>
         {view === "map" && (
           <ControlGroup label="깊이">
@@ -321,29 +379,37 @@ export default function TokenPage() {
             <Seg active={depth === "curator"} onClick={() => setDepth("curator")}>+큐레이터</Seg>
           </ControlGroup>
         )}
-        {view === "map" && ((visibleChainCount > 1 || chains.length > 1) ? <span className="text-[10px] text-[var(--color-text-muted)]">{bridgeHub ? "매크로: 체인+브릿지" : "마이크로: 단일 체인"}</span> : null)}
+        {view === "map" && (
+          <ControlGroup label="형태">
+            <Seg active={shape === "tree"} onClick={() => setShape("tree")}>트리</Seg>
+            <Seg active={shape === "concentric"} onClick={() => setShape("concentric")}>동심원</Seg>
+          </ControlGroup>
+        )}
+        {view === "map" && lego.nodes.length > 0 && (
+          <ControlGroup>
+            <Seg active={showDerivs} onClick={() => setShowDerivs((v) => !v)}>파생토큰 {showDerivs ? "켜짐" : "꺼짐"}</Seg>
+          </ControlGroup>
+        )}
         {view === "map" && (
         <div className="flex flex-wrap items-center gap-1">
           <span className="text-[10px] uppercase text-[var(--color-text-muted)]">체인</span>
-          <button onClick={() => { userToggledChains.current = true; setHiddenChains((prev) => prev.size > 0 ? new Set() : new Set(chainOpts.map((c) => c.key))); setPicked(null); setSelNode(null); }}
-            className="rounded px-1.5 py-0.5 text-[10px] text-[var(--color-accent)] hover:underline">전체</button>
+          {/* 단일 선택 — 한 번에 한 체인의 머니레고 구조만 (사용자 지시: 체크박스→하나씩) */}
           {chainOpts.map((c) => {
             const ch = c.key;
-            const on = !hiddenChains.has(ch);
+            const selected = !hiddenChains.has(ch);
             return (
               <button key={ch}
-                onClick={() => { userToggledChains.current = true; setHiddenChains((prev) => { const n = new Set(prev); if (n.has(ch)) n.delete(ch); else n.add(ch); return n; }); setPicked(null); setSelNode(null); }}
-                className={"flex items-center gap-1 rounded px-2 py-0.5 text-[11px] transition-colors " + (on ? "text-[var(--color-text-primary)] hover:bg-[var(--color-surface-raised)]" : "text-[var(--color-text-muted)] opacity-55 hover:opacity-90")}>
-                <span className={"inline-block size-2.5 rounded-[3px] border transition-colors " + (on ? "border-[var(--color-accent)] bg-[var(--color-accent)]" : "border-[var(--color-border-subtle)] bg-transparent")} />
+                onClick={() => { userToggledChains.current = true; setHiddenChains(new Set(chainOpts.map((x) => x.key).filter((k) => k !== ch))); setPicked(null); setSelNode(null); }}
+                className={"flex items-center gap-1 rounded-md px-2.5 py-0.5 text-[11px] font-medium transition-colors " + (selected ? "bg-[var(--color-accent)] text-white" : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface-raised)]")}>
                 {c.label}
               </button>
             );
           })}
         </div>
         )}
-        {view !== "map" && (
+        {view === "bridge" && (
           <span className="text-[10px] text-[var(--color-text-muted)]">
-            {view === "live" ? "시장 전체 토큰↔프로토콜 흐름 — baseline 대비 이상치만 발화 (렌딩 8 + DEX 4, 온체인 이벤트)" : `${sym} 레버리지 루핑 — 담보 예치↔차입 (Morpho 포지션, 라이브)`}
+            크로스체인 브릿지 구조 + 실시간 트랜잭션 — 체인 사이 엣지 위 = 브릿지 (래핑 토큰 포착·브릿지 주소 직접 조회)
           </span>
         )}
         <Link href={`/flow?token=${encodeURIComponent(sym)}`}
@@ -359,12 +425,10 @@ export default function TokenPage() {
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        {/* 좌: 그래프 — 보기에 따라 관계맵 / 실시간 상황판(이벤트 기반) / 레버리지 루프 */}
+        {/* 좌: 그래프 — 보기에 따라 관계맵(단일체인 머니레고) / 브릿지 뷰(크로스체인+실시간 입자) */}
         <div className="relative h-[560px] min-h-[560px] flex-none lg:h-auto lg:min-h-0 lg:flex-1">
-          {view === "live" ? (
-            <FlowMapBoard sym={sym} />
-          ) : view === "lev" ? (
-            <LeverageLoopGraph sym={sym} />
+          {view === "bridge" ? (
+            <BridgeView sym={sym} chains={chains} active={view === "bridge"} />
           ) : breadthLoading ? (
             // 라이브 수집이 끝날 때까지 "부분 그래프"를 보여주지 않고 깔끔한 로딩만.
             <div className="flex h-full items-center justify-center">
@@ -374,15 +438,15 @@ export default function TokenPage() {
                 <span className="max-w-[260px] text-[11px] leading-relaxed text-[var(--color-text-muted)]">전 체인 풀·마켓·큐레이터·브릿지·온체인 공급을 모으는 중입니다</span>
               </div>
             </div>
-          ) : subTopology.nodes.length > 1 ? (
-            <GraphCanvas graphKey={`tok-${sym}-${depth}-${bridgeHub ? "macro" : "micro"}-${[...hiddenChains].sort().join(",") || "all"}-${subTopology.nodes.length}`} topology={subTopology} nodeStates={subNodeStates} selectedNodeId={selNode} onSelectNode={onGraphSelect} staticLayout />
+          ) : legoTopology.nodes.length > 1 ? (
+            <GraphCanvas graphKey={`tok-${sym}-${depth}-${shape}-${bridgeHub ? "macro" : "micro"}-${[...hiddenChains].sort().join(",") || "all"}-${legoTopology.nodes.length}`} topology={legoTopology} nodeStates={subNodeStates} selectedNodeId={selNode} onSelectNode={onGraphSelect} staticLayout straightEdges />
           ) : (
             <Empty msg={`${sym} 의 온체인 엣지가 DB 에 없음 — 스냅샷 대상 토큰이 아닐 수 있어요.`} />
           )}
-          {view === "map" && !breadthLoading && subTopology.nodes.length > 1 && (
+          {view === "map" && !breadthLoading && legoTopology.nodes.length > 1 && (
             <>
               <DistributionCard rows={distributionRows} />
-              <GraphLegend bridge={bridgeHub} />
+              <GraphLegend bridge={bridgeHub} lego={showDerivs && lego.nodes.length > 0} />
             </>
           )}
         </div>
@@ -443,10 +507,10 @@ function Stat({ label, value, sub, warn }: { label: string; value: string; sub?:
 }
 
 // 컨트롤 그룹 (라벨 + 세그먼트 버튼들)
-function ControlGroup({ label, children }: { label: string; children: ReactNode }) {
+function ControlGroup({ label, children }: { label?: string; children: ReactNode }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-[10px] uppercase tracking-wide text-[var(--color-text-muted)]">{label}</span>
+      {label && <span className="text-[10px] uppercase tracking-wide text-[var(--color-text-muted)]">{label}</span>}
       <div className="flex items-center gap-0.5 rounded-lg bg-[var(--color-surface-raised)] p-0.5">{children}</div>
     </div>
   );
@@ -461,20 +525,37 @@ function Seg({ active, onClick, disabled, children }: { active: boolean; onClick
   );
 }
 
-function GraphLegend({ bridge }: { bridge: boolean }) {
-  const types = bridge
-    ? (["bridge_lockmint", "bridge_burnmint", "bridge_liquidity"] as const)
-    : (["collateral", "collateral_isolated", "deposit_supply", "lp_pair", "cdp_collateral", "mint_backing"] as const);
+function GraphLegend({ bridge, lego }: { bridge: boolean; lego?: boolean }) {
+  // 엣지를 4개 의미 그룹으로(종류 최소화). 브릿지맵은 메커니즘 3종.
+  const edges: [string, string][] = bridge
+    ? [["락 & 민트", "#2563eb"], ["번 & 민트", "#dc2626"], ["유동성 풀", "#0d9488"]]
+    : EDGE_GROUPS.map((g) => [g.label, g.color] as [string, string]);
+  const oracles: [string, string][] = [["시장가", "#34d399"], ["환율(LST)", "#60a5fa"], ["풀 현물가", "#fbbf24"], ["하드코딩", "#f87171"]];
   return (
-    <div className="pointer-events-none absolute right-3 top-3 z-10 hidden max-w-[180px] space-y-0.5 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-surface)]/85 px-2 py-1.5 text-[9px] leading-relaxed text-[var(--color-text-secondary)] shadow-sm backdrop-blur lg:block">
-      <div className="text-[9px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">엣지 종류</div>
-      {types.map((t) => (
-        <div key={t} className="flex items-center gap-1.5">
-          <span className="inline-block h-0 w-4 border-t-2" style={{ borderColor: EDGE_TYPE_COLORS[t] }} />
-          {EDGE_TYPE_LABELS[t]}
+    <div className="pointer-events-none absolute right-3 top-3 z-10 hidden w-fit max-w-[160px] space-y-1 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-surface)]/90 px-2 py-1.5 text-[10px] leading-tight text-[var(--color-text-secondary)] shadow-sm backdrop-blur lg:block">
+      <div className="flex flex-wrap gap-x-2.5 gap-y-0.5">
+        {edges.map(([l, c]) => (
+          <span key={l} className="flex items-center gap-1">
+            <span className="inline-block h-0 w-3.5 border-t-2" style={{ borderColor: c }} />
+            {l}
+          </span>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 border-t border-[var(--color-border-subtle)] pt-1">
+        <span className="text-[var(--color-text-muted)]">오라클</span>
+        {oracles.map(([l, c]) => (
+          <span key={l} className="flex items-center gap-1">
+            <span className="inline-block size-2.5 rounded-full" style={{ backgroundColor: c }} />
+            {l}
+          </span>
+        ))}
+      </div>
+      {lego && !bridge && (
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 border-t border-[var(--color-border-subtle)] pt-1">
+          <span className="flex items-center gap-1"><span className="inline-block size-2.5 rounded-full border-2" style={{ borderColor: "#eab308", backgroundColor: "#fefce8" }} />큐레이터 볼트</span>
+          <span className="flex items-center gap-1"><span className="inline-flex size-3 items-center justify-center rounded-full bg-[var(--color-accent)] text-[7px] font-bold leading-none text-white">끝</span>종착</span>
         </div>
-      ))}
-      <div className="mt-1 border-t border-[var(--color-border-subtle)] pt-1 text-[var(--color-text-muted)]">실선=온체인 · 점선=라이브(추정) · 원 크기=노출 비율</div>
+      )}
     </div>
   );
 }
@@ -484,12 +565,30 @@ function PickDetail({ d, onClose }: { d: Record<string, unknown>; onClose: () =>
   const kind = String(d.kind ?? (("curator" in d || "allocationUsd" in d) ? "vault" : "market"));
   const chain = String(d.chain ?? "ethereum");
   const protoCounts = useNodeAlertCounts(kind === "protocol" ? String(d.nodeId ?? "") || null : null);
-  const head = kind === "token" ? "토큰" : kind === "vault" ? "볼트 (큐레이터 운용)" : kind === "bridge" ? "브릿지" : kind === "protocol" ? "프로토콜" : kind === "pool" ? "풀/마켓" : "마켓";
+  const ROLE_DESC: Record<string, string> = { pt: "원금 토큰 (PT)", yt: "수익 토큰 (YT)", lp: "유동성 풀 토큰 (LP)", receipt: "예치 영수증", wrapper: "볼트 쉐어" };
+  const head = kind === "token" ? "토큰" : kind === "vault" ? "볼트 (큐레이터 운용)" : kind === "bridge" ? "브릿지" : kind === "protocol" ? "프로토콜" : kind === "derivative" ? "파생토큰 (머니레고)" : kind === "pool" ? "풀/마켓" : "마켓";
   const title = kind === "token" ? String(d.symbol) : kind === "vault" ? String(d.curator ?? d.vault ?? "vault") : String(d.label ?? d.market ?? d.protocol ?? "");
 
   let body: React.ReactNode = null;
   if (kind === "token") {
     body = <TokenSpecRows symbol={String(d.symbol)} />;
+  } else if (kind === "derivative") {
+    const accepts = (d.accepts as { rel: string; to: string }[] | undefined) ?? [];
+    // 브릿지 래핑본(venue=bridge)은 wrapper 역할이지만 볼트 쉐어가 아님 — 종류 표기 분리.
+    const roleDesc = (d.role === "wrapper" && d.source === "bridge") ? "브릿지 래핑본" : ROLE_DESC[String(d.role)] ?? "파생토큰";
+    body = (
+      <>
+        <PRow k="종류" v={roleDesc} />
+        <PRow k="발행 프로토콜" v={d.source != null ? String(d.source) : null} />
+        <PRow k="컨트랙트" v={d.address != null ? shortAddr(String(d.address)) : null} href={d.address != null ? ADDR_EXPLORER[chain]?.(String(d.address)) : undefined} />
+        {accepts.length > 0
+          ? accepts.map((a, i) => <PRow key={i} k={a.rel === "collateral_at" ? "담보로 쓰임" : a.rel === "staked_in" ? "스테이킹 수용" : "수용처"} v={a.to} />)
+          : d.terminal === true
+            ? <PRow k="종착" v="여기가 끝 — 다음 예치 홉 없음" />
+            : <PRow k="수용처" v="아직 담보·스테이킹 수용 확인 안 됨" />}
+        {d.terminal === true && d.terminalReason != null && <TerminalNote reason={String(d.terminalReason)} rewardSource={d.rewardSource != null ? String(d.rewardSource) : null} />}
+      </>
+    );
   } else if (kind === "vault") {
     body = (
       <>
@@ -497,6 +596,8 @@ function PickDetail({ d, onClose }: { d: Record<string, unknown>; onClose: () =>
         <PRow k="펀딩 마켓" v={d.market != null ? String(d.market) : null} />
         <PRow k="예치자산" v={d.depositAsset != null ? String(d.depositAsset) : null} />
         <PRow k="디리스킹" v={d.inWithdrawQueue === true ? "인출 큐 진입" : null} warn={d.inWithdrawQueue === true} />
+        {/* 보상 재원 — 이 볼트의 수익이 어느 마켓 이자에서 나오는지(감사관 [고정2]). */}
+        {d.rewardSource != null && <TerminalNote label="보상 재원" reason={String(d.rewardSource)} rewardSource={null} />}
       </>
     );
   } else if (kind === "bridge") {
@@ -556,6 +657,9 @@ function PickDetail({ d, onClose }: { d: Record<string, unknown>; onClose: () =>
         <PRow k="오라클" v={oracleAddr ? shortAddr(oracleAddr) : null} href={oracleAddr ? ADDR_EXPLORER[chain]?.(oracleAddr) : null} badge={oracleAddr ? "verified" : undefined} />
         <PRow k="큐레이터" v={curators.length ? `${curators.slice(0, 2).join(" · ")}${curators.length > 2 ? ` +${curators.length - 2}` : ""}` : null} />
         {d.ouroborosRisk === true && <PRow k="구조" v="자기참조 (ouroboros)" warn />}
+        {/* 담보 종착 — 담보가 여기서 잠기고 청산, 원금 회수는 역방향 상환(감사관 [추궁]·[고정3]). */}
+        {d.terminal === true && <PRow k="종착" v="담보 종착 — 여기서 잠김·청산" />}
+        {d.terminal === true && d.terminalReason != null && <TerminalNote reason={String(d.terminalReason)} rewardSource={d.rewardSource != null ? String(d.rewardSource) : null} />}
       </>
     );
   }
@@ -576,4 +680,17 @@ function PickDetail({ d, onClose }: { d: Record<string, unknown>; onClose: () =>
 
 function Row({ k, v }: { k: string; v: string }) {
   return <div className="flex items-center justify-between gap-3"><span className="text-[var(--color-text-muted)]">{k}</span><span className="font-mono text-[var(--color-text-secondary)]">{v}</span></div>;
+}
+
+// 종착/보상-재원 설명 블록 — "여기가 끝"인 이유 + 수익·보상 출처 + 역방향(출금/상환) 안내.
+// 감사관 [고정2 보상재원]·[고정3 역경로]·[고정4 출처불명수익]·[추궁 종착구분] 을 한 곳에서 트리에 읽히게.
+function TerminalNote({ reason, rewardSource, label = "종착 설명" }: { reason: string; rewardSource: string | null; label?: string }) {
+  return (
+    <div className="mt-2 rounded-md border border-[var(--color-border-subtle)] bg-[var(--color-surface-raised)] px-2.5 py-2 text-[11px] leading-relaxed">
+      <div className="mb-0.5 text-[9px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">{label}</div>
+      <p className="text-[var(--color-text-secondary)]">{reason}</p>
+      {rewardSource && <p className="mt-1 text-[var(--color-text-secondary)]">재원 · {rewardSource}</p>}
+      <p className="mt-1 text-[var(--color-text-muted)]">예치·담보·스테이킹은 가역 — 출금/상환은 이 경로를 역방향으로 되돌아 나갑니다.</p>
+    </div>
+  );
 }

@@ -7,11 +7,6 @@ import { curvePoolsFor } from "@/lib/curve-pools";
 import { compoundComets, erc20Symbol, isContract, lendingReceiptAddrs, MORPHO_BLUE, UNISWAP_V4_POOL_MANAGER, wrappedUnderlying } from "@/lib/lending-pools";
 import { aerodromePoolsFor } from "@/lib/aerodrome-pools";
 import { topTokensByTvl } from "@/lib/flow-core";
-import { solanaTransfers } from "@/lib/solana-transfers";
-import { tronTransfers } from "@/lib/tron-transfers";
-import { aptosTransfers } from "@/lib/aptos-transfers";
-import { starknetTransfers } from "@/lib/starknet-transfers";
-import { suiTransfers } from "@/lib/sui-transfers";
 
 /**
  * GET /api/transactions?addrs=ethereum:0xabc..,base:0xdef..&tokens=stETH&chains=ethereum
@@ -38,28 +33,12 @@ const WINDOW_SEC = 5 * 60;       // show a 5-min trailing window of transfers, e
 const MAX_RETURN = 600;
 
 // Alchemy-supported networks (others are skipped, not faked)
+// 2026-06-12 스코프 축소: 이더리움·베이스·아비트럼 3체인 (비EVM 경로 제거).
 const ALCHEMY_NET: Record<string, string> = {
-  ethereum: "eth-mainnet", base: "base-mainnet", arbitrum: "arb-mainnet", optimism: "opt-mainnet",
-  polygon: "polygon-mainnet", avalanche: "avax-mainnet", bsc: "bnb-mainnet", gnosis: "gnosis-mainnet",
-  linea: "linea-mainnet", scroll: "scroll-mainnet", unichain: "unichain-mainnet", zksync: "zksync-mainnet",
-  blast: "blast-mainnet", mantle: "mantle-mainnet", berachain: "berachain-mainnet",
+  ethereum: "eth-mainnet", base: "base-mainnet", arbitrum: "arb-mainnet",
 };
 const CHAIN_PREFIX: Record<string, string> = {
-  ethereum: "ethereum", base: "base", arbitrum: "arbitrum", optimism: "optimism", polygon: "polygon",
-  avalanche: "avax", bsc: "bsc", gnosis: "xdai", linea: "linea", scroll: "scroll", unichain: "unichain", zksync: "era",
-  blast: "blast", mantle: "mantle", berachain: "berachain",
-  solana: "solana", tron: "tron", sui: "sui", aptos: "aptos", starknet: "starknet",
-};
-
-// 비-EVM: EVM 넷 목록과 별도 경로. 주소는 케이스 보존(base58/타입경로 — lowercase 금지),
-// aptos·sui 자산 타입의 "::" 는 클라이언트가 URI 인코딩해 보낸다.
-const SOLANA_CHAIN = "solana";
-const NONEVM_ADDR_OK: Record<string, (a: string) => boolean> = {
-  solana: (a) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(a),
-  tron: (a) => /^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(a),
-  aptos: (a) => /^0x[0-9a-fA-F]{1,64}(::\w+::\w+)?$/.test(a),
-  sui: (a) => /^0x[0-9a-fA-F]{1,64}(::\w+::\w+)?$/.test(a),
-  starknet: (a) => /^0x[0-9a-fA-F]{1,64}$/.test(a),
+  ethereum: "ethereum", base: "base", arbitrum: "arbitrum",
 };
 
 const BUILTIN_TOKEN: Record<string, Record<string, string>> = {
@@ -146,7 +125,7 @@ async function fetchPrices(items: { chain: string; addr: string }[]): Promise<Ma
   const byLlamaKey = new Map<string, string>(); // lowercase(llama key) → `${chain}:${addr}`
   const reqKeys: string[] = [];
   for (const { chain, addr } of wanted) {
-    const a = NONEVM_ADDR_OK[chain] ? addr : addr.toLowerCase(); // 비-EVM 주소는 케이스 보존
+    const a = addr.toLowerCase();
     const lk = `${CHAIN_PREFIX[chain]}:${a}`;
     if (!byLlamaKey.has(lk.toLowerCase())) { byLlamaKey.set(lk.toLowerCase(), `${chain}:${a}`); reqKeys.push(lk); }
   }
@@ -198,7 +177,6 @@ export async function GET(req: Request) {
     try { addr = decodeURIComponent(addrEnc); } catch { /* 원문 유지 */ }
     const token = (sym ?? "").toUpperCase() || addr.slice(0, 6);
     if (ALCHEMY_NET[c]) targets.push({ token, chain: c, addr: addr.toLowerCase() });
-    else if (NONEVM_ADDR_OK[c]?.(addr)) targets.push({ token, chain: c, addr }); // 케이스 보존
   }
   if (!targets.length && tokenParam.length) {
     for (const chain of chainParam) {
@@ -238,8 +216,7 @@ export async function GET(req: Request) {
   //  · Aave V3 / Spark — aToken resolved LIVE via Pool.getReserveData (deposit = transfer to aToken)
   //  · Morpho Blue — canonical singleton escrow
   // dexAddrs = swap counterparties; lending receipts stay deposit/withdraw — keeps the kind honest.
-  const evmTargets = targets.filter((t) => !NONEVM_ADDR_OK[t.chain]);
-  const nonEvmTargets = targets.filter((t) => !!NONEVM_ADDR_OK[t.chain]);
+  const evmTargets = targets;
   const dexAddrs = new Set<string>();
   const pairHint = new Map<string, string>(); // `${chain}:${poolAddr}` → "SYMA-SYMB" (파생 풀의 알려진 페어)
   const chainsInPlay = [...new Set(evmTargets.map((t) => t.chain))];
@@ -372,26 +349,7 @@ export async function GET(req: Request) {
     const plainRows = local.filter((t) => !isMatchedRow(t)).sort((a, b) => b.ts - a.ts).slice(0, Math.max(0, Math.min(40, PER_TOKEN_CAP - matchedRows.length)));
     return [...matchedRows, ...plainRows];
   }));
-  // ── 비-EVM 타깃: 체인별 어댑터 디스패치 — EVM 과 동일한 매칭우선/전송캡 규칙 ──
-  const SOLANA_RPC = `https://solana-mainnet.g.alchemy.com/v2/${KEY}`;
-  const STARKNET_RPC = `https://starknet-mainnet.g.alchemy.com/v2/${KEY}`;
-  const perNonEvm = await Promise.all(nonEvmTargets.map(async ({ token, chain, addr }) => {
-    const pi = prices.get(`${chain}:${addr}`);
-    const price = pi?.price ?? 0;
-    const decimals = pi?.decimals;
-    let rows: FlowTx[] = [];
-    if (chain === SOLANA_CHAIN) rows = await solanaTransfers(SOLANA_RPC, token, addr, loTs, hiTs, price);
-    // 아래 체인들은 raw 금액이라 decimals 필수 — 없으면 지어내지 않고 건너뛴다
-    else if (decimals == null) rows = [];
-    else if (chain === "tron") rows = await tronTransfers(token, addr, loTs, hiTs, price, decimals);
-    else if (chain === "aptos") rows = await aptosTransfers(token, addr, loTs, hiTs, price, decimals);
-    else if (chain === "starknet") rows = await starknetTransfers(STARKNET_RPC, token, addr, loTs, hiTs, price, decimals);
-    else if (chain === "sui") rows = await suiTransfers(token, addr, loTs, hiTs, price, decimals);
-    const matchedRows = rows.filter(isMatchedRow).slice(0, PER_TOKEN_CAP);
-    const plainRows = rows.filter((t) => !isMatchedRow(t)).slice(0, Math.max(0, Math.min(40, PER_TOKEN_CAP - matchedRows.length)));
-    return [...matchedRows, ...plainRows];
-  }));
-  const allTargets = [...perTarget, ...perNonEvm];
+  const allTargets = perTarget;
   const total = allTargets.reduce((s, a) => s + a.length, 0);
   const txs = allTargets.flat().sort((a, b) => b.ts - a.ts).slice(0, MAX_RETURN);
 

@@ -66,11 +66,38 @@ function NodeBody({ node }: { node: GraphNode }) {
       {m.category && m.category !== m.chain && (
         <p className="text-[11px] text-[var(--color-text-secondary)]">{m.category}</p>
       )}
+      {/* 종착(terminal) — "여기가 끝"인 이유 + 재원 + 가역(출금) 안내. 감사관 [고정2·3·4]·[추궁] 대응. */}
+      {m.terminal === true && (
+        <div className="rounded border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-1.5 py-1 text-[10px] leading-snug">
+          <span className="font-semibold text-[var(--color-accent)]">종착</span>
+          {m.terminalReason ? <span className="text-[var(--color-text-secondary)]"> — {String(m.terminalReason)}</span> : null}
+          {m.rewardSource ? <div className="mt-0.5 text-[var(--color-text-muted)]">재원 · {String(m.rewardSource)}</div> : null}
+          <div className="mt-0.5 text-[var(--color-text-muted)]">출금/상환은 역방향으로 되돌아 나감.</div>
+        </div>
+      )}
+      {/* 큐레이터 볼트 — 보상 재원을 트리 경로(부모 마켓 → 이 볼트)로 읽히게. 감사관 [고정2].
+          볼트로 들어오는 엣지는 부모 마켓(market→vault)뿐이고, 그 마켓의 대출 이자가 곧 이 볼트 보상 재원이다. */}
+      {m._vault != null && (() => {
+        const v = m._vault as Record<string, unknown>;
+        return (
+          <div className="rounded border border-[#eab308]/40 bg-[#fefce8] px-1.5 py-1 text-[10px] leading-snug">
+            <span className="font-semibold text-[#a16207]">큐레이터 볼트</span>
+            {v.market ? <span className="text-[var(--color-text-secondary)]"> — 한 홉 위 마켓 “{String(v.market)}” 이 보상 재원</span> : null}
+            {v.rewardSource ? <div className="mt-0.5 text-[var(--color-text-muted)]">보상 재원 · {String(v.rewardSource)}</div> : null}
+            <div className="mt-0.5 text-[var(--color-text-muted)]">마켓→볼트 엣지(보상 재원) = 그 마켓 대출 이자가 이 볼트로 누적. 원금 회수는 거꾸로 인출.</div>
+          </div>
+        );
+      })()}
       <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px]">
         {m.venue && <Row k="Venue" v={m.venue} />}
         {m.role && <Row k="Role" v={m.role} />}
         {m.chain && <Row k="Chain" v={m.chain} />}
-        {m.sizeUsd != null && m.sizeUsd > 0 && <Row k="규모" v={formatUsd(m.sizeUsd)} />}
+        {m.sizeUsd != null && m.sizeUsd > 0 ? (
+          <Row k="규모" v={formatUsd(m.sizeUsd)} />
+        ) : m.sizeUnknown === true ? (
+          // 무료 소스로 금액을 못 구한 마켓 — 0 이 아니라 "미상"으로 명시(결정론·추측 금지).
+          <Row k="규모" v="금액 미상" />
+        ) : null}
         {m.tokensHeld != null && (
           <Row k="Tokens" v={`${formatNumber(m.tokensHeld)}`} />
         )}
@@ -78,6 +105,9 @@ function NodeBody({ node }: { node: GraphNode }) {
           <Row k="USD" v={formatUsd(m.tokensHeldUsd)} />
         )}
       </div>
+      {/* 마켓 변별 컨텍스트(동일 loan-token 라벨 구분) — LLTV·큐레이터. _market payload 에서. */}
+      <MarketContext m={m} />
+      {node.type === "Bridge" && <BridgeMech m={m} />}
       {bridges.length > 0 && (
         <div className="mt-2 border-t border-[var(--color-border-subtle)] pt-2">
           <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
@@ -102,6 +132,32 @@ function NodeBody({ node }: { node: GraphNode }) {
             )}
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/** 브릿지 노드 메커니즘/한도 — 예전 RiskNode 자체 툴팁을 이 통합 툴팁으로 일원화(중복 제거). */
+function BridgeMech({ m }: { m: import("@/lib/api").NodeMetadata }) {
+  const mech = m.bridgeMechanism as string | undefined;
+  const color = mech === "burn_mint" ? "#f87171" : mech === "liquidity" ? "#2dd4bf" : "#60a5fa";
+  const ko = mech === "burn_mint" ? "번 & 민트" : mech === "liquidity" ? "유동성 풀" : "락 & 민트";
+  const note = mech === "burn_mint"
+    ? "메시지층 침해 시 무담보 무한 민팅 → 디페그 위험."
+    : mech === "liquidity"
+      ? "민팅 없음. 유동성 고갈·슬리피지 위험."
+      : "L1 담보 백킹(보통 가장 감사). 브릿지 침해 시 무담보 위험.";
+  const limit = m.bridgeMintLimit;
+  return (
+    <div className="mt-2 border-t border-[var(--color-border-subtle)] pt-2 text-[11px]">
+      <div className="flex items-center gap-1.5">
+        {m.bridgeProtocol && <span className="font-semibold text-[var(--color-text-primary)]">{m.bridgeVerified ? "✓ " : ""}{m.bridgeProtocol}</span>}
+        <span className="rounded px-1.5 py-0.5 text-[10px] font-medium" style={{ color, background: `${color}22` }}>{ko}</span>
+        {m.bridgeWeak ? <span className="text-[10px] text-[var(--color-danger,#dc2626)]">⚠️ 사고이력</span> : null}
+      </div>
+      <p className="mt-1 leading-snug text-[var(--color-text-secondary)]">{note}</p>
+      {typeof limit === "number" && limit > 0 && (
+        <div className="mt-0.5 font-mono text-[var(--color-text-muted)]">mint 한도: {formatUsd(limit)}</div>
       )}
     </div>
   );
@@ -160,6 +216,30 @@ function EdgeBody({ hover }: { hover: EdgeHover }) {
       {a?.topPools ? (
         <ListPreview title="Top pools" items={a.topPools as unknown as unknown[]} fmt={fmtPoolV2} />
       ) : null}
+    </div>
+  );
+}
+
+// 마켓 hover 변별 컨텍스트 — Morpho/Euler 마켓의 동일 loan-token 라벨을 LLTV·큐레이터로 구분.
+//   _market payload(lego addMarketNode 가 얹음) 에서만 — 일반 프로토콜 노드엔 안 뜸.
+function MarketContext({ m }: { m: import("@/lib/api").NodeMetadata }) {
+  const mk = m._market as Record<string, unknown> | undefined;
+  if (!mk) return null;
+  const lltv = typeof mk.lltv === "number" ? `${(mk.lltv * 100).toFixed(0)}%` : null;
+  const loan = typeof mk.loan === "string" ? mk.loan : null;
+  const curators = Array.isArray(mk.curators) ? (mk.curators as string[]).filter(Boolean) : [];
+  if (!lltv && !loan && !curators.length) return null;
+  return (
+    <div className="mt-1 border-t border-[var(--color-border-subtle)] pt-1 text-[11px]">
+      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+        {loan && <Row k="대출" v={loan} />}
+        {lltv && <Row k="LLTV" v={lltv} />}
+      </div>
+      {curators.length > 0 && (
+        <div className="mt-0.5 text-[10px] text-[var(--color-text-secondary)]">
+          큐레이터 · {curators.slice(0, 3).join(" · ")}{curators.length > 3 ? ` +${curators.length - 3}` : ""}
+        </div>
+      )}
     </div>
   );
 }

@@ -16,23 +16,11 @@ export const ADDR_EXPLORER: Record<string, (a: string) => string> = {
   ethereum: (a) => `https://etherscan.io/address/${a}`,
   base: (a) => `https://basescan.org/address/${a}`,
   arbitrum: (a) => `https://arbiscan.io/address/${a}`,
-  optimism: (a) => `https://optimistic.etherscan.io/address/${a}`,
-  polygon: (a) => `https://polygonscan.com/address/${a}`,
-  solana: (a) => `https://solscan.io/account/${a}`,
-  tron: (a) => `https://tronscan.org/#/address/${a}`,
-  sui: (a) => `https://suivision.xyz/object/${a}`,
-  aptos: (a) => `https://explorer.aptoslabs.com/account/${a}`,
-  starknet: (a) => `https://starkscan.co/contract/${a}`,
 };
 export const TX_EXPLORER: Record<string, (h: string) => string> = {
   ethereum: (h) => `https://etherscan.io/tx/${h}`,
   base: (h) => `https://basescan.org/tx/${h}`,
   arbitrum: (h) => `https://arbiscan.io/tx/${h}`,
-  solana: (h) => `https://solscan.io/tx/${h}`,
-  tron: (h) => `https://tronscan.org/#/transaction/${h}`,
-  sui: (h) => `https://suivision.xyz/txblock/${h}`,
-  aptos: (h) => `https://explorer.aptoslabs.com/txn/${h}`,
-  starknet: (h) => `https://starkscan.co/tx/${h}`,
 };
 export const shortAddr = (a: string) => (a.length > 14 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a);
 

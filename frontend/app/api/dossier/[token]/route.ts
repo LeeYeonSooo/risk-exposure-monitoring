@@ -34,7 +34,9 @@ export async function GET(
   try {
     const [alertsR, countsR, supplyR, loopsR, curatorsR] = await Promise.all([
       p.query(
-        `SELECT created_at, severity, kind, protocol_node_id, message, source
+        // token·detail 포함 — 관계맵 노드 위험색의 마켓 단위 조인키. alert-link.mapAlertsToNodeRisk 가 씀.
+        //   token = 그 알림 마켓의 담보 심볼 → 담보+대출+LLTV 변별로 같은 loan|lltv 의 파생담보 마켓(PT/sUSDe)이 같이 점등되던 충돌 제거.
+        `SELECT token, created_at, severity, kind, protocol_node_id, message, source, detail
          FROM alerts WHERE upper(token)=upper($1) ORDER BY created_at DESC LIMIT 60`,
         [sym],
       ),

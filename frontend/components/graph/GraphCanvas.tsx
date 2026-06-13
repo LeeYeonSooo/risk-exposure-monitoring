@@ -64,6 +64,8 @@ export interface GraphCanvasProps {
   edgeTypeFilter?: Set<string>;
   /** 정적 레이아웃 — d3-force 끄고 주어진 좌표 그대로 사용(동심원 4-링 고정 배치용). */
   staticLayout?: boolean;
+  /** 직선 엣지 — 교차 엣지 바깥 곡선 라우팅을 끄고 모두 직선(트리 계층 배치용). */
+  straightEdges?: boolean;
   /** ReactFlow 내부(ViewportPortal 사용 가능 위치)에 렌더할 오버레이 — 메인화면 실시간 입자 레이어용. */
   overlay?: React.ReactNode;
 }
@@ -97,6 +99,7 @@ function GraphCanvasInner({
   focusOnlyIds,
   edgeTypeFilter,
   staticLayout,
+  straightEdges,
   overlay,
 }: GraphCanvasProps) {
 
@@ -121,9 +124,36 @@ function GraphCanvasInner({
 
   const initialEdges = useMemo<FloatingEdgeType[]>(() => {
     const nmap = new Map(topology.nodes.map((n) => [n.id, n] as const));
+    // 레이아웃 중심 = 토큰 노드 중심 → 파생↔수용처 교차 엣지를 이 점에서 바깥으로 휘게(FloatingEdge).
+    const toks = topology.nodes.filter((n) => /^c:[^:]+:token$/.test(n.id) || n.type === "Token");
+    let cx: number | undefined, cy: number | undefined, rp: number | undefined;
+    if (toks.length && !straightEdges) { // 트리(직선)면 곡선 라우팅 중심 계산 생략 → 모든 엣지 직선
+      let sx = 0, sy = 0;
+      for (const t of toks) {
+        const d = (t.metadata.diameterPx as number | undefined) ?? 80;
+        sx += ((t.position?.x ?? 0) + d / 2) * LAYOUT_SCALE_X;
+        sy += ((t.position?.y ?? 0) + d / 2) * LAYOUT_SCALE_Y;
+      }
+      cx = sx / toks.length; cy = sy / toks.length;
+      // 외곽 반지름 = 최외곽 노드(중심에서 가장 먼 노드의 바깥 끝)
+      let max = 0;
+      for (const n of topology.nodes) {
+        if (!n.position) continue;
+        const d = (n.metadata.diameterPx as number | undefined) ?? 60;
+        const ncx = (n.position.x + d / 2) * LAYOUT_SCALE_X, ncy = (n.position.y + d / 2) * LAYOUT_SCALE_Y;
+        max = Math.max(max, Math.hypot(ncx - cx, ncy - cy) + d / 2);
+      }
+      rp = max;
+    }
     return topology.edges.map((e) => {
       // 출처 3단계(verified/estimated/opaque) — 양 끝 노드 + 엣지 dataSource 종합 (정직성 인코딩)
       const prov = edgeProvenance(e, nmap.get(e.source), nmap.get(e.target));
+      // 엣지 위 오라클 원 — automation 수집 엣지 attrs.oracle.type(MARKET/EXCHANGE_RATE/NAV/ORACLE_FREE/NONE) 우선,
+      //   없으면 마켓 노드 meta._market.oracle. 심볼은 LST 보정용(MARKET+LST → 환율).
+      const omkt = ((nmap.get(e.target)?.metadata?._market ?? nmap.get(e.source)?.metadata?._market) as Record<string, unknown> | undefined);
+      const oa = (e.attrs as { oracle?: { type?: string } } | undefined)?.oracle;
+      const oracleType = oa?.type ?? (omkt?.oracle as string | undefined);
+      const oracleSymbol = ((omkt?.collateral ?? omkt?.loan) as string | undefined) ?? (nmap.get(e.source)?.label as string | undefined);
       return {
         id: e.id,
         source: e.source,
@@ -144,10 +174,12 @@ function GraphCanvasInner({
           tier: e.tier,
           bridge: e.bridge,
           sharedWhales: e.sharedWhales,
+          cx, cy, rp, // 교차 엣지 바깥 라우팅(중심 + 외곽 반지름)
+          oracleType, oracleSymbol, // 엣지 위 오라클 원(target 마켓의 오라클 종류)
         },
       };
     });
-  }, [topology]);
+  }, [topology, straightEdges]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<RiskNodeType>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<FloatingEdgeType>(initialEdges);

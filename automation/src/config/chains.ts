@@ -49,25 +49,12 @@ export interface EvmChainCfg {
   publicRpc: string;    // 공개 RPC 폴백
   avgBlockSec: number;  // 이벤트 시각 근사용 평균 블록타임(초)
 }
+// 2026-06-12 스코프 축소: 이더리움·베이스·아비트럼 3체인 완성 우선(머니레고 관계맵 개편).
+// 다른 EVM 체인은 3체인 완성 후 여기 한 곳에만 추가하면 디텍터·스냅샷이 따라온다.
 export const EVM_CHAINS: Record<string, EvmChainCfg> = {
   ethereum:   { chainId: 1,      alchemy: "eth-mainnet",        publicRpc: "https://ethereum-rpc.publicnode.com",           avgBlockSec: 12 },
   base:       { chainId: 8453,   alchemy: "base-mainnet",       publicRpc: "https://base-rpc.publicnode.com",               avgBlockSec: 2 },
   arbitrum:   { chainId: 42161,  alchemy: "arb-mainnet",        publicRpc: "https://arbitrum-one-rpc.publicnode.com",       avgBlockSec: 0.26 },
-  optimism:   { chainId: 10,     alchemy: "opt-mainnet",        publicRpc: "https://optimism-rpc.publicnode.com",           avgBlockSec: 2 },
-  polygon:    { chainId: 137,    alchemy: "polygon-mainnet",    publicRpc: "https://polygon-bor-rpc.publicnode.com",        avgBlockSec: 2.1 },
-  bsc:        { chainId: 56,     alchemy: "bnb-mainnet",        publicRpc: "https://bsc-rpc.publicnode.com",                avgBlockSec: 3 },
-  avalanche:  { chainId: 43114,  alchemy: "avax-mainnet",       publicRpc: "https://avalanche-c-chain-rpc.publicnode.com",  avgBlockSec: 2 },
-  gnosis:     { chainId: 100,    alchemy: "gnosis-mainnet",     publicRpc: "https://gnosis-rpc.publicnode.com",             avgBlockSec: 5 },
-  scroll:     { chainId: 534352, alchemy: "scroll-mainnet",     publicRpc: "https://scroll-rpc.publicnode.com",             avgBlockSec: 3 },
-  linea:      { chainId: 59144,  alchemy: "linea-mainnet",      publicRpc: "https://linea-rpc.publicnode.com",              avgBlockSec: 3 },
-  mantle:     { chainId: 5000,   alchemy: "mantle-mainnet",     publicRpc: "https://mantle-rpc.publicnode.com",             avgBlockSec: 2 },
-  metis:      { chainId: 1088,   alchemy: "metis-mainnet",      publicRpc: "https://metis-rpc.publicnode.com",              avgBlockSec: 2 },
-  unichain:   { chainId: 130,    alchemy: "unichain-mainnet",   publicRpc: "https://unichain-rpc.publicnode.com",           avgBlockSec: 1 },
-  worldchain: { chainId: 480,    alchemy: "worldchain-mainnet", publicRpc: "https://worldchain-mainnet.g.alchemy.com/public", avgBlockSec: 2 },
-  zksync:     { chainId: 324,    alchemy: "zksync-mainnet",     publicRpc: "https://mainnet.era.zksync.io",                 avgBlockSec: 1 },
-  sonic:      { chainId: 146,    alchemy: "sonic-mainnet",      publicRpc: "https://sonic-rpc.publicnode.com",              avgBlockSec: 0.6 },
-  celo:       { chainId: 42220,  alchemy: "celo-mainnet",       publicRpc: "https://forno.celo.org",                        avgBlockSec: 1 },
-  soneium:    { chainId: 1868,   alchemy: "soneium-mainnet",    publicRpc: "https://rpc.soneium.org",                       avgBlockSec: 2 },
 };
 export const EVM_CHAIN_KEYS = Object.keys(EVM_CHAINS);
 
@@ -87,7 +74,6 @@ export function avgBlockSecOf(chain: string): number { return EVM_CHAINS[chain]?
 export const env = {
   ALCHEMY_API_KEY: ALCHEMY_KEY,
   ETHERSCAN_API_KEY: process.env.ETHERSCAN_API_KEY ?? "",
-  DUNE_API_KEY: process.env.DUNE_API_KEY ?? "",
   // 알림 채널(설계 D#9) — 설정 시에만 warning/critical 발송. 비우면 DB 적재만(기본 zero-cost).
   DISCORD_WEBHOOK_URL: process.env.DISCORD_WEBHOOK_URL ?? "",
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN ?? "",

@@ -28,7 +28,24 @@ function centerOf(node: ReturnType<typeof useInternalNode>): Center | null {
 export interface FlowEdgeData {
   kind: FlowEdge["kind"]; weight: number; tvlUsd: number; mode: FlowMode; dir?: "forward" | "both"; risk?: RiskLevel; label?: string;
   oracle?: FlowEdge["oracle"]; trace?: FlowEdge["trace"];
+  /** 자기장 선 라우팅 — 레이아웃 중심. 주어지면 엣지를 중심에서 먼 쪽으로 휘어 중앙(브릿지)을 가로지르지 않게. */
+  cx?: number; cy?: number;
+  /** 직선 모드 — 곡률 0 (브릿지 맵: 체인↔브릿지 직선 연결). */
+  straight?: boolean;
   [key: string]: unknown;
+}
+
+/** 중심(cx,cy)이 주어지면 직선 중점의 두 수직 후보 중 중심에서 먼 쪽을 골라 바깥으로 휜다(자기장 선). */
+export function bowedMidpoint(
+  x1: number, y1: number, x2: number, y2: number, ux: number, uy: number, curve: number,
+  cx?: number, cy?: number,
+): { mx: number; my: number } {
+  const m0x = (x1 + x2) / 2, m0y = (y1 + y2) / 2;
+  if (typeof cx !== "number" || typeof cy !== "number") return { mx: m0x - uy * curve, my: m0y + ux * curve };
+  const ax = m0x - uy * curve, ay = m0y + ux * curve;
+  const bx = m0x + uy * curve, by = m0y - ux * curve;
+  const da = (ax - cx) ** 2 + (ay - cy) ** 2, db = (bx - cx) ** 2 + (by - cy) ** 2;
+  return da >= db ? { mx: ax, my: ay } : { mx: bx, my: by };
 }
 
 function Base({ id, source, target, data, selected }: EdgeProps) {
@@ -45,8 +62,10 @@ function Base({ id, source, target, data, selected }: EdgeProps) {
   // relationship-only edges (bridge/sibling/involves=루핑/oracle/trace) carry no two-way deposit flow → ONE line.
   // flow edges (holds/market/vault) carry deposits AND withdrawals → two directional lanes.
   const relation = long || d.kind === "involves" || d.kind === "oracle" || d.kind === "trace";
-  const curve = long ? Math.min(130, len * 0.18) : Math.min(26, len * 0.07);
-  const mx = (x1 + x2) / 2 - uy * curve, my = (y1 + y2) / 2 + ux * curve;
+  const bowing = typeof d.cx === "number" && typeof d.cy === "number";
+  // 자기장 선(브릿지 맵): 중심에서 멀어지는 쪽으로 더 크게 휘어 중앙을 비운다. straight=직선(곡률0).
+  const curve = d.straight ? 0 : bowing ? Math.min(260, len * 0.3) : long ? Math.min(130, len * 0.18) : Math.min(26, len * 0.07);
+  const { mx, my } = bowedMidpoint(x1, y1, x2, y2, ux, uy, curve, d.cx, d.cy);
   const center = `M ${x1} ${y1} Q ${mx} ${my} ${x2} ${y2}`;
 
   // 위험(알림) 색 입히기는 "흐름 엣지"(holds/market/vault 실선)에만 — 관계 점선(sibling/involves/

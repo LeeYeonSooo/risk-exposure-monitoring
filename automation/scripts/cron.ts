@@ -19,17 +19,9 @@ const ONE_HOUR_MS = 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * ONE_HOUR_MS;
 const TWENTY_MIN_MS = 20 * 60 * 1000;
 // 한 번에 세 체인 RPC 동시 X — 20분마다 한 체인씩 엇갈려 돌림 (각 체인 60분 주기, 부하 분산).
-// 코어 = 렌딩 TVL 최대 3체인(60분 cadence 유지). 추가 EVM 체인은 별도 루프로 순환(아래 EXTRA_CHAINS).
+// 2026-06-12 스코프 축소: 이더리움·베이스·아비트럼만 (다른 EVM 은 3체인 완성 후 재추가).
 const ROTATION = ["ethereum", "base", "arbitrum"];
 let rotIdx = 0;
-// 추가 EVM 체인 — eth·base·arb 와 동일 방식(Morpho GraphQL + Aave reserve self-discovery)을 전 체인 적용.
-// 코어와 분리된 루프(코어 cadence 보존)로 순환. snapshot-chain.ts 의 CHAINS 와 일치해야 함.
-// 14체인 × 20분 = 체인당 ~4.7시간 주기 (L2 정밀 그래프는 시간 민감도 낮음 — 코어 3체인이 60분 담당).
-const EXTRA_CHAINS = [
-  "optimism", "polygon", "avalanche", "bsc", "gnosis", "scroll", "unichain", "worldchain", "metis",
-  "linea", "zksync", "sonic", "celo", "soneium",
-];
-let extraIdx = 0;
 
 function runScript(name: string, args: string[] = []): Promise<void> {
   return new Promise((res, rej) => {
@@ -54,20 +46,6 @@ async function loop() {
   }
 }
 
-// 추가 EVM 체인 순환 — 코어 루프와 분리(코어 60분 cadence 보존). 20분마다 1체인(각 ~3시간 주기).
-// Morpho(GraphQL) + Aave(pap reserve self-discovery). 공개 RPC 위주라 코어와 엔드포인트 거의 안 겹침.
-async function extraChainLoop() {
-  const chain = EXTRA_CHAINS[extraIdx % EXTRA_CHAINS.length];
-  extraIdx++;
-  const ts = new Date().toISOString();
-  console.log(`\n══════ ${ts} — snapshot(extra): ${chain} ══════`);
-  try {
-    await runScript("snapshot-chain.ts", [chain]);
-  } catch (e) {
-    console.error(`[cron] snapshot(extra) ${chain} failed:`, (e as Error).message);
-  }
-}
-
 async function discoveryLoop() {
   const ts = new Date().toISOString();
   console.log(`\n══════ ${ts} — discovery cycle ══════`);
@@ -75,6 +53,18 @@ async function discoveryLoop() {
     await runScript("discover.ts");
   } catch (e) {
     console.error("[cron] discover failed:", (e as Error).message);
+  }
+}
+
+// 미지주소 자동 분류(B10) — 1일마다. unknown_addresses 큐를 classify(프록시·셀렉터·Etherscan)로 추정 라벨링
+// → `npm run review` 로 사람이 확인 → 확정분 protocol-registry 반영.
+async function classifyLoop() {
+  const ts = new Date().toISOString();
+  console.log(`\n══════ ${ts} — classify unknowns ══════`);
+  try {
+    await runScript("classify-unknowns.ts");
+  } catch (e) {
+    console.error("[cron] classify failed:", (e as Error).message);
   }
 }
 
@@ -127,17 +117,6 @@ async function bridgeAuthLoop() {
   }
 }
 
-// 비-EVM 브릿지 탐지(파이썬 8계열 도구) — 6시간마다. CCTP·Wormhole·IBC·StarkGate 등 표준 브릿지.
-async function bridgeDetectLoop() {
-  const ts = new Date().toISOString();
-  console.log(`\n══════ ${ts} — bridge detect (non-EVM) ══════`);
-  try {
-    await runScript("snapshot-bridge-detect.ts");
-  } catch (e) {
-    console.error("[cron] bridge-detect failed:", (e as Error).message);
-  }
-}
-
 // 무담보 공급 점검(Detector A, alarm-totalsupply 포팅) — Σremote ≤ backing(lockbox) 위반 시 unbacked_supply 알림.
 // bridge-authority 가 적재한 xERC20 lockbox 를 입력으로 자동 watch. (Kelp rsETH류 무한민팅 감시)
 async function backingLoop() {
@@ -171,6 +150,18 @@ async function valueDriftLoop() {
   }
 }
 
+// 머니레고 구조 — 6시간마다 전체 watchlist 토큰의 파생토큰(PT/YT/LP/aToken)·수용처 마켓(Morpho 담보마켓·Convex 풀)을
+// 갱신 적재(만기 PT 자연 소멸). 관계맵 파생 레이어 입력. (멘토 §8·§9, 임의 토큰 일반화)
+async function legoLoop() {
+  const ts = new Date().toISOString();
+  console.log(`\n══════ ${ts} — money lego (전체 watchlist) ══════`);
+  try {
+    await runScript("snapshot-lego.ts"); // 인자 없음 = 전체 watchlist
+  } catch (e) {
+    console.error("[cron] lego failed:", (e as Error).message);
+  }
+}
+
 // Reflexivity(사기 루핑) — 1시간마다. 토큰 담보 Morpho 마켓 오라클 introspect → grade/oracle_class/looping
 // → loop_findings(reflexivity-v1). dossier.loops 가 서빙 → 프론트 Tier0 판결 + 상세그래프 라이브 소비.
 async function reflexivityLoop() {
@@ -183,48 +174,20 @@ async function reflexivityLoop() {
   }
 }
 
-// 비-EVM 렌딩 — 1시간마다. Solana(Kamino·Solend·MarginFi·Drift) / Sui(Suilend·NAVI·Scallop) /
-// Tron(JustLend) / Aptos(Echelon 등, DeFiLlama lendBorrow). reserve 이용률/LTV → high_utilization·high_lltv
-// (EVM 과 동일 임계·alerts 계약, source=`{protocol}-v1`).
-async function nonevmLendingLoop() {
-  const ts = new Date().toISOString();
-  console.log(`\n══════ ${ts} — non-EVM 렌딩 (Solana/Sui) ══════`);
-  try {
-    await runScript("snapshot-nonevm-lending.ts");
-  } catch (e) {
-    console.error("[cron] nonevm-lending failed:", (e as Error).message);
-  }
-}
-
-// 트랜잭션 플로우(Dune, kuromi flow_trace 포팅) — 24시간마다 상위 토큰의 코어 행위자/흐름 엣지 갱신.
-// Dune 크레딧 사용(토큰당 ~2): 일 1회 × 6토큰. DUNE_API_KEY 미설정이면 스크립트가 안내 후 종료(무해).
-async function flowsLoop() {
-  const ts = new Date().toISOString();
-  console.log(`\n══════ ${ts} — transaction flows (Dune) ══════`);
-  try {
-    await runScript("snapshot-flows.ts", ["--top", "6"]);
-  } catch (e) {
-    console.error("[cron] flows failed:", (e as Error).message);
-  }
-}
-
 async function main() {
   const channels = activeChannels();
   console.log("[cron] starting — 20min staggered per-chain snapshots + daily discovery");
   console.log(`[cron] 알림 채널: ${channels.length ? channels.join(", ") : "없음(DB만 — env 설정 시 활성: DISCORD_WEBHOOK_URL·TELEGRAM_BOT_TOKEN+CHAT_ID·ALERT_WEBHOOK_URL)"}`);
   await loop(); // 즉시 첫 체인
   setInterval(loop, TWENTY_MIN_MS); // 20분마다 다음 코어 체인 (ethereum/base/arbitrum, 60분 주기)
-  // 추가 EVM 체인(optimism·polygon·avalanche·bsc·gnosis·scroll·unichain·worldchain·metis) — 코어와 10분 오프셋.
-  setTimeout(() => { void extraChainLoop(); setInterval(extraChainLoop, TWENTY_MIN_MS); }, 10 * 60 * 1000);
   setInterval(discoveryLoop, ONE_DAY_MS);
+  setInterval(classifyLoop, ONE_DAY_MS); // 1일마다 미지주소 자동 분류(B10) → 검토 큐
   await curatorLoop(); // 즉시 큐레이터 1회 (baseline)
   setInterval(curatorLoop, THIRTY_MIN_MS); // 30분마다 디리스킹 체크
   setInterval(chainSupplyLoop, ONE_HOUR_MS); // 1시간마다 체인별 공급 시계열 누적 (baseline 쌓기)
   setInterval(walletLoop, TWO_HOUR_MS); // 2시간마다 추적 지갑 밸류 (자금 이탈 감시)
   await bridgeAuthLoop(); // 즉시 1회 — 브릿지 권한/lockbox baseline (backing 의 입력)
   setInterval(bridgeAuthLoop, SIX_HOUR_MS); // 6시간마다 온체인 브릿지 mint 권한 검증
-  await bridgeDetectLoop(); // 즉시 1회 — 비-EVM 표준 브릿지 탐지 (관계맵·흐름맵 브릿지 노드 입력)
-  setInterval(bridgeDetectLoop, SIX_HOUR_MS);
   await backingLoop(); // 즉시 1회 — 무담보 공급 baseline
   setInterval(backingLoop, ONE_HOUR_MS); // 1시간마다 Σremote ≤ backing 재검 (무담보 공급 알림)
   await mintburnLoop(); // 즉시 1회 — mint/burn ledger baseline
@@ -232,10 +195,8 @@ async function main() {
   setInterval(valueDriftLoop, ONE_HOUR_MS); // 1시간마다 총가치 급락(밸류 유출) 감시 — chain_supply_samples 시계열 위 (P2-6)
   await reflexivityLoop(); // 즉시 1회 — 사기 루핑(오라클 reflexivity) baseline
   setInterval(reflexivityLoop, ONE_HOUR_MS); // 1시간마다 reflexivity 재계산 (loop_findings → 프론트 Tier0/상세그래프 라이브)
-  await nonevmLendingLoop(); // 즉시 1회 — 비-EVM 렌딩(Solana/Sui 6프로토콜) baseline
-  setInterval(nonevmLendingLoop, ONE_HOUR_MS); // 1시간마다 비-EVM reserve 이용률/LTV 알림
-  void flowsLoop(); // 즉시 1회 시도 — DUNE_API_KEY 없으면 안내만(상세그래프 플로우 레이어 데이터)
-  setInterval(flowsLoop, ONE_DAY_MS); // 24시간마다 상위 토큰 플로우 갱신 (Dune 크레딧 보호)
+  void legoLoop(); // 즉시 1회 — 머니레고 구조(파생토큰·수용처) baseline
+  setInterval(legoLoop, SIX_HOUR_MS); // 6시간마다 갱신 (만기 PT·신규 마켓 반영)
 }
 
 main().catch((e) => {

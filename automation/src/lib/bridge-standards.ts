@@ -1,4 +1,6 @@
-import { type Abi, type Address, type PublicClient, getAddress, keccak256, toHex } from "viem";
+import { type Abi, type Address, type PublicClient, createPublicClient, getAddress, http, keccak256, toHex } from "viem";
+
+import { evmRpcUrl } from "@/config/chains";
 
 /**
  * 추가 브릿지 표준 온체인 감지 — `get_token_bridge_address`(Python Method C/B)의 TS 포팅.
@@ -46,8 +48,9 @@ const CCTP_USDC: Record<number, { usdc: string; messenger: string }> = {
 };
 
 // CCIP chain selector(Chainlink) → 체인명 — 공식 레지스트리(smartcontractkit/chain-selectors)에서
-// 추출(2026-06-10), 공용 EVM_CHAINS 18체인 전부. (모르는 selector 는 "selector:N" 으로 표기.)
-// ⚠️ 구 gnosis 항목(46520056007378…)은 공식값(46520017068774…)과 달랐음 — 교정.
+// 추출, 공용 EVM_CHAINS 18체인 + LINK 등 멀티체인 토큰이 실제로 연결하는 추가 메인넷.
+// (selectors.yml / selectors_solana.yml / selectors_aptos.yml 의 공식 selector 만, 추측 없음.)
+// 모르는 selector 는 "selector:N" 으로 표기. ⚠️ 구 gnosis(46520056007378…)→공식값(46520017068774…) 교정.
 const CCIP_SELECTOR_CHAIN: Record<string, string> = {
   "5009297550715157269": "ethereum",
   "15971525489660198786": "base",
@@ -67,6 +70,31 @@ const CCIP_SELECTOR_CHAIN: Record<string, string> = {
   "1673871237479749969": "sonic",
   "1346049177634351622": "celo",
   "12505351618335765396": "soneium",
+  // ── 추가 메인넷(공식 레지스트리 확인값, EVM) ──
+  "7264351850409363825": "mode",       // ethereum-mainnet-mode-1
+  "6916147374840168594": "ronin",      // ronin-mainnet
+  "6422105447186081193": "astar",      // polkadot-mainnet-astar
+  "5142893604156789321": "wemix",      // wemix-mainnet
+  "17673274061779414707": "xdc",       // xdc-mainnet
+  "9335212494177455608": "plasma",     // plasma-mainnet
+  "3849287863852499584": "bob",        // bitcoin-mainnet-bob-1
+  "7937294810946806131": "bitlayer",   // bitcoin-mainnet-bitlayer-1
+  "18164309074156128038": "morph",     // morph-mainnet
+  "18240105181246962294": "creditcoin",// creditcoin-mainnet
+  "16978377838628290997": "stable",    // stable-mainnet
+  "1523760397290643893": "jovay",      // jovay-mainnet
+  "4059281736450291836": "adi",        // adi-mainnet
+  "4426351306075016396": "0g",         // 0g-mainnet
+  "4829375610284793157": "ab",         // ab-mainnet
+  "5936861837188149645": "tac",        // tac-mainnet
+  "6093540873831549674": "megaeth",    // megaeth-mainnet
+  "6180753054346818345": "robinhood",  // robinhood-mainnet
+  "6325494908023253251": "edge",       // edge-mainnet
+  "7281642695469137430": "tempo",      // tempo-mainnet
+  "7801139999541420232": "pharos",     // pharos-mainnet
+  // ── 비-EVM(원격 주소는 evmAddrFromBytes 가 null 처리, 체인명만 표기) ──
+  "124615329519749607": "solana",      // solana-mainnet
+  "4741433654826277614": "aptos",      // aptos-mainnet
 };
 
 /** 여러 후보 함수명 중 처음으로 0 아닌 주소를 반환(소문자). 전부 revert/0 이면 null. */
@@ -214,4 +242,101 @@ export async function resolveCcipTopology(client: PublicClient, pool: Address): 
 /** (호환) CCIP 연결 원격 체인 목록 — resolveCcipTopology 의 체인명만. */
 export async function resolveCcipRemotes(client: PublicClient, pool: Address): Promise<string[]> {
   return (await resolveCcipTopology(client, pool)).map((r) => r.chain);
+}
+
+// ── 래핑(lock&mint) 변형 토큰 도출 ──────────────────────────────────────────
+// lock&mint 브릿지는 L1 에서 원본을 잠그고 L2 에 **다른 토큰**(USDC.e 등)을 민팅한다.
+// native 토큰(전 체인 동일)만 보면 이 경로를 놓치므로, 정규 L1 토큰 → 각 L2 의 "표준 브릿지
+// 래핑본" 주소를 온체인으로 도출(범용·하드코딩 없음). 도출된 주소를 readBridgeAuthority 로 스캔하면
+// probeL2Canonical(l1Address())/probeOptimism(l1Token()) 이 "L1 원본"을 확인해준다.
+const ARB_L1_GATEWAY_ROUTER = "0x72Ce9c846789fdB6fC1f34aC4AD25Dd9ef7031ef"; // Arbitrum L1 GatewayRouter (on ethereum)
+const CALC_L2_ABI: Abi = [{ type: "function", name: "calculateL2TokenAddress", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "address" }] }];
+
+export interface BridgedVariant { address: string; chain: string; sourceChain: string; via: string; }
+
+// ── Superchain(OP-stack) 표준 브릿지 래핑본 도출 ──────────────────────────────
+// OP-stack 체인은 Arbitrum 처럼 L1 주소로 L2 주소를 결정론적 계산하기 어렵다(OptimismMintableERC20Factory
+// CREATE2 salt 가 L1토큰·이름·심볼 조합이라 재현이 까다로움). 대신 Superchain 공식 토큰리스트
+// (static.optimism.io)에서 후보를 얻고, **온체인 검증**으로만 채택한다.
+//   링크 키 = extensions.opTokenId — 같은 opTokenId 를 가진 L1(chainId 1) ↔ base(8453) 항목이 짝.
+//   (L1 USDC 처럼 한 L1 주소가 opTokenId "USDC"(native)·"BridgedUSDC"(래핑본) 둘에 걸리면 후보 둘 다 시도 →
+//    온체인 검증이 래핑본만 통과시킨다. native 는 l1Token() 없어 revert → 자동 탈락.)
+const SUPERCHAIN_TOKENLIST_URL = "https://static.optimism.io/optimism.tokenlist.json";
+const SUPERCHAIN_CHAIN_ID: Record<string, number> = { base: 8453, optimism: 10 };
+
+interface TokenListEntry { chainId: number; address: string; extensions?: { opTokenId?: string } }
+let _tokenlistCache: Promise<TokenListEntry[]> | null = null;
+async function loadSuperchainTokenlist(): Promise<TokenListEntry[]> {
+  // 1회 캐시(실패 시 빈 배열로 캐시해 재시도 폭주 방지).
+  if (!_tokenlistCache) {
+    _tokenlistCache = (async () => {
+      try {
+        const j = (await (await fetch(SUPERCHAIN_TOKENLIST_URL)).json()) as { tokens?: TokenListEntry[] };
+        return j.tokens ?? [];
+      } catch { return []; }
+    })();
+  }
+  return _tokenlistCache;
+}
+
+/** L1 토큰(chainId 1)과 같은 opTokenId 를 가진 targetChainId 항목 주소 후보(소문자, 중복 제거). */
+async function superchainCandidates(l1Token: Address, targetChainId: number): Promise<string[]> {
+  const toks = await loadSuperchainTokenlist();
+  const l1 = l1Token.toLowerCase();
+  const ids = new Set<string>();
+  for (const t of toks) if (t.chainId === 1 && t.address?.toLowerCase() === l1 && t.extensions?.opTokenId) ids.add(t.extensions.opTokenId);
+  if (!ids.size) return [];
+  const out = new Set<string>();
+  for (const t of toks) if (t.chainId === targetChainId && t.extensions?.opTokenId && ids.has(t.extensions.opTokenId) && t.address) out.add(t.address.toLowerCase());
+  return [...out];
+}
+
+// 디텍터 공용 RPC(Alchemy 우선) 로 만든 체인별 클라이언트 — Superchain 후보 온체인 검증용. 1회 캐시.
+const _chainClients = new Map<string, PublicClient | null>();
+function chainClientFor(chain: string): PublicClient | null {
+  if (_chainClients.has(chain)) return _chainClients.get(chain)!;
+  const url = evmRpcUrl(chain);
+  const c = url ? (createPublicClient({ transport: http(url, { retryCount: 2, retryDelay: 500, timeout: 25_000 }) }) as PublicClient) : null;
+  _chainClients.set(chain, c);
+  return c;
+}
+
+/**
+ * OptimismMintableERC20 후보가 진짜 l1Token 의 래핑본인지 온체인 검증.
+ * l1Token()/remoteToken()/REMOTE_TOKEN() 중 하나가 L1 원본과 일치하면 채택(전부 revert/불일치 = 버림 — 추측 금지).
+ */
+async function verifyOpMintable(l2Client: PublicClient, candidate: Address, l1Token: Address): Promise<boolean> {
+  const l1 = l1Token.toLowerCase();
+  const got = await readAddrTry(l2Client, candidate, ["l1Token", "remoteToken", "REMOTE_TOKEN"]);
+  return got === l1;
+}
+
+/**
+ * 정규 L1 토큰의 targetChain 표준-브릿지 래핑본 주소 도출. l1Client = 이더리움 PublicClient.
+ *   · arbitrum: L1 GatewayRouter.calculateL2TokenAddress(l1Token) → USDC.e 등 (범용: 어떤 L1 토큰이든).
+ *   · base/optimism(OP-stack): Superchain 토큰리스트 후보 → 온체인 l1Token()/remoteToken() 검증 통과한 것만
+ *     (예: USDC → USDbC 0xd9aA…). native 발행 토큰(검증 실패)은 래핑본이 아니므로 자동 제외.
+ */
+export async function deriveBridgedVariant(l1Client: PublicClient, l1Token: Address, targetChain: string): Promise<BridgedVariant | null> {
+  if (targetChain === "arbitrum") {
+    try {
+      const r = String(await l1Client.readContract({ address: getAddress(ARB_L1_GATEWAY_ROUTER), abi: CALC_L2_ABI, functionName: "calculateL2TokenAddress", args: [l1Token] }));
+      if (!isZero(r)) return { address: getAddress(r).toLowerCase(), chain: "arbitrum", sourceChain: "ethereum", via: "Arbitrum Gateway" };
+    } catch { /* 게이트웨이 미응답 */ }
+    return null;
+  }
+  const opChainId = SUPERCHAIN_CHAIN_ID[targetChain];
+  if (opChainId) {
+    const l2Client = chainClientFor(targetChain);
+    if (!l2Client) return null;
+    const cands = await superchainCandidates(l1Token, opChainId).catch(() => [] as string[]);
+    for (const cand of cands) {
+      let addr: Address;
+      try { addr = getAddress(cand); } catch { continue; }
+      if (await verifyOpMintable(l2Client, addr, l1Token).catch(() => false)) {
+        return { address: addr.toLowerCase(), chain: targetChain, sourceChain: "ethereum", via: "OP Standard Bridge" };
+      }
+    }
+  }
+  return null;
 }

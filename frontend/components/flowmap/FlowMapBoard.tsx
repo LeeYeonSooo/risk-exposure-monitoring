@@ -66,7 +66,7 @@ function FlowParticles({ path, color, count = 2, opacity = 0.9, delay = 0, durat
  * 메인 화면이 레일을 알림 패널에 합칠 때 사용(겹침 방지 + 한 패널) — 호버 연동·핀은 그대로 동작.
  * 미지정(undefined)이면 기존처럼 보드 옆에 내장(토큰 페이지).
  */
-export function FlowMapBoard({ sym = "", railPortal }: { sym?: string; railPortal?: HTMLElement | null }) {
+export function FlowMapBoard({ sym = "", railPortal, onTokenClick }: { sym?: string; railPortal?: HTMLElement | null; onTokenClick?: (sym: string) => void }) {
   const [chain, setChain] = useState("ethereum"); // 체인 칩 — 보드는 체인당 하나(고정 배치·공간 기억)
   const [summary, setSummary] = useState<FlowSummary | null>(null); // 전 체인 이상치 집계(칩 뱃지)
   const [data, setData] = useState<FlowMapData | null>(null);
@@ -412,7 +412,7 @@ export function FlowMapBoard({ sym = "", railPortal }: { sym?: string; railPorta
               <g key={t.sym} opacity={opacity} style={{ transition: "opacity .15s", cursor: "pointer" }}
                 onMouseEnter={(ev) => { setHover(`tok:${t.sym}`); onTip(ev, [t.sym + (focus ? " (현재 페이지 토큰)" : "") + (pinned === `tok:${t.sym}` ? " (고정됨)" : "") + (idle ? " · 6h 흐름 없음" : ""), idle ? "지원 토큰 — 최근 흐름 없음" : `유입 ${fmt(t.inUsd)} / 유출 ${fmt(t.outUsd)} (6h)`]); }}
                 onMouseLeave={() => { setHover(null); setTip(null); }}
-                onClick={(ev) => { ev.stopPropagation(); togglePin(`tok:${t.sym}`); }}>
+                onClick={(ev) => { ev.stopPropagation(); if (onTokenClick) onTokenClick(t.sym); else togglePin(`tok:${t.sym}`); }}>
                 <circle cx={at.x} cy={at.y} r={r} fill="var(--color-surface)" stroke={ring} strokeWidth={t.anomalous || focus ? 2.4 : 1.1} />
                 <image href={tokenIcon(t.addr, data.meta.chainId)} x={at.x - (r - 2)} y={at.y - (r - 2)} width={(r - 2) * 2} height={(r - 2) * 2} clipPath={`circle(${r - 2}px)`} opacity={idle && on === null ? 0.7 : 1} />
                 {(!idle || focus || on) && (

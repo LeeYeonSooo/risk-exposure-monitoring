@@ -13,7 +13,7 @@
 // Node / edge data shapes
 // ─────────────────────────────────────────────────────────────
 
-export type NodeType = "Token" | "TokenProtocol" | "DefiProtocol" | "Oracle" | "Bridge" | "IslandHandle";
+export type NodeType = "Token" | "TokenProtocol" | "DefiProtocol" | "DerivativeToken" | "Oracle" | "Bridge" | "IslandHandle";
 export type RiskLevel = "safe" | "caution" | "danger";
 
 export interface NodeMetadata {
@@ -57,6 +57,8 @@ export interface NodeMetadata {
   tokensHeldUsd?: number | null;
   /** 노드 크기/정렬용 USD 규모 = 인접 엣지 amountUsd 합 (프론트 계산). log2 스케일에 사용. */
   sizeUsd?: number | null;
+  /** 무료 소스로 금액을 못 구한 마켓(Euler·Convex 등) — sizeUsd=null 이지만 "진짜 0"이 아니라 "금액 미상"임을 표기. */
+  sizeUnknown?: boolean | null;
   /** 동심원 합성 노드 — 프로토콜 로고 resolve 용 DeFiLlama slug */
   brandSlug?: string | null;
   /** 동심원 합성 마켓 노드 payload (클릭 시 상세) */
@@ -89,6 +91,24 @@ export interface NodeMetadata {
   bridgeMintLimit?: number | null;
   /** 온체인으로 mint 권한 검증됨(CCIP/OFT/xERC20/MINTER) — "추정" 아님. */
   bridgeVerified?: boolean | null;
+  /** E20: 브릿지에 잠긴/공급된 양이 총공급 대비 소액 = "이동(미사용)" — 노드 흐리게 (멘토 §2). */
+  bridgeInactive?: boolean | null;
+  /** 머니레고 파생토큰 역할 — pt | yt | lp | receipt | wrapper (DerivativeToken 노드) */
+  derivRole?: string | null;
+  /** 머니레고 파생토큰의 기초 토큰 노드 id (token:sUSDe 등) */
+  parentTokenId?: string | null;
+  /** 머니레고 엣지/노드 근거 요지 (Morpho 마켓 목록·Convex pid 등 — 클릭 상세용) */
+  legoEvidence?: Record<string, unknown> | null;
+  /** C14/C15 연결성 중요도 배수 — 규모(TVL) 단일이 아니라 그래프 연결성(허브일수록 큼)을 노드 크기에 반영. 1=기본. */
+  connImportance?: number | null;
+  /** 종착(terminal) — 다음 예치 홉이 없는 "설계상 끝"(담보 잠김·이자 수취·보상 영수증·LP 보유). snapshot-lego ⑦ 산출. */
+  terminal?: boolean | null;
+  /** 종착 종류 — collateral_sink | staking_sink | reward_sink | yield_sink | lp_held_sink | vault_share_sink (automation/src/lego/types.ts TerminalKind). */
+  terminalKind?: string | null;
+  /** 종착 이유 — 사용자 노출용 순수 한글 한 줄(왜 여기가 끝인지). */
+  terminalReason?: string | null;
+  /** 보상/수익 재원 한 줄 — 큐레이터 볼트·영수증·YT 가 어떤 수익에서 보상을 받는지(감사관 [고정2·4]). */
+  rewardSource?: string | null;
 }
 
 export interface TokenBridgeEntry {

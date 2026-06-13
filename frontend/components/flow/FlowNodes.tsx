@@ -17,9 +17,24 @@ const CHAIN_ID: Record<string, number> = {
   bsc: 56, gnosis: 100, linea: 59144, scroll: 534352, mantle: 5000, sonic: 146, unichain: 130, berachain: 80094,
 };
 
+const CHAIN_NAME: Record<string, string> = {
+  ethereum: "Ethereum", arbitrum: "Arbitrum", base: "Base", optimism: "Optimism", polygon: "Polygon",
+  avalanche: "Avalanche", bsc: "BNB", gnosis: "Gnosis", linea: "Linea", scroll: "Scroll", unichain: "Unichain",
+};
+function chainName(chain?: string): string {
+  if (!chain) return "";
+  return CHAIN_NAME[chain] ?? chain.charAt(0).toUpperCase() + chain.slice(1);
+}
+function chainLogo(chain?: string): string | null {
+  if (!chain) return null;
+  return `https://icons.llamao.fi/icons/chains/rsz_${chain}?w=48&h=48`;
+}
+
 export interface FlowNodeData extends FlowNode {
   radius: number;
   dim?: boolean;
+  /** 브릿지 맵의 바깥원 = 체인 노드로 렌더(체인 로고 + "체인·토큰" 라벨) */
+  chainNode?: boolean;
   [key: string]: unknown;
 }
 
@@ -74,20 +89,47 @@ function NodeShell({ data, selected }: NodeProps) {
   const fill = d.risk === "danger" ? "#ef4444" : d.risk === "caution" ? "#f59e0b" : FILL[d.kind] ?? "#cbd5e1";
 
   // 브릿지 노드 — 토큰 사이의 🌉. 메커니즘(CCIP/LZ/락박스 등)이 라벨, 미검증=주의색 테두리.
+  // 추정(mint_event=Method E view-probe): 점선 테두리 + "추정" 배지로 검증/탐지본과 한눈에 구분.
   if (isBridge) {
-    const bc = d.risk === "caution" ? "#f59e0b" : "#0d9488";
+    const estimated = d.meta?.estimated === true;
+    const bc = estimated ? "#94a3b8" : d.risk === "caution" ? "#f59e0b" : "#0d9488";
+    const borderStyle = estimated ? "dotted" : d.risk === "caution" ? "dashed" : "solid";
     return (
       <div className="relative flex items-center justify-center" style={{ width: size, height: size }}
-        title={`${d.label}${d.meta?.fromChain ? ` · ${String(d.meta.fromChain)}↔${String(d.meta.toChain)}` : ""}`}>
+        title={`${d.label}${estimated ? " · 추정(민트 이벤트)" : ""}${d.meta?.fromChain ? ` · ${String(d.meta.fromChain)}↔${String(d.meta.toChain)}` : ""}`}>
         <Handle type="target" position={Position.Top} style={{ opacity: 0, width: 1, height: 1, border: 0, minWidth: 0, minHeight: 0 }} isConnectable={false} />
         <Handle type="source" position={Position.Top} style={{ opacity: 0, width: 1, height: 1, border: 0, minWidth: 0, minHeight: 0 }} isConnectable={false} />
         <div className="flex items-center justify-center rounded-full bg-[var(--color-surface)]"
-          style={{ width: size, height: size, border: `2px ${d.risk === "caution" ? "dashed" : "solid"} ${bc}`, boxShadow: selected ? "0 0 0 3px var(--color-accent)" : undefined, fontSize: Math.max(9, size * 0.42) }}>
+          style={{ width: size, height: size, border: `2px ${borderStyle} ${bc}`, opacity: estimated ? 0.78 : 1, boxShadow: selected ? "0 0 0 3px var(--color-accent)" : undefined, fontSize: Math.max(9, size * 0.42) }}>
           🌉
         </div>
+        {estimated && (
+          <span className="pointer-events-none absolute -right-1 -top-1 rounded-full border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-1 text-[7px] font-bold leading-tight" style={{ color: bc }}>추정</span>
+        )}
         <div className="pointer-events-none absolute left-1/2 top-full mt-1 -translate-x-1/2 whitespace-nowrap text-center" style={{ width: 150 }}>
           <div className="text-[9px] font-bold" style={{ color: bc }}>{d.label}</div>
           {d.meta?.fromChain != null && <div className="text-[8px] text-[var(--color-text-muted)]">{String(d.meta.fromChain)} ↔ {String(d.meta.toChain)}</div>}
+        </div>
+      </div>
+    );
+  }
+
+  // 브릿지 맵의 바깥원 = 체인 — 토큰 로고가 아니라 체인 로고로(USDC 3개가 똑같이 안 보이게) +
+  // 노드 아래 "Ethereum · USDC" 로 어떤 체인의 어떤 토큰인지 명시.
+  if (d.chainNode) {
+    const cLogo = chainLogo(d.chain);
+    return (
+      <div className="relative flex items-center justify-center" style={{ width: size, height: size }}
+        title={`${chainName(d.chain)} · ${d.label}${d.tvlUsd ? " · " + formatUsd(d.tvlUsd) : ""}`}>
+        <Handle type="target" position={Position.Top} style={{ opacity: 0, width: 1, height: 1, border: 0, minWidth: 0, minHeight: 0 }} isConnectable={false} />
+        <Handle type="source" position={Position.Top} style={{ opacity: 0, width: 1, height: 1, border: 0, minWidth: 0, minHeight: 0 }} isConnectable={false} />
+        <div className={"flex items-center justify-center overflow-hidden rounded-full bg-[var(--color-surface)] " + riskClass(d.risk)}
+          style={{ width: size, height: size, padding: Math.max(2, size * 0.08), boxShadow: selected ? "0 0 0 3px var(--color-accent)" : undefined }}>
+          <Logo src={cLogo} label={chainName(d.chain)} size={size} />
+        </div>
+        <div className="pointer-events-none absolute left-1/2 top-full mt-1 -translate-x-1/2 whitespace-nowrap text-center" style={{ width: 170 }}>
+          <div className="text-[12px] font-bold text-[var(--color-text-primary)]">{chainName(d.chain)}</div>
+          <div className="text-[10px] font-semibold text-[var(--color-text-secondary)]">{d.label}{d.tvlUsd > 0 ? <span className="ml-1 font-mono font-normal text-[var(--color-text-muted)]">{formatUsd(d.tvlUsd)}</span> : null}</div>
         </div>
       </div>
     );

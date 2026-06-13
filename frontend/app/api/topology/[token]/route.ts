@@ -37,6 +37,11 @@ interface EdgeRow {
   attrs: unknown;
 }
 
+// 2026-06-12 스코프 축소: 이더리움·베이스·아비트럼만 서빙. DB 에는 과거 스냅샷(다른 EVM·비EVM
+// 체인 노드)이 남아 있어 — 데이터는 보존하되 여기서 걸러 그래프에 안 나오게 한다.
+const ALLOWED_CHAINS = new Set(["ethereum", "base", "arbitrum"]);
+const chainOfNodeId = (id: string) => (id.includes("@") ? id.split("@")[1] : "ethereum");
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ token: string }> },
@@ -70,12 +75,15 @@ export async function GET(
        FROM edges e JOIN toks t ON e.token_node_id = t.token_node_id AND e.snapshot_ts = t.ts`,
       [tokenNodeIdLc],
     );
-    if (edgesR.rows.length === 0) {
+    const edges = edgesR.rows.filter(
+      (e) => ALLOWED_CHAINS.has(chainOfNodeId(e.source)) && ALLOWED_CHAINS.has(chainOfNodeId(e.target)),
+    );
+    if (edges.length === 0) {
       return NextResponse.json({ error: `No snapshots yet for ${token}` }, { status: 404 });
     }
 
     const involved = new Set<string>();
-    edgesR.rows.forEach((e) => {
+    edges.forEach((e) => {
       involved.add(e.source);
       involved.add(e.target);
     });
@@ -85,11 +93,12 @@ export async function GET(
        FROM nodes WHERE node_id = ANY($1::text[])`,
       [Array.from(involved)],
     );
+    const nodes = nodesR.rows.filter((n) => !n.chain || ALLOWED_CHAINS.has(n.chain));
 
     return NextResponse.json({
       symbol: token,
-      nodes: nodesR.rows,
-      edges: edgesR.rows,
+      nodes,
+      edges,
     });
   } catch (e) {
     return NextResponse.json(

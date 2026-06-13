@@ -117,6 +117,10 @@ export function EdgeLegend({
               <span className="text-[var(--color-text-secondary)]">검증불가 <span className="text-[var(--color-text-muted)]">(정체불명 · DD 불가)</span></span>
             </div>
           </div>
+          {/* 화살표 방향 = 예치(자금이 들어가는) 방향. 출금/상환은 같은 화살표를 거꾸로 읽는다 — 가역(역엣지 없음). 감사관 [고정3]. */}
+          <div className="mt-2 border-t border-[var(--color-border-subtle)] pt-1.5 leading-snug text-[var(--color-text-muted)]">
+            화살표 = 예치 방향(자금이 들어가는 쪽). 출금·상환은 같은 화살표를 <span className="text-[var(--color-text-secondary)]">거꾸로</span> 따라 나간다.
+          </div>
         </>
       )}
     </div>
