@@ -7,7 +7,7 @@
  * back to every in-graph token it involves → the token⇄market⇄token web.
  */
 
-import { hasFlowAdapter } from "./flow-adapters";
+import { hasFlowAdapter, ISSUER_TOKENS } from "./flow-adapters";
 import { erc20Symbol, wrappedUnderlying } from "./lending-pools";
 import { gatedGql } from "./rpc-gate";
 import type { FlowEdge, FlowGraph, FlowNode, FlowTokenSummary } from "./flow-types";
@@ -700,6 +700,27 @@ export async function buildFlowGraph(opts: BuildOpts = {}): Promise<FlowGraph> {
       const tokenId = ensureToken(v.token, chain);
       if (tokenId) edges.push({ id: `i:${vId}->${tokenId}`, source: vId, target: tokenId, kind: "involves", tvlUsd: v.allocationUsd, weight: 0, chain, dir: "both", label: `${v.token} 구성` });
     }
+  }
+
+  // ── LST/RWA 발행 프로토콜 노드 보장 — yields symbol/underlying 휴리스틱(LRT collision guard·usual 의
+  //    BUSD0 풀 등)으로 발행 프로토콜이 후보에서 빠져도, 그 발행 토큰이 선택됐고 어댑터가 있으면
+  //    노드+holds 엣지를 만든다. 이미 떠 있으면(rocket-pool 등) 스킵. lending-events 의 mint/burn 귀속
+  //    행이 이 노드를 색칠한다(2026-06-13). ──
+  for (const it of ISSUER_TOKENS) {
+    if (!wantChains.has(it.chain) || !wantSet.has(it.sym)) continue;
+    const tokenId = ensureToken(dispBy.get(it.sym) ?? it.sym, it.chain);
+    if (!tokenId) continue; // 그 발행 토큰이 그래프에 없으면(tvl 0) 스킵
+    const protoId = `proto:${it.chain}|${it.slug}`;
+    if (!nodes.has(protoId)) {
+      const ptot = tcTotal.get(`${it.sym}|${it.chain}`) ?? 0;
+      nodes.set(protoId, {
+        id: protoId, kind: "protocol", label: it.slug, token: "", chain: it.chain, protocol: it.slug, tvlUsd: ptot,
+        sharePct: (chainTotal.get(it.chain) ?? 0) > 0 ? ptot / (chainTotal.get(it.chain) ?? 1) : undefined,
+        meta: { category: protoCategory.get(`${it.chain}|${it.slug}`) ?? null, catGroup: groupOfProto(`${it.chain}|${it.slug}`), coreKeep: true, flowSupported: hasFlowAdapter(it.slug, it.chain) }, risk: "safe",
+      });
+    }
+    const eid = `h:${tokenId}->${protoId}`;
+    if (!edges.some((e) => e.id === eid)) edges.push({ id: eid, source: tokenId, target: protoId, kind: "holds", tvlUsd: tcTotal.get(`${it.sym}|${it.chain}`) ?? 0, weight: 0, chain: it.chain, dir: "both", label: "발행" });
   }
 
   // bridges (cross-chain same token) + siblings (cross-chain same protocol)

@@ -1,4 +1,5 @@
 import type { CpTarget } from "./counterparties";
+import { ISSUER_TOKENS } from "./flow-adapters";
 import { fluidDexSet } from "./fluid-dexes";
 import type { FlowBaselineRow } from "./flow-types";
 import { gatedGql, gatedJsonRpc } from "./rpc-gate";
@@ -100,19 +101,9 @@ const ERC4626_SAVINGS: { chain: string; vault: string; asset: string; label: str
 ];
 
 // LST/RWA 발행 토큰 — mint(from 0x0)=발행 유입, burn(to 0x0)=상환 유출. 토큰이 **선택됐을 때** 그
-// 발행 프로토콜로 귀속(lido/ether.fi 일반화). USD = 금액 × 그 토큰 가격. 라벨=DeFiLlama 슬러그.
-// 전부 표준 ERC20(asset() revert — ERC4626 아님)이라 mint/burn 으로만 귀속(2026-06-13 온체인 검증).
-const LST_ISSUERS: { chain: string; token: string; label: string }[] = [
-  { chain: "ethereum", token: "0xae78736cd615f374d3085123a210448e74fc6393", label: "rocket-pool" },         // rETH
-  { chain: "ethereum", token: "0xa2e3356610840701bdf5611a53974510ae27e2e1", label: "binance-staked-eth" }, // wBETH
-  { chain: "ethereum", token: "0xa1290d69c65a6fe4df752f95823fae25cb99e5a7", label: "kelp" },                // rsETH
-  { chain: "ethereum", token: "0x8236a87084f8b84306f72007f36f2618a5634494", label: "lombard-lbtc" },        // LBTC
-  { chain: "ethereum", token: "0x96f6ef951840721adbf46ac996b59e0235cb985c", label: "ondo-yield-assets" },   // USDY
-  { chain: "ethereum", token: "0x1b19c19393e2d034d8ff31ff34c81252fcbbee92", label: "ondo-yield-assets" },   // OUSG
-  { chain: "ethereum", token: "0x73a15fed60bf67631dc6cd7bc5b6e8da8190acf5", label: "usual-usd0" },          // USD0
-  { chain: "ethereum", token: "0xd5f7838f5c461feff7fe49ea5ebaf7728bb0adfa", label: "meth-protocol" },       // mETH
-  { chain: "ethereum", token: "0xa35b1b31ce002fbf2058d22f30f95d405200a15b", label: "stader" },              // ETHx
-];
+// 발행 프로토콜로 귀속(lido/ether.fi 일반화). USD = 금액 × 그 토큰 가격. 단일 소스 = flow-adapters
+// ISSUER_TOKENS (flow-core 노드 보장과 동기). 전부 표준 ERC20(asset() revert — ERC4626 아님).
+const LST_ISSUERS = ISSUER_TOKENS.map((t) => ({ chain: t.chain, token: t.addr, label: t.slug }));
 
 // ── ether.fi — eETH 민트(=스테이크 유입)/소각(=출금 유출). 홀드 엣지가 weETH→ether.fi-stake 라
 //    weETH 심볼로 귀속, USD 는 eETH 가격(동일자산이라 환산비 무관). 2026-06-12 온체인 실증. ──

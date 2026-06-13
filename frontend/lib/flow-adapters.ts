@@ -73,6 +73,24 @@ const COVERED: { test: (slug: string) => boolean; chains: readonly string[] }[] 
   { test: (s) => s === "pendle", chains: ALL },                             // Router V4 싱글톤
 ];
 
+/**
+ * LST/RWA **발행** 토큰 → 발행 프로토콜. 이 토큰들은 yields 풀 symbol/underlying 휴리스틱(flow-core)
+ * 으로는 발행 프로토콜 노드가 안 만들어질 수 있다(LRT 는 underlying 이 다른 LST, usual 은 풀 symbol 이
+ * BUSD0). 그래서 (a) flow-core 가 토큰 선택 시 발행 프로토콜 노드+엣지를 보장 생성하고, (b) lending-events
+ * 가 mint/burn(0x0 엣지)을 이 라벨로 귀속한다. 단일 소스(주소·심볼·슬러그 동기). 전부 온체인 검증분.
+ */
+export const ISSUER_TOKENS: { chain: string; sym: string; addr: string; slug: string }[] = [
+  { chain: "ethereum", sym: "RETH", addr: "0xae78736cd615f374d3085123a210448e74fc6393", slug: "rocket-pool" },
+  { chain: "ethereum", sym: "WBETH", addr: "0xa2e3356610840701bdf5611a53974510ae27e2e1", slug: "binance-staked-eth" },
+  { chain: "ethereum", sym: "RSETH", addr: "0xa1290d69c65a6fe4df752f95823fae25cb99e5a7", slug: "kelp" },
+  { chain: "ethereum", sym: "LBTC", addr: "0x8236a87084f8b84306f72007f36f2618a5634494", slug: "lombard-lbtc" },
+  { chain: "ethereum", sym: "USDY", addr: "0x96f6ef951840721adbf46ac996b59e0235cb985c", slug: "ondo-yield-assets" },
+  { chain: "ethereum", sym: "OUSG", addr: "0x1b19c19393e2d034d8ff31ff34c81252fcbbee92", slug: "ondo-yield-assets" },
+  { chain: "ethereum", sym: "USD0", addr: "0x73a15fed60bf67631dc6cd7bc5b6e8da8190acf5", slug: "usual-usd0" },
+  { chain: "ethereum", sym: "METH", addr: "0xd5f7838f5c461feff7fe49ea5ebaf7728bb0adfa", slug: "meth-protocol" },
+  { chain: "ethereum", sym: "ETHX", addr: "0xa35b1b31ce002fbf2058d22f30f95d405200a15b", slug: "stader" },
+];
+
 /** 이 (프로토콜 슬러그, 체인)에 실제 흐름을 측정·귀속할 어댑터가 있는가. */
 export function hasFlowAdapter(slug: string | null | undefined, chain: string): boolean {
   if (!slug) return false;
