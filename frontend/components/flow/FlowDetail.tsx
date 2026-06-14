@@ -13,7 +13,6 @@ import type { FlowEdge, FlowGraph as FlowGraphData, FlowNode } from "@/lib/flow-
  */
 const EDGE_KIND_LABEL: Record<FlowEdge["kind"], string> = {
   holds: "예치 / 익스포저", market: "마켓 · 풀", involves: "구성 토큰", vault: "볼트 공급", bridge: "체인간 연결 (브릿지)", sibling: "동일 프로토콜 (타 체인)", oracle: "오라클 의존", trace: "이벤트 보강 흐름",
-  derive: "파생/발행 (랩 · 4626 · LP)",
 };
 const kindKo = (k: FlowNode["kind"]) => (k === "token" ? "토큰" : k === "protocol" ? "프로토콜" : k === "market" ? "마켓/풀" : k === "vault" ? "볼트 (큐레이터 운용)" : k === "bridge" ? "브릿지" : "외부 컨트랙트");
 
@@ -75,7 +74,6 @@ export function FlowDetail({ sel, graph, onClose }: {
       body = (
         <>
           <PRow k="담보 · 마켓" v={mkts.length ? `${mkts.length}개 · ${formatUsd(node.tvlUsd)}` : node.tvlUsd > 0 ? formatUsd(node.tvlUsd) : null} />
-          <PRow k="일 거래량" v={node.volUsd ? formatUsd(node.volUsd) : null} />
           <PRow k="최고 LLTV" v={maxLltv != null ? pct1(maxLltv) : null} warn={maxLltv != null && maxLltv >= 0.945} />
           <PRow k="평균 이용률" v={avgUtil != null ? pct1(avgUtil) : null} warn={avgUtil != null && avgUtil >= 0.95} />
           <PRow k="알림" v={protoCounts ? sevDots(protoCounts.crit, protoCounts.warnN) : null} warn={(protoCounts?.crit ?? 0) > 0} />
@@ -93,7 +91,6 @@ export function FlowDetail({ sel, graph, onClose }: {
           <PRow k="LLTV" v={Number.isFinite(lltv) && lltv > 0 ? pct1(lltv) : null} warn={lltv >= 0.945} />
           <PRow k="이용률" v={Number.isFinite(util) && util > 0 ? pct1(util) : null} warn={util >= 0.95} />
           <PRow k="규모" v={node.tvlUsd > 0 ? formatUsd(node.tvlUsd) : null} />
-          <PRow k="일 거래량" v={node.volUsd ? formatUsd(node.volUsd) : null} />
           <PRow k="오라클" v={oracleEdge ? (oracleEdge.label ?? "온체인 피드").replace(/^오라클\s*/, "") : null} badge={oracleEdge ? "verified" : undefined} />
           <PRow k="큐레이터" v={curators.length ? `${curators.slice(0, 2).join(" · ")}${curators.length > 2 ? ` +${curators.length - 2}` : ""}` : null} />
         </>
@@ -170,31 +167,9 @@ export function FlowDetail({ sel, graph, onClose }: {
               <>
                 <PRow k="관계" v={EDGE_KIND_LABEL[edge.kind]} />
                 <PRow k="규모" v={edge.tvlUsd > 0 ? formatUsd(edge.tvlUsd) : null} />
-                <PRow k="일 거래량" v={edge.volUsd ? formatUsd(edge.volUsd) : null} />
                 {edge.bridge?.mechanism && <PRow k="메커니즘" v={edge.bridge.mechanism} badge="verified" />}
               </>
             )}
-            {/* 평소 모드 — 이 엣지의 평소 흐름. 실측(scan)은 유입/유출·거래수 분리, 거래량
-                보충(volume — DEX 일거래량)은 방향·건수 미상으로 정직 표기. 공유 엣지는 토큰별
-                관측구간이 달라 범위로 표기 — 합계가 24h 치인 것처럼 읽히지 않게. */}
-            {edge.baseline && (() => {
-              const b = edge.baseline;
-              const rate = (u: number, t: number) => `${formatUsd(u)}/h · ${t >= 10 ? Math.round(t) : t.toFixed(1)}건/h`;
-              return (
-                <>
-                  {b.inUsdPerHour > 0 && <PRow k="평소 유입" v={rate(b.inUsdPerHour, b.inTxPerHour)} />}
-                  {b.outUsdPerHour > 0 && <PRow k="평소 유출" v={rate(b.outUsdPerHour, b.outTxPerHour)} />}
-                  {b.source === "volume" && <PRow k="평소 흐름" v={`${formatUsd(b.usdPerHour)}/h (일거래량 기반 · 방향/건수 미상)`} />}
-                  {b.count > 0 && <PRow k="관측 합계" v={`${formatUsd(b.usd)} · ${b.count}건`} />}
-                  <PRow k="집계원" v={b.source === "scan" ? "실전송 스캔" : b.source === "volume" ? "DeFiLlama 일거래량" : "실전송 + 일거래량"} />
-                  {b.source !== "volume" && <PRow k="관측 구간" v={
-                    Math.round(b.observedSecMin / 360) === Math.round(b.observedSecMax / 360)
-                      ? `${(b.observedSecMax / 3600).toFixed(1)}시간`
-                      : `${(b.observedSecMin / 3600).toFixed(1)}–${(b.observedSecMax / 3600).toFixed(1)}시간 (토큰별 상이)`
-                  } />}
-                </>
-              );
-            })()}
           </>
         )}
       </div>

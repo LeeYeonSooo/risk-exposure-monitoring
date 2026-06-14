@@ -65,8 +65,7 @@ export function TxFlowLayer({ nodes, edges, txs, colorByToken, buildPlan = build
     const out: { d: string; kp: string; color: string; r: number; dur: number; begin: number; key: string }[] = [];
     let i = 0;
     for (const { tx, hops } of plan) {
-      // 색 = 선택 토큰만 — 파생/LP 토큰 흐름은 회색 (22색 범례는 사람이 못 읽는다)
-      const color = colorByToken.get(tx.token.toUpperCase()) ?? "#94a3b8";
+      const color = colorByToken.get(tx.token.toUpperCase()) ?? "#6366f1";
       const r = radiusForValue(tx.valueUsd);
       const baseBegin = (i % 20) * 0.2;
       for (let k = 0; k < hops.length; k++) {

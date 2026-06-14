@@ -5,26 +5,17 @@ import {
   Background, BackgroundVariant, Controls, MiniMap, Panel, ReactFlow, ReactFlowProvider,
   type Edge, type Node, type NodeMouseHandler, useEdgesState, useNodesState, useReactFlow,
 } from "@xyflow/react";
-import { forceCollide, forceLink, forceSimulation, type ForceLink, type Simulation } from "d3-force";
 import "@xyflow/react/dist/style.css";
+import {
+  forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY,
+  type Simulation, type SimulationLinkDatum, type SimulationNodeDatum,
+} from "d3-force";
 
-import { BaselineFlowLayer } from "./BaselineFlowLayer";
 import { FloatingFlowEdge } from "./FloatingFlowEdge";
-import { FlowNodeShell, type FlowNodeData } from "./FlowNodes";
+import { FlowNodeShell } from "./FlowNodes";
 import { TxFlowLayer } from "./TxFlowLayer";
-import { computeStaticLayout, radiusOf } from "@/lib/flow-layout";
-import type { FlowActivity } from "@/lib/flow-match";
-import type { FlowGraph as FlowGraphData, FlowMode, FlowNode, FlowTx, RiskLevel } from "@/lib/flow-types";
-
-/**
- * 흐름맵 그래프 — 배치는 결정적 동심 링 레이아웃(평상시 물리 OFF, 위치 보존), 단 **드래그
- * 중에만** d3-force 가 살아나 이어진 노드들이 스프링으로 딸려온다(tiger-research 관계도
- * 스타일 — 사용자 확정 2026-06-12). **탄력 복귀 없음**(사용자 확정): 홈 앵커 없음, 안정
- * 거리 = 드래그 시작 시점의 현재 거리, 놓은 노드는 fx/fy 핀으로 그 자리에 영구 고정 —
- * "놓은 자리가 곧 자리". 정렬 초기화 버튼만이 핀을 풀고 동심원으로 되돌린다.
- * activity(트랜잭션이 하나라도 탄 노드·엣지 집합)가 주어지면 나머지는 회색으로 딤 처리해
- * 실제 흐름이 있는 곳만 상대적으로 도드라진다 (실시간/평소 모드 공통).
- */
+import { LINK_DIST, LINK_STR, radiusOf, seedPositions } from "@/lib/flow-layout";
+import type { FlowGraph as FlowGraphData, FlowMode, FlowTx, RiskLevel } from "@/lib/flow-types";
 
 const nodeTypes = { flow: FlowNodeShell };
 const edgeTypes = { flow: FloatingFlowEdge };
@@ -37,138 +28,97 @@ function tokenColor(i: number, n: number): string {
   return `hsl(${hue}, 72%, ${light}%)`;
 }
 
+interface SimNode extends SimulationNodeDatum { id: string; r: number; bandX: number; kind: string }
+
 const W = 1800, H = 1100;
 
-// ── 드래그 물리 — 시뮬 노드/링크 (좌표는 노드 "중심" 기준) ──
-// 복귀 금지(사용자 확정): 홈 앵커 없음, 링크 안정거리 = "드래그 시작 시점의 현재 거리"
-// (원래 레이아웃 거리가 아님 — 그래야 끌고 간 무리가 통째로 따라오고, 놓아도 안 되감긴다),
-// 끌어 놓은 노드는 fx/fy 핀 영구 고정. 즉 "놓은 자리가 곧 그 노드의 자리".
-interface SimNode { id: string; x: number; y: number; vx?: number; vy?: number; fx?: number | null; fy?: number | null; r: number }
-interface SimLink { source: string | SimNode; target: string | SimNode; rest: number; k: number }
-// 구조 결합이 단단할수록 세게 딸려온다 — 마켓/볼트는 부모와 한 몸, holds 는 토큰이 허브라 약간 약하게
-const LINK_K: Record<string, number> = { market: 0.6, vault: 0.6, derive: 0.55, bridge: 0.45, holds: 0.35 };
-
 function Inner({
-  graph, mode, chainsOrder, selectedTokens, selectedId, onSelectNode, onSelectEdge, txs, activity,
+  graph, mode, chainsOrder, selectedId, onSelectNode, onSelectEdge, txs,
 }: {
-  graph: FlowGraphData; mode: FlowMode; chainsOrder: string[]; selectedTokens: string[];
-  selectedId: string | null; onSelectNode: (id: string) => void; onSelectEdge: (id: string) => void;
-  txs: FlowTx[]; activity: FlowActivity | null;
+  graph: FlowGraphData; mode: FlowMode; chainsOrder: string[];
+  selectedId: string | null; onSelectNode: (id: string) => void; onSelectEdge: (id: string) => void; txs: FlowTx[];
 }) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const { fitView } = useReactFlow();
 
-  // 노드 중심 좌표 보존 — 30초 폴마다 핀 노드가 들고나도 기존(사용자가 옮긴) 위치는 절대 안 움직인다
+  const simRef = useRef<Simulation<SimNode, undefined> | null>(null);
+  const simNodesRef = useRef<Map<string, SimNode>>(new Map());
   const posRef = useRef<Map<string, { x: number; y: number }>>(new Map());
-  const chainsKeyRef = useRef("");
+  const draggingRef = useRef<string | null>(null);
   const firstBuildRef = useRef(true);
-  // 드래그 물리 — 평소엔 정지(alpha 0), 드래그하는 동안만 alphaTarget 으로 살아난다
-  const simRef = useRef<Simulation<SimNode, SimLink> | null>(null);
-  const simByIdRef = useRef<Map<string, SimNode>>(new Map());
-  const simLinksRef = useRef<SimLink[]>([]);
-  const linkForceRef = useRef<ForceLink<SimNode, SimLink> | null>(null);
-  const dragIdRef = useRef<string | null>(null);
-  // build effect(deps=[graphKey])가 최신 선택/활동을 읽기 위한 ref — chainsOrder 단독 변경 시
-  // selection effect 가 재실행되지 않아도 dim/selected 가 유실되지 않게 한다.
-  const selRef = useRef(selectedId);
-  selRef.current = selectedId;
-  const activityRef = useRef(activity);
-  activityRef.current = activity;
 
   const graphKey = useMemo(
     () => graph.nodes.map((n) => n.id).join(",") + "|" + chainsOrder.join(","),
     [graph, chainsOrder],
   );
 
-  // ── build nodes: 정적 레이아웃은 "새 노드"에만, 기존 노드는 posRef 위치 유지 ──
+  // ── build + run the live simulation (rebuild only when node set / chains change) ──
   useEffect(() => {
-    const chainsKey = chainsOrder.join(",");
-    if (chainsKeyRef.current !== chainsKey) { posRef.current.clear(); chainsKeyRef.current = chainsKey; } // 체인 구성이 바뀌면 밴드가 바뀌므로 재배치
-    const layout = computeStaticLayout(graph, chainsOrder, W, H);
-    // 함수형 업데이트 + 기존 노드 spread: ReactFlow v12 는 노드 객체가 통째로 교체되면 measured
-    // 를 버려 한 프레임 노드 hidden·엣지 소실 블링크가 난다 — 기존 객체를 spread 해 measured 를
-    // 보존하고, 신규 노드도 width/height 를 명시해 측정 전 프레임부터 치수가 있게 한다.
-    setNodes((prev) => {
-      const old = new Map(prev.map((p) => [p.id, p] as const));
-      return graph.nodes.map((n) => {
-        const r = radiusOf(n);
-        const c = posRef.current.get(n.id) ?? layout.get(n.id) ?? { x: W / 2, y: H / 2 };
-        posRef.current.set(n.id, c);
-        return {
-          ...(old.get(n.id) ?? {}),
-          id: n.id, type: "flow",
-          position: { x: c.x - r, y: c.y - r },
-          width: r * 2, height: r * 2,
-          // zIndex 1 > 입자 svg(zIndex 0) — 트랜잭션 알이 노드 원 위를 가로지르지 않고 아래로 지나간다
-          zIndex: 1,
-          data: { ...n, radius: r, dim: activityRef.current ? !activityRef.current.nodeIds.has(n.id) : false },
-          draggable: true, selected: n.id === selRef.current,
-        } as Node;
-      });
+    const multi = chainsOrder.length > 1;
+    // spread the layout as the node count grows so many-token views don't collapse into a hairball
+    const spread = Math.max(1, Math.sqrt(graph.nodes.length / 22));
+    const bandX = (chain: string) => (multi ? ((Math.max(0, chainsOrder.indexOf(chain)) + 0.5) / chainsOrder.length) * W : W / 2);
+    const seed = seedPositions(graph, chainsOrder, W, H);
+    const rById = new Map(graph.nodes.map((n) => [n.id, radiusOf(n)] as const));
+
+    const simNodes: SimNode[] = graph.nodes.map((n) => {
+      const prev = posRef.current.get(n.id) ?? seed.get(n.id) ?? { x: W / 2, y: H / 2 };
+      return { id: n.id, r: rById.get(n.id) ?? 12, bandX: bandX(n.chain), kind: n.kind, x: prev.x, y: prev.y };
     });
+    const byId = new Map(simNodes.map((s) => [s.id, s] as const));
+    simNodesRef.current = byId;
+
+    const links: (SimulationLinkDatum<SimNode> & { ek: string })[] = [];
+    for (const e of graph.edges) {
+      const s = byId.get(e.source), t = byId.get(e.target);
+      if (!s || !t) continue;
+      // 토큰→브릿지 노드 부착 엣지는 짧게 (체인간 bridge 엣지의 260px 와 구분)
+      const ek = e.kind === "bridge" && e.target.startsWith("bridge:") ? "vault" : e.kind;
+      links.push({ source: s, target: t, ek });
+    }
+
+    // initial RF nodes
+    setNodes(graph.nodes.map((n) => {
+      const s = byId.get(n.id)!;
+      return {
+        id: n.id, type: "flow",
+        position: { x: (s.x ?? 0) - s.r, y: (s.y ?? 0) - s.r },
+        // zIndex 1 > 입자 svg(zIndex 0) — 트랜잭션 알이 노드 원 위를 가로지르지 않고 아래로 지나간다
+        zIndex: 1,
+        data: { ...n, radius: s.r }, draggable: true, selected: n.id === selectedId,
+      } as Node;
+    }));
+
+    const sim = forceSimulation(simNodes)
+      .force("link", forceLink<SimNode, SimulationLinkDatum<SimNode>>(links).id((d) => (d as SimNode).id)
+        .distance((l) => (LINK_DIST[(l as unknown as { ek: keyof typeof LINK_DIST }).ek] ?? 90) * spread)
+        .strength((l) => LINK_STR[(l as unknown as { ek: keyof typeof LINK_STR }).ek] ?? 0.3))
+      .force("charge", forceManyBody<SimNode>().strength((d) => (-(d.r * d.r) * 1.1 - 90) * spread).distanceMax(1100 * spread))
+      .force("collide", forceCollide<SimNode>().radius((d) => d.r * spread * 0.5 + d.r + 12).strength(0.96))
+      .force("x", forceX<SimNode>((d) => d.bandX).strength(multi ? 0.16 : 0.025))
+      .force("y", forceY<SimNode>(H / 2).strength(0.03))
+      // 첫 빌드만 강하게 풀고, 이후(30초 폴마다 실거래 핀 노드가 들고나는 재빌드)는 살짝만 —
+      // 화면 전체가 주기적으로 출렁이지 않게. 기존 노드 위치는 posRef 로 보존됨.
+      .alpha(firstBuildRef.current ? 0.9 : 0.25).alphaDecay(0.028);
+
+    sim.on("tick", () => {
+      for (const s of simNodes) posRef.current.set(s.id, { x: s.x ?? 0, y: s.y ?? 0 });
+      setNodes((prev) => prev.map((n) => {
+        const s = byId.get(n.id); if (!s) return n;
+        return { ...n, position: { x: (s.x ?? 0) - s.r, y: (s.y ?? 0) - s.r } };
+      }));
+    });
+    simRef.current = sim;
     // fitView 는 첫 빌드에만 — 핀 노드 변동 때마다 사용자의 팬/줌을 리셋하지 않는다
     const doFit = firstBuildRef.current;
     firstBuildRef.current = false;
-    const fitT = doFit ? setTimeout(() => fitView({ padding: 0.05, duration: 600 }).catch(() => {}), 150) : null;
-    return () => { if (fitT) clearTimeout(fitT); };
+    const fitT = doFit ? setTimeout(() => fitView({ padding: 0.16, duration: 600 }).catch(() => {}), 900) : null;
+    return () => { if (fitT) clearTimeout(fitT); sim.stop(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [graphKey]);
 
-  // ── 드래그 물리 시뮬 (재)구성 — 폴마다 엣지가 바뀌어도 시뮬은 정지 상태로 갈아끼우므로
-  // 화면은 안 움직인다. 위치·핀(fx/fy)은 이전 시뮬에서 승계 — 사용자가 놓은 자리는 신성하다. ──
-  useEffect(() => {
-    const prevSim = simByIdRef.current;
-    const byId = new Map<string, SimNode>();
-    for (const n of graph.nodes) {
-      const cur = posRef.current.get(n.id) ?? { x: W / 2, y: H / 2 };
-      const old = prevSim.get(n.id);
-      byId.set(n.id, { id: n.id, x: cur.x, y: cur.y, vx: 0, vy: 0, fx: old?.fx ?? null, fy: old?.fy ?? null, r: radiusOf(n) });
-    }
-    // 안정거리 = 현재 거리(드래그 시작마다 다시 잼) — 사용자가 만든 배치가 그대로 "정답 모양"이
-    // 되므로 끌면 무리가 통째로 따라오고, 놓아도 원래 레이아웃으로 되감기지 않는다.
-    const dist = (a: SimNode, b: SimNode) => Math.max(40, Math.hypot(a.x - b.x, a.y - b.y));
-    const links: SimLink[] = [];
-    const seen = new Set<string>();
-    for (const e of graph.edges) {
-      const a = byId.get(e.source), b = byId.get(e.target);
-      if (!a || !b) continue;
-      const pk = e.source < e.target ? `${e.source}|${e.target}` : `${e.target}|${e.source}`;
-      if (seen.has(pk)) continue;
-      seen.add(pk);
-      links.push({ source: e.source, target: e.target, rest: dist(a, b), k: LINK_K[e.kind] ?? 0.2 });
-    }
-    simRef.current?.stop();
-    const sim = forceSimulation<SimNode>([...byId.values()])
-      .force("link", forceLink<SimNode, SimLink>(links).id((d) => d.id).distance((l) => l.rest).strength((l) => l.k))
-      .force("collide", forceCollide<SimNode>().radius((d) => d.r + 6).strength(0.7).iterations(2))
-      .alpha(0).alphaDecay(0.09).velocityDecay(0.5).stop();
-    sim.on("tick", () => {
-      setNodes((nds) => nds.map((nd) => {
-        if (nd.id === dragIdRef.current) return nd; // 끌리는 노드는 ReactFlow 가 진실원
-        const s = byId.get(nd.id);
-        if (!s) return nd;
-        const r = (nd.data as FlowNodeData).radius ?? 12;
-        posRef.current.set(nd.id, { x: s.x, y: s.y });
-        const nx = s.x - r, ny = s.y - r;
-        if (Math.abs(nx - nd.position.x) < 0.1 && Math.abs(ny - nd.position.y) < 0.1) return nd;
-        return { ...nd, position: { x: nx, y: ny } };
-      }));
-    });
-    // 드래그 도중 리빌드(30초 폴)면 잡고 있던 노드를 다시 고정하고 시뮬을 잇는다
-    const did = dragIdRef.current;
-    if (did) {
-      const s = byId.get(did), c = posRef.current.get(did);
-      if (s && c) { s.fx = c.x; s.fy = c.y; sim.alphaTarget(0.3).restart(); }
-    }
-    simRef.current = sim;
-    simByIdRef.current = byId;
-    simLinksRef.current = links;
-    linkForceRef.current = sim.force("link") as ForceLink<SimNode, SimLink>;
-    return () => { sim.stop(); };
-  }, [graph, chainsOrder, setNodes]);
-
-  // ── edges (re-derive on risk / activity change) ──
+  // ── edges (re-derive on mode / risk change, not on tick) ──
   useEffect(() => {
     const riskOf = new Map(graph.nodes.map((n) => [n.id, n.risk ?? "safe"] as const));
     setEdges(graph.edges.map((e) => {
@@ -176,94 +126,46 @@ function Inner({
       const risk = RISK_RANK[sr] >= RISK_RANK[tr] ? sr : tr;
       return {
         id: e.id, source: e.source, target: e.target, type: "flow",
-        data: {
-          kind: e.kind, weight: e.weight, tvlUsd: e.tvlUsd, volUsd: e.volUsd, mode, dir: e.dir ?? "both", label: e.label,
-          risk: risk === "safe" ? undefined : risk, oracle: e.oracle, trace: e.trace, baseline: e.baseline,
-          dim: activity ? !activity.edgeIds.has(e.id) : false,
-        },
+        data: { kind: e.kind, weight: e.weight, tvlUsd: e.tvlUsd, mode, dir: e.dir ?? "both", label: e.label, risk: risk === "safe" ? undefined : risk, oracle: e.oracle, trace: e.trace },
         selected: e.id === selectedId, zIndex: 0,
       } as Edge;
     }));
-  }, [graph, mode, selectedId, activity, setEdges]);
+  }, [graph, mode, selectedId, setEdges]);
 
-  // ── selection + dim on nodes (no reposition) ──
+  // ── selection highlight on nodes (no reposition) ──
   useEffect(() => {
-    setNodes((prev) => prev.map((n) => {
-      const dim = activity ? !activity.nodeIds.has(n.id) : false;
-      const sel = n.id === selectedId;
-      if (n.selected === sel && (n.data as FlowNodeData).dim === dim) return n;
-      return { ...n, selected: sel, data: { ...n.data, dim } };
-    }));
-  }, [selectedId, activity, setNodes]);
+    setNodes((prev) => prev.map((n) => (n.selected === (n.id === selectedId) ? n : { ...n, selected: n.id === selectedId })));
+  }, [selectedId, setNodes]);
 
-  // ── 드래그: ReactFlow 가 잡은 노드를 옮기고, 시뮬은 그 노드를 고정점(fx/fy)으로 받아
-  // 이어진 노드들을 스프링으로 끌고 온다. **놓아도 핀을 풀지 않는다** — 놓은 자리가 그 노드의
-  // 자리(탄력 복귀 없음, 사용자 확정). 딸려온 이웃들도 안정거리가 "드래그 직전 거리"라서
-  // 따라온 자리 근처에 그대로 정착한다. ──
-  const onDragStart: NodeMouseHandler = useCallback((_, node) => {
-    const r = (node.data as FlowNodeData).radius ?? 12;
-    // 안정거리를 "지금 이 순간의 거리"로 다시 잰다 — 직전 드래그들이 만든 배치가 곧 중립 모양.
-    // (이걸 안 하면 스프링이 옛 배치를 기억해 끌 때마다 옛 모양으로 되감으려 든다)
-    for (const l of simLinksRef.current) {
-      const a = l.source as SimNode, b = l.target as SimNode;
-      if (typeof a === "object" && typeof b === "object") l.rest = Math.max(40, Math.hypot(a.x - b.x, a.y - b.y));
-    }
-    linkForceRef.current?.distance((l) => l.rest); // d3 내부 거리 캐시 갱신
-    const s = simByIdRef.current.get(node.id);
-    if (s) { s.fx = node.position.x + r; s.fy = node.position.y + r; }
-    dragIdRef.current = node.id;
+  // ── drag-to-pull: pin dragged node, reheat so neighbors follow ──
+  const onNodeDragStart: NodeMouseHandler = useCallback((_, node) => {
+    const s = simNodesRef.current.get(node.id); if (!s) return;
+    draggingRef.current = node.id;
+    s.fx = node.position.x + s.r; s.fy = node.position.y + s.r;
     simRef.current?.alphaTarget(0.3).restart();
   }, []);
-  const onDrag: NodeMouseHandler = useCallback((_, node) => {
-    const r = (node.data as FlowNodeData).radius ?? 12;
-    const c = { x: node.position.x + r, y: node.position.y + r };
-    posRef.current.set(node.id, c);
-    const s = simByIdRef.current.get(node.id);
-    if (s) { s.fx = c.x; s.fy = c.y; s.x = c.x; s.y = c.y; }
+  const onNodeDrag: NodeMouseHandler = useCallback((_, node) => {
+    const s = simNodesRef.current.get(node.id); if (!s) return;
+    s.fx = node.position.x + s.r; s.fy = node.position.y + s.r;
   }, []);
-  const onDragStop: NodeMouseHandler = useCallback((_, node) => {
-    const r = (node.data as FlowNodeData).radius ?? 12;
-    const c = { x: node.position.x + r, y: node.position.y + r };
-    posRef.current.set(node.id, c);
-    const s = simByIdRef.current.get(node.id);
-    if (s) { s.fx = c.x; s.fy = c.y; } // 핀 유지 — 시뮬이 식는 동안에도 이 노드는 1px 도 안 움직인다
-    dragIdRef.current = null;
-    simRef.current?.alphaTarget(0); // 이웃들만 자연 감쇠로 자리 잡고 멈춘다
+  const onNodeDragStop: NodeMouseHandler = useCallback((_, node) => {
+    const s = simNodesRef.current.get(node.id); if (s) { s.fx = null; s.fy = null; }
+    draggingRef.current = null;
+    simRef.current?.alphaTarget(0);
   }, []);
 
-  // 정렬 초기화 — 끌어놓은 위치를 버리고 결정적 레이아웃으로 재배치 (시뮬도 그 자리에 정지)
-  const relayout = useCallback(() => {
-    posRef.current.clear();
-    const layout = computeStaticLayout(graph, chainsOrder, W, H);
-    setNodes((prev) => prev.map((n) => {
-      const d = n.data as FlowNodeData;
-      const c = layout.get(n.id) ?? { x: W / 2, y: H / 2 };
-      posRef.current.set(n.id, c);
-      return { ...n, position: { x: c.x - d.radius, y: c.y - d.radius } };
-    }));
-    simRef.current?.alpha(0).stop();
-    for (const [id, s] of simByIdRef.current) {
-      const c = posRef.current.get(id);
-      if (c) { s.x = c.x; s.y = c.y; s.vx = 0; s.vy = 0; s.fx = null; s.fy = null; }
-    }
-    setTimeout(() => fitView({ padding: 0.05, duration: 500 }).catch(() => {}), 60);
-  }, [graph, chainsOrder, fitView, setNodes]);
-
-  // 입자 기하 — 노드 위치는 ReactFlow 상태가 진실원 (드래그 중에도 입자가 따라온다)
   const positioned = useMemo(
-    () => nodes.map((n) => {
-      const d = n.data as FlowNodeData;
-      return { ...(d as FlowNode), x: n.position.x + d.radius, y: n.position.y + d.radius, radius: d.radius };
-    }),
-    [nodes],
+    () => graph.nodes.map((n) => { const p = posRef.current.get(n.id) ?? { x: W / 2, y: H / 2 }; return { ...n, x: p.x, y: p.y, radius: radiusOf(n) }; }),
+    // recompute when nodes move enough — tie to nodes state length + graphKey + a coarse tick via mode
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [graphKey, nodes],
   );
 
-  // 입자 색 = **상단에서 선택한 토큰만** (사람이 구별 가능한 수). 파생/LP 등 그 외 토큰의
-  // 입자는 회색 폴백 — 흐름은 보이되 색 식별 부담을 주지 않는다.
+  // per-token particle colour (selected/graph token symbols → palette) — distinguishes each token's flow
   const colorByToken = useMemo(() => {
-    const syms = [...new Set(selectedTokens.map((s) => s.toUpperCase()))].sort();
+    const syms = [...new Set(graph.nodes.filter((n) => n.kind === "token").map((n) => n.label.toUpperCase()))].sort();
     return new Map(syms.map((s, i) => [s, tokenColor(i, syms.length)] as const));
-  }, [selectedTokens]);
+  }, [graph]);
 
   return (
     <ReactFlow
@@ -276,9 +178,9 @@ function Inner({
       onNodeClick={(_, n) => onSelectNode(n.id)}
       onEdgeClick={(_, e) => onSelectEdge(e.id)}
       onPaneClick={() => onSelectNode("")}
-      onNodeDragStart={onDragStart}
-      onNodeDrag={onDrag}
-      onNodeDragStop={onDragStop}
+      onNodeDragStart={onNodeDragStart}
+      onNodeDrag={onNodeDrag}
+      onNodeDragStop={onNodeDragStop}
       minZoom={0.08}
       maxZoom={2.6}
       proOptions={{ hideAttribution: true }}
@@ -291,10 +193,9 @@ function Inner({
       <MiniMap
         pannable zoomable
         nodeColor={(n) => {
-          const d = n.data as { risk?: RiskLevel; kind?: string; dim?: boolean };
-          if (d?.dim) return "#e2e8f0";
-          if (d?.risk === "danger") return "#ef4444"; if (d?.risk === "caution") return "#f59e0b";
-          return d?.kind === "token" ? "#6366f1" : d?.kind === "protocol" ? "#0ea5e9" : d?.kind === "vault" ? "#a855f7" : d?.kind === "bridge" ? "#0d9488" : "#94a3b8";
+          const r = (n.data as { risk?: RiskLevel })?.risk; const k = (n.data as { kind?: string })?.kind;
+          if (r === "danger") return "#ef4444"; if (r === "caution") return "#f59e0b";
+          return k === "token" ? "#6366f1" : k === "protocol" ? "#0ea5e9" : k === "vault" ? "#a855f7" : k === "bridge" ? "#0d9488" : "#94a3b8";
         }}
         maskColor="rgba(246,248,251,0.65)"
       />
@@ -302,48 +203,24 @@ function Inner({
         <div className="flex flex-col gap-0.5">
           <Lg c="#0ea5e9" t="프로토콜" /><Lg c="#38bdf8" t="마켓" /><Lg c="#a855f7" t="볼트" /><Lg c="#0d9488" t="🌉 브릿지 (검증 메커니즘)" />
           <span className="my-0.5 h-px bg-[var(--color-border-subtle)]" />
-          {mode === "baseline" ? (
-            <>
-              <span className="text-[8px] uppercase tracking-wide text-[var(--color-text-muted)]">평소 모드 · 입자 색 = 선택 토큰 · 밀도·크기 = $/h</span>
-              {[...colorByToken].map(([sym, c]) => <Lg key={sym} c={c} t={sym} />)}
-              <Lg c="#94a3b8" t="파생/LP 토큰 (회색)" />
-              <span className="text-[var(--color-text-secondary)]">차선: 정방향 = 유입 · 역방향 = 유출 (실측 평균)</span>
-              <span className="text-[var(--color-text-muted)]">반투명 입자 = DEX 일거래량 기반 (방향 미상)</span>
-              <span className="text-[var(--color-text-secondary)]">엣지 클릭 = 평소 유입/유출 거래액·거래수</span>
-            </>
-          ) : (
-            <>
-              <span className="text-[8px] uppercase tracking-wide text-[var(--color-text-muted)]">트랜잭션 · 색 = 선택 토큰 · 알 크기=거래액</span>
-              {[...colorByToken].map(([sym, c]) => <Lg key={sym} c={c} t={sym} />)}
-              <Lg c="#94a3b8" t="파생/LP 토큰 (회색)" />
-            </>
-          )}
+          <span className="text-[8px] uppercase tracking-wide text-[var(--color-text-muted)]">트랜잭션 · 토큰별 색 · 알 크기=거래액</span>
+          {[...colorByToken].map(([sym, c]) => <Lg key={sym} c={c} t={sym} />)}
           <span className="my-0.5 h-px bg-[var(--color-border-subtle)]" />
           <span className="text-[var(--color-text-secondary)]">토큰→프로토콜 = 예치·스왑 유입</span>
           <span className="text-[var(--color-text-secondary)]">프로토콜→토큰 = 출금·스왑 유출</span>
           <span className="text-[var(--color-text-muted)]">실선 두 줄 = 양방향 흐름 차선 · 점선 = 관계만</span>
-          <Lg c="#16a34a" t="파생/발행 (기초↔랩·LP 토큰)" />
           <span className="text-[var(--color-text-muted)]">─o─ = 오라클 의존 · <b style={{ color: "#dc2626" }}>빨강!</b> = 자기참조/NAV</span>
-          <span style={{ color: "#c026d3" }}>┈◆┈→ <b>발견</b>(퓨샤·N마커) = 흐름이 찾은 새 연결</span>
-          {activity && <span className="text-[var(--color-text-muted)]">회색(흐림) = 윈도우 내 트랜잭션 없음</span>}
-          <span className="flex items-center gap-1 text-[var(--color-text-muted)]"><span className="size-2 rounded-full" style={{ border: "1.5px dashed #94a3b8" }} />점선 외곽 = 흐름 측정 미지원(어댑터 없음 — 회색≠조용함)</span>
-          <span className="text-[var(--color-text-muted)]">노드를 끌면 이어진 노드가 딸려옵니다</span>
-          <button onClick={relayout} className="mt-1 rounded border border-[var(--color-border-subtle)] px-1.5 py-0.5 text-[9px] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-raised)]">
-            ↺ 정렬 초기화 (드래그 위치 리셋)
-          </button>
+          <span style={{ color: "#c026d3" }}>┈◆┈→ <b>발견</b>(퓨샤·N마커) = 이벤트가 찾은 새 연결</span>
         </div>
       </Panel>
-      {mode === "baseline"
-        ? <BaselineFlowLayer nodes={positioned} edges={graph.edges} colorByToken={colorByToken} />
-        : txs.length > 0 && <TxFlowLayer nodes={positioned} edges={graph.edges} txs={txs} colorByToken={colorByToken} />}
+      {txs.length > 0 && <TxFlowLayer nodes={positioned} edges={graph.edges} txs={txs} colorByToken={colorByToken} />}
     </ReactFlow>
   );
 }
 
 export function FlowGraph(props: {
-  graph: FlowGraphData; mode: FlowMode; chainsOrder: string[]; selectedTokens: string[];
-  selectedId: string | null; onSelectNode: (id: string) => void; onSelectEdge: (id: string) => void;
-  txs: FlowTx[]; activity: FlowActivity | null;
+  graph: FlowGraphData; mode: FlowMode; chainsOrder: string[];
+  selectedId: string | null; onSelectNode: (id: string) => void; onSelectEdge: (id: string) => void; txs: FlowTx[];
 }) {
   return (
     <ReactFlowProvider>

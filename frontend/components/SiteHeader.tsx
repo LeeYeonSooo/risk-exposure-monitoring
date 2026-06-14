@@ -5,9 +5,10 @@ import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 
-// 흐름맵 단독 배포 — 이 저장소엔 /flow 만 있다(검색/랜딩 페이지는 제거됨). 2026-06-13.
 const TOGGLE_NAV = [
+  { href: "/", label: "검색" },
   { href: "/flow", label: "흐름맵" },
+  { href: "/eoa-flow", label: "EOA 흐름" },
 ];
 
 const EXTRA_NAV: { href: string; label: string }[] = [];
@@ -22,7 +23,7 @@ export function SiteHeader({
   return (
     <header className="flex h-12 shrink-0 items-center justify-between border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-5">
       <div className="flex items-center gap-6">
-        <Link href="/flow" className="flex items-baseline gap-2">
+        <Link href="/" className="flex items-baseline gap-2">
           <span className="text-sm font-semibold tracking-tight">Chain Spiral</span>
           <span className="text-[10px] text-[var(--color-text-muted)]">v0.2</span>
         </Link>
