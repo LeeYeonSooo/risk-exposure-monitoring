@@ -7,9 +7,13 @@ import pg from "pg";
  * Returns the latest snapshot topology for a given token symbol (e.g. "WBTC").
  * Source: automation pipeline's Postgres DB.
  *
- * No static fallback: responds 503 if DATABASE_URL is unset, 404 if no snapshot
- * exists yet for the token. The client renders an explicit "no live data" state.
+ * DB 미설정(DATABASE_URL 없음)일 때만: 번들된 fixture(현재 sUSDe)를 정적으로 서빙해
+ * DB 없이도 관계맵을 미리볼 수 있게 한다(데모/검토용). DB 가 있으면 항상 라이브 우선.
  */
+
+// 데모 fixture — DB 없을 때만 사용. 키 = 소문자 심볼. (lib/__fixtures__/susde-topology.json)
+import susdeTopology from "@/lib/__fixtures__/susde-topology.json";
+const FIXTURES: Record<string, unknown> = { susde: susdeTopology };
 
 const DATABASE_URL = process.env.DATABASE_URL;
 let _pool: pg.Pool | null = null;
@@ -55,7 +59,9 @@ export async function GET(
 
   const p = pool();
   if (!p) {
-    // No DB configured → no data (no static fallback). Client shows empty state.
+    // DB 미설정 → fixture 가 있으면 정적 서빙(데모/검토), 없으면 빈 상태.
+    const fx = FIXTURES[token.toLowerCase()];
+    if (fx) return NextResponse.json(fx);
     return NextResponse.json(
       { error: "DATABASE_URL not configured" },
       { status: 503 },

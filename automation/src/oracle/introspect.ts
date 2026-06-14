@@ -88,7 +88,21 @@ function classify(names: string[], descs: string[]): { type: OracleType; provide
   const description = descStr || cname;
   const provider = net ?? cname;
 
-  // 우선순위 (kuromi): 실물앵커 > 시장망 > 고정 > NAV > description
+  // ★ 교환비(CAPO/rate) 구분 — 반드시 realAnchor 보다 먼저 ★
+  //   LST/LRT 가 기초 ETH 대비 '교환비'로 가격되면 2차 시장 디페그가 오라클에 안 잡힌다(시장가 아님).
+  //   설명에 'exchange rate/redemption' 이 있거나, 피드가 '<LST> / ETH'(담보를 ETH 대비) 패턴이면 EXCHANGE_RATE.
+  //   ★검증된 버그★: "weETH / ETH exchange rate" 가 'ETH' 단어(realAnchor) 때문에 MARKET 으로 오분류됐었다.
+  const rateSignal = /exchange.?rate|redemption/.test(descLow) || /exchange.?rate|redemption/.test(nameStr)
+    || /\b(steth|wsteth|reth|weeth|rseth|ezeth|cbeth|oseth|sfrxeth|ethx|pufeth|rsweth|meth|oeth|eeth|wbeth|ankreth|sweth|unieth|lseth|ageth)\s*\/\s*eth\b/i.test(descStr);
+  // CAPO(Correlated Asset Price Oracle)·rate-cap 어댑터 — 컨트랙트 이름 신호. 이것들은 LST/LRT 를 기초 대비
+  //   '교환비(rate)'로 가격하고 상한만 씌운다 → 2차 시장 디페그 미반영(시장가 아님). 단 PriceCapAdapterStable
+  //   (스테이블 시장가에 상한)은 여전히 시장 기반이라 제외. (Aave WeETHPriceCapAdapter·CLRatePriceCapAdapter,
+  //   Compound RateBasedCorrelatedAssetsPriceOracle 등 — 검증된 오분류.)
+  const capoSignal = /ratebased|correlatedasset|exchangerateadapter|rateprovider/.test(nameStr)
+    || (/pricecap|ratecap/.test(nameStr) && !/stable/.test(nameStr));
+
+  // 우선순위 (kuromi): 교환비/CAPO > 실물앵커 > 시장망 > 고정 > NAV > description
+  if ((rateSignal || capoSignal) && !fixed && !nav) return { type: "EXCHANGE_RATE", provider: provider ?? "교환비(CAPO/rate)", depeg: false, description };
   if (realAnchor) return { type: "MARKET", provider: provider ?? "시장 피드(실물 앵커)", depeg: true, description };
   if (net && !nav && !fixed) return { type: "MARKET", provider: net, depeg: true, description };
   if (fixed) return { type: "ORACLE_FREE", provider: cname ?? "고정가(하드코딩)", depeg: false, description };

@@ -60,20 +60,40 @@ export function applyTreeLayout(topology: TopologyResponse, hiddenChains: Set<st
     (inEdges.get(e.target) ?? inEdges.set(e.target, []).get(e.target)!).push(e.source);
   }
 
+  // backed_by(언더라잉/배킹 체인) — 종류 레벨과 무관하게 토큰 아래로 곧게 내려가는 분기로 둔다.
+  //   weETH→eETH→ETH→EigenLayer 가 마켓(레벨3)으로 뭉치지 않게, 부모는 체인 직전 노드·레벨은 토큰부터의 홉수.
+  const backedParent = new Map<string, string>();
+  for (const e of topology.edges) {
+    if ((e.type === "backed_by") && idSet.has(e.source) && idSet.has(e.target) && e.source !== e.target) backedParent.set(e.target, e.source);
+  }
+  const chainDepth = new Map<string, number>();
+  const depthOf = (id: string, seen = new Set<string>()): number => {
+    if (chainDepth.has(id)) return chainDepth.get(id)!;
+    const p = backedParent.get(id);
+    if (!p || seen.has(id)) return 0;
+    seen.add(id);
+    const d = depthOf(p, seen) + 1; chainDepth.set(id, d); return d;
+  };
+  for (const id of backedParent.keys()) depthOf(id);
+  // 레벨 — 체인 노드는 토큰부터의 홉수, 그 외는 종류 레벨.
+  const lvl = (id: string): number => chainDepth.get(id) ?? levelOf(byId.get(id)!);
+
   // 부모 = in-edge source 중 레벨이 더 낮은(상위) 것 중 가장 가까운(레벨 큰) 노드. 없으면 같은 체인 토큰.
   //   파생(2)의 in-edge: 토큰(0, issues)·프로토콜(1, issues) → 가장 가까운 상위 = 프로토콜(1). 파생이 프로토콜 아래로.
   //   마켓(3): 파생(2, collateral_at)·프로토콜(1) → 파생(2). 볼트(4): 마켓(3). 프로토콜(1): 토큰(0).
   const parentOf = (id: string): string | null => {
-    const n = byId.get(id)!; const lv = levelOf(n);
+    if (backedParent.has(id)) return backedParent.get(id)!; // 체인은 직전 노드가 부모(레벨 무관 — 곧은 분기)
+    const n = byId.get(id)!; const lv = lvl(id);
     if (lv === 0) return null;
-    const srcs = (inEdges.get(id) ?? []).filter((s) => byId.has(s) && levelOf(byId.get(s)!) < lv);
-    if (srcs.length) { srcs.sort((a, b) => levelOf(byId.get(b)!) - levelOf(byId.get(a)!)); return srcs[0]; }
+    const srcs = (inEdges.get(id) ?? []).filter((s) => byId.has(s) && lvl(s) < lv);
+    if (srcs.length) { srcs.sort((a, b) => lvl(b) - lvl(a)); return srcs[0]; }
     const root = `c:${chainOf(n)}:token`;
     return byId.has(root) && root !== id ? root : null;
   };
 
   const children = new Map<string, string[]>();
   for (const n of nodes) {
+    if (chainDepth.has(n.id)) continue; // backed_by 체인은 토큰 위로 따로 세운다(아래 트리에 안 넣음)
     const p = parentOf(n.id);
     if (p) (children.get(p) ?? children.set(p, []).get(p)!).push(n.id);
   }
@@ -86,7 +106,7 @@ export function applyTreeLayout(topology: TopologyResponse, hiddenChains: Set<st
     const existing = pos.get(id);
     if (existing && existing.x !== 0) return existing.x;
     const n = byId.get(id)!;
-    const y = levelOf(n) * LEVEL_GAP + yShift;
+    const y = lvl(id) * LEVEL_GAP + yShift;
     if (y > maxY) maxY = y;
     pos.set(id, { x: 0, y }); // 사이클 가드
     const kids = (children.get(id) ?? []).filter((k) => k !== id && (!pos.get(k) || pos.get(k)!.x === 0));
@@ -105,12 +125,23 @@ export function applyTreeLayout(topology: TopologyResponse, hiddenChains: Set<st
     return x;
   };
 
+  // backed_by 언더라잉/배킹 체인 — 토큰 위로 곧게 세운다("토큰이 무엇으로 구성되는가" = 상류). 깊이별 스택.
+  const CHAIN_UP_GAP = 132;
+  const placeBackChain = (chain: string, rootX: number, rootY: number) => {
+    for (const [id, d] of chainDepth) {
+      const n = byId.get(id); if (!n || chainOf(n) !== chain) continue;
+      pos.set(id, { x: rootX + 70, y: rootY - (d + 0.5) * CHAIN_UP_GAP }); // 아일랜드 핸들과 안 겹치게 x 살짝 우측
+    }
+  };
+
   for (const chain of [...new Set(nodes.map(chainOf))]) {
     const root = `c:${chain}:token`;
     if (byId.has(root)) {
       place(root);
+      const r = pos.get(root)!;
+      placeBackChain(chain, r.x, r.y);
       const island = nodes.find((n) => n.type === "IslandHandle" && chainOf(n) === chain && !pos.has(n.id));
-      if (island) pos.set(island.id, { x: pos.get(root)!.x, y: -ISLAND_DY });
+      if (island) pos.set(island.id, { x: r.x, y: -ISLAND_DY });
       cursorX += CHAIN_GAP;
     }
   }

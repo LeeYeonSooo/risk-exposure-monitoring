@@ -61,8 +61,8 @@ export function protoDiameterPx(sizeUsd: number | null | undefined): number {
  *   나머지는 전부 최소에 뭉친다. log10 정규화로 "가장 큰 것과 작은 것의 지름 차이"를 압축(사용자 2026-06-13).
  *   minExposureUsd = 그 맵의 최소 프로토콜 노출(없으면 1) → min=MIN, max=MAX, 중간은 log 비례.
  */
-export const PROTO_SHARE_DIAMETER_MIN = 104;
-export const PROTO_SHARE_DIAMETER_MAX = 196;
+export const PROTO_SHARE_DIAMETER_MIN = 84;  // 프로토콜 허브가 마켓(54)·파생(40) 대비 과하게 커서 ~20% 축소 (사용자 요청)
+export const PROTO_SHARE_DIAMETER_MAX = 158;
 export function protoShareDiameterPx(exposureUsd: number, maxExposureUsd: number, minExposureUsd = 0): number {
   const lg = (v: number) => Math.log10(Math.max(1, v));
   const hi = lg(maxExposureUsd), lo = lg(Math.max(1, minExposureUsd));

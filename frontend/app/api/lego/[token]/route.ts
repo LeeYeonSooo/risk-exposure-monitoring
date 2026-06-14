@@ -8,6 +8,10 @@ import pg from "pg";
  */
 export const dynamic = "force-dynamic";
 
+// 데모 fixture — DB 없을 때만 사용(검토용). 키 = 소문자 심볼. (lib/__fixtures__/susde-lego.json)
+import susdeLego from "@/lib/__fixtures__/susde-lego.json";
+const FIXTURES: Record<string, unknown> = { susde: susdeLego };
+
 const DATABASE_URL = process.env.DATABASE_URL;
 let _pool: pg.Pool | null = null;
 function pool(): pg.Pool | null {
@@ -30,7 +34,12 @@ export interface LegoEdgeRow {
 export async function GET(_req: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const p = pool();
-  if (!p) return NextResponse.json({ nodes: [], edges: [], dbConnected: false });
+  if (!p) {
+    // DB 미설정 → fixture 가 있으면 정적 서빙(데모/검토), 없으면 빈 레이어.
+    const fx = FIXTURES[decodeURIComponent(token).toLowerCase()];
+    if (fx) return NextResponse.json(fx);
+    return NextResponse.json({ nodes: [], edges: [], dbConnected: false });
+  }
   try {
     const derivR = await p.query<LegoNodeRow>(
       `SELECT id, chain, address, kind, role, label, symbol, protocol, parent_token, meta

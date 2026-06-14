@@ -60,8 +60,9 @@ export interface MorphoAccepting {
   collateral: string; loanSymbol: string; loanAddress: string;
   lltv: number | null; supplyUsd: number; collateralUsd: number;
   curators: string[]; // 이 마켓을 펀딩하는 MetaMorpho 볼트(큐레이터) — 연쇄청산 시 부실채권 책임자 (멘토 §3·§6)
+  oracleAddress: string | null; // 이 마켓의 자체 오라클(Morpho 는 마켓마다 IOracle 지정) — 온체인 introspect 입력
 }
-interface MorphoMarketItem { lltv?: string; loanAsset?: { symbol?: string; address?: string }; collateralAsset?: { address?: string }; state?: { supplyAssetsUsd?: number; collateralAssetsUsd?: number }; supplyingVaults?: { name?: string }[] }
+interface MorphoMarketItem { lltv?: string; oracleAddress?: string | null; loanAsset?: { symbol?: string; address?: string }; collateralAsset?: { address?: string }; state?: { supplyAssetsUsd?: number; collateralAssetsUsd?: number }; supplyingVaults?: { name?: string }[] }
 export async function morphoAccepting(chain: string, collateralAddrs: string[]): Promise<MorphoAccepting[]> {
   const id = CHAIN_IDS[chain];
   const addrs = [...new Set(collateralAddrs.map((a) => a.toLowerCase()))].filter((a) => /^0x[0-9a-f]{40}$/.test(a));
@@ -72,7 +73,7 @@ export async function morphoAccepting(chain: string, collateralAddrs: string[]):
   try {
     for (let skip = 0; skip < MAX; skip += PAGE) {
       const q = `{ markets(first: ${PAGE}, skip: ${skip}, where: { collateralAssetAddress_in: ${JSON.stringify(addrs)}, chainId_in: [${id}] }) {
-        pageInfo { countTotal } items { lltv loanAsset { symbol address } collateralAsset { address } state { supplyAssetsUsd collateralAssetsUsd } supplyingVaults { name } } } }`;
+        pageInfo { countTotal } items { lltv oracleAddress loanAsset { symbol address } collateralAsset { address } state { supplyAssetsUsd collateralAssetsUsd } supplyingVaults { name } } } }`;
       const r = await fetch("https://blue-api.morpho.org/graphql", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: q }),
       });
@@ -94,6 +95,7 @@ export async function morphoAccepting(chain: string, collateralAddrs: string[]):
       supplyUsd: m.state?.supplyAssetsUsd ?? 0,
       collateralUsd: m.state?.collateralAssetsUsd ?? 0,
       curators: [...new Set((m.supplyingVaults ?? []).map((v) => v.name).filter((n): n is string => !!n))],
+      oracleAddress: ((m.oracleAddress ?? "").toLowerCase() || null),
     }));
 }
 
@@ -178,7 +180,8 @@ function eulerData(chain: string): Promise<EulerData> {
   _euler.set(chain, p);
   return p;
 }
-export interface EulerAccepting { collateral: string; loanSymbol: string; loanAddress: string }
+const SEL_EVAULT_ORACLE: `0x${string}` = "0x7dc0d1d0"; // EVault.oracle() → 담보를 가격하는 EulerRouter(클러스터 공유)
+export interface EulerAccepting { collateral: string; loanSymbol: string; loanAddress: string; collateralVault: string; sizeUsd: number | null; oracleAddress: string | null }
 export async function eulerAccepting(chain: string, collateralAddrs: string[]): Promise<EulerAccepting[]> {
   if (!EULER_SUBGRAPHS[chain]) return []; // 서브그래프 있는 체인만 (ethereum·base·arbitrum)
   const want = new Set(collateralAddrs.map((a) => a.toLowerCase()).filter((a) => /^0x[0-9a-f]{40}$/.test(a)));
@@ -187,12 +190,44 @@ export async function eulerAccepting(chain: string, collateralAddrs: string[]): 
   const out: EulerAccepting[] = [];
   const seen = new Set<string>();
   for (const [vid, meta] of vaultMeta) {
-    if (!want.has(meta.asset)) continue;        // 이 볼트가 파생 D 의 담보볼트
+    if (!want.has(meta.asset)) continue;        // 이 볼트가 파생 D 의 담보볼트(EVault, ERC-4626)
     for (const b of acceptorsOf.get(vid) ?? []) {
-      const key = `${meta.asset}|${b.loanAsset}`;
+      const key = `${vid}|${b.loanAsset}`;       // 담보볼트별로 보존(같은 대출자산이라도 다른 볼트면 별개) — 규모 큰 볼트가 dedup(snapshot-lego)에서 승리
       if (seen.has(key)) continue; seen.add(key);
-      out.push({ collateral: meta.asset, loanSymbol: b.loanSym || "?", loanAddress: b.loanAsset });
+      out.push({ collateral: meta.asset, loanSymbol: b.loanSym || "?", loanAddress: b.loanAsset, collateralVault: vid, sizeUsd: null, oracleAddress: null });
     }
+  }
+  if (!out.length) return out;
+  // ── 온체인 규모 — 담보볼트(EVault).totalAssets() × 가격. Euler v2 담보는 vault 단위로 풀링돼 여러 대출마켓이
+  //    한 담보볼트를 공유 → per-담보볼트만 실측 가능(per-대출마켓 분해는 온체인 불가 — 지어내지 않는다).
+  //    읽기 성공·0 = 측정된 0(실제 미사용) · 읽기 실패 = null(미측정). aaveAccepting 과 동일 패턴.
+  const vids = [...new Set(out.map((o) => o.collateralVault))];
+  const assets = [...new Set(out.map((o) => o.collateral))] as Address[];
+  const prices = await getTokenPricesUsd(assets, chain);
+  const decOf = new Map<string, number>();
+  for (const a of assets) { const dr = await ethCall(chain, a, SEL_DECIMALS); decOf.set(a, dr ? Number(BigInt(dr) & 0xffn) : 18); }
+  const assetOfVault = new Map(out.map((o) => [o.collateralVault, o.collateral] as const));
+  const vaultUsd = new Map<string, number | null>();
+  for (const vid of vids) {
+    try {
+      const res = await ethCall(chain, vid, SEL_TOTAL_ASSETS); // EVault.totalAssets() = 그 담보볼트의 담보 예치 총량
+      if (!res) { vaultUsd.set(vid, null); continue; }
+      const asset = assetOfVault.get(vid)!;
+      const amt = Number(BigInt(res)) / 10 ** (decOf.get(asset) ?? 18);
+      const price = prices.get(asset) ?? 0;
+      vaultUsd.set(vid, !isFinite(amt) ? null : amt === 0 ? 0 : price ? amt * price : null);
+    } catch { vaultUsd.set(vid, null); }
+  }
+  // 오라클 — EVault.oracle() = 담보를 가격하는 EulerRouter. vid 별 1콜(라우터는 클러스터 공유라 실제 고유 주소는 소수).
+  //   introspectOracle 가 라우터 이름/피드를 읽어 분류(라우터가 불투명하면 심볼 휴리스틱 폴백 — verified=false 로 구분).
+  const oracleByVault = new Map<string, string | null>();
+  for (const vid of vids) {
+    try { oracleByVault.set(vid, decodeAddressWord(await ethCall(chain, vid, SEL_EVAULT_ORACLE))); }
+    catch { oracleByVault.set(vid, null); }
+  }
+  for (const o of out) {
+    o.sizeUsd = vaultUsd.get(o.collateralVault) ?? null;
+    o.oracleAddress = oracleByVault.get(o.collateralVault) ?? null;
   }
   return out;
 }
@@ -215,6 +250,7 @@ interface FluidVault {
   collateralFactor?: number;  // bps (8800 = 88%)
   liquidationThreshold?: number; // bps
   liquidationPenalty?: number;   // bps
+  oracle?: string;            // 이 vault 의 라이브 config 오라클 주소(Fluid API 가 직접 제공 — 추가 온체인 콜 0)
 }
 const _fluid = new Map<string, Promise<FluidVault[]>>(); // chain → vault 목록 (체인별 캐시)
 function fluidVaults(chain: string): Promise<FluidVault[]> {
@@ -245,6 +281,7 @@ export interface FluidAccepting {
   lt: number | null;      // liquidationThreshold (0~1)
   penalty: number | null; // liquidationPenalty (0~1)
   sizeUsd: number | null; // 단일담보 vault 만: totalSupply/10^dec × price. 스마트담보는 null(토큰별 안분 불가 — 지어내지 않음)
+  oracleAddress: string | null; // 이 vault 의 오라클(Fluid API oracle 필드)
 }
 /** collateralAddrs 중 Fluid (해당 체인) vault 가 담보로 받는 것들. ethereum/base/arbitrum. */
 export async function fluidAccepting(chain: string, collateralAddrs: string[]): Promise<FluidAccepting[]> {
@@ -286,6 +323,7 @@ export async function fluidAccepting(chain: string, collateralAddrs: string[]): 
         lt: typeof v.liquidationThreshold === "number" ? v.liquidationThreshold / 1e4 : null,
         penalty: typeof v.liquidationPenalty === "number" ? v.liquidationPenalty / 1e4 : null,
         sizeUsd,
+        oracleAddress: (v.oracle ?? "").toLowerCase() || null,
       });
     }
   }
@@ -296,6 +334,7 @@ export async function fluidAccepting(chain: string, collateralAddrs: string[]): 
 const CURVE_META_REGISTRY = "0xF98B45FA17DE75FB1aD0e7aFD971b0ca00e379fC";
 const SEL_FIND_POOLS = toFunctionSelector("function find_pools_for_coins(address,address)");
 const SEL_GET_LP = toFunctionSelector("function get_lp_token(address)");
+const SEL_BALANCE_OF = toFunctionSelector("function balanceOf(address)"); // LP 사이징: token.balanceOf(pool) = 그 풀의 해당 토큰 잔액
 // 쿼트 파트너 — 의미있는 커브 페어의 반대편 (이더리움 정식 주소, 네이티브 ETH 센티널 포함)
 const CURVE_QUOTES = [
   "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", // native ETH
@@ -308,10 +347,10 @@ const CURVE_QUOTES = [
   "0x853d955acef822db058eb8505911ed77f175b99e", // FRAX
   "0xae7ab96520de3a18e5e111b5eaab095312d7fe84", // stETH
 ];
-/** 토큰이 들어간 Curve 풀 + LP 토큰 (이더리움만 — MetaRegistry 가 메인넷 전용). */
-export async function curveLpsFor(tokenAddr: string): Promise<{ pool: string; lp: string; quote: string }[]> {
+/** 토큰이 들어간 Curve 풀 + LP 토큰 (이더리움만 — MetaRegistry 가 메인넷 전용). sizeUsd = 그 풀에 든 viewed 토큰 잔액 USD. */
+export async function curveLpsFor(tokenAddr: string): Promise<{ pool: string; lp: string; quote: string; sizeUsd: number | null }[]> {
   const token = tokenAddr.toLowerCase();
-  const out: { pool: string; lp: string; quote: string }[] = [];
+  const out: { pool: string; lp: string; quote: string; sizeUsd: number | null }[] = [];
   const seenPool = new Set<string>();
   for (const quote of CURVE_QUOTES) {
     if (quote === token) continue;
@@ -326,7 +365,254 @@ export async function curveLpsFor(tokenAddr: string): Promise<{ pool: string; lp
       seenPool.add(pool);
       const lpRes = await ethCall("ethereum", CURVE_META_REGISTRY, (SEL_GET_LP + pool.slice(2).padStart(64, "0")) as `0x${string}`);
       const lp = decodeAddressWord(lpRes) ?? pool; // 신형 풀은 풀 자신이 LP
-      out.push({ pool, lp, quote });
+      out.push({ pool, lp, quote, sizeUsd: null });
+    }
+  }
+  if (!out.length) return out;
+  // 사이징 — "이 LP 에 viewed 토큰이 얼마나 들어있나" = token.balanceOf(pool) × 가격. (aave/euler totalAssets 패턴 동일.)
+  //   읽기 성공·0 = 측정된 0(빈 풀) · 읽기 실패 = null(미측정). 가격·decimals 는 1회만.
+  const decRes = await ethCall("ethereum", token, SEL_DECIMALS);
+  const dec = decRes ? Number(BigInt(decRes) & 0xffn) : 18;
+  const price = (await getTokenPricesUsd([token as Address], "ethereum")).get(token) ?? 0;
+  for (const o of out) {
+    try {
+      const balRes = await ethCall("ethereum", token, (SEL_BALANCE_OF + o.pool.slice(2).padStart(64, "0")) as `0x${string}`);
+      if (!balRes) continue; // null(미측정)
+      const amt = Number(BigInt(balRes)) / 10 ** dec;
+      o.sizeUsd = !isFinite(amt) ? null : amt === 0 ? 0 : price ? amt * price : null;
+    } catch { /* 미측정 → null 유지 */ }
+  }
+  return out;
+}
+
+// ── Curve LlamaLend (OneWayLendingFactory) — sUSDe 등을 "직접" 담보로 받아 crvUSD 차입 ──
+//   서브그래프 없음 → 온체인 팩토리 전수(키리스 RPC). 마켓 = (collateral, crvUSD). size = controller.total_debt()(차입측 crvUSD).
+//   2026-06 검증: factory market_count()=48, sUSDe 담보 2마켓(sUSDe-long-v2 total_debt=2.1M crvUSD). 셀렉터는 온체인 curl 로 검증.
+const LLAMALEND_FACTORY = "0xea6876dde9e3467564acbee1ed5bac88783205e0";
+const SEL_MARKET_COUNT: `0x${string}` = "0xfd775c78";       // market_count()
+const SEL_COLLATERAL_TOKENS: `0x${string}` = "0x49b89984";  // collateral_tokens(uint256)
+const SEL_BORROWED_TOKENS: `0x${string}` = "0x6fe4501f";    // borrowed_tokens(uint256)
+const SEL_CONTROLLERS: `0x${string}` = "0xe94b0dd2";        // controllers(uint256)
+const SEL_TOTAL_DEBT: `0x${string}` = "0x31dc3ca8";         // Controller.total_debt() (crvUSD, 18dec)
+const SEL_AMM: `0x${string}` = "0x2a943945";                // Controller.amm()
+const SEL_PRICE_ORACLE_CONTRACT: `0x${string}` = "0x5ea0e01b"; // AMM.price_oracle_contract() → 외부 가격 오라클
+interface LlamalendMkt { controller: string; loanAddr: string; idx: number }
+let _llama: Promise<Map<string, LlamalendMkt[]>> | null = null; // collateral(lowercase) → markets
+function llamalendData(): Promise<Map<string, LlamalendMkt[]>> {
+  if (_llama) return _llama;
+  _llama = (async () => {
+    const byColl = new Map<string, LlamalendMkt[]>();
+    try {
+      const cnt = await ethCall("ethereum", LLAMALEND_FACTORY, SEL_MARKET_COUNT);
+      const n = cnt ? Number(BigInt(cnt)) : 0;
+      for (let i = 0; i < Math.min(n, 300); i++) {
+        const ix = i.toString(16).padStart(64, "0");
+        const coll = decodeAddressWord(await ethCall("ethereum", LLAMALEND_FACTORY, (SEL_COLLATERAL_TOKENS + ix) as `0x${string}`));
+        const loan = decodeAddressWord(await ethCall("ethereum", LLAMALEND_FACTORY, (SEL_BORROWED_TOKENS + ix) as `0x${string}`));
+        const ctrl = decodeAddressWord(await ethCall("ethereum", LLAMALEND_FACTORY, (SEL_CONTROLLERS + ix) as `0x${string}`));
+        if (!coll || !loan || !ctrl) continue;
+        (byColl.get(coll) ?? byColl.set(coll, []).get(coll)!).push({ controller: ctrl, loanAddr: loan, idx: i });
+      }
+    } catch { /* 팩토리 불가 → 빈 맵(LlamaLend 엣지만 빠짐) */ }
+    return byColl;
+  })();
+  return _llama;
+}
+export interface LlamalendAccepting { collateral: string; loanAddress: string; controller: string; idx: number; sizeUsd: number | null; oracleAddress: string | null }
+/** collateralAddrs 중 LlamaLend 마켓이 "직접" 담보로 받는 것 (LP 아님 — sUSDe 같은 베이스 토큰). 이더리움. */
+export async function llamalendAccepting(chain: string, collateralAddrs: string[]): Promise<LlamalendAccepting[]> {
+  if (chain !== "ethereum") return [];
+  const want = new Set(collateralAddrs.map((a) => a.toLowerCase()).filter((a) => /^0x[0-9a-f]{40}$/.test(a)));
+  if (!want.size) return [];
+  const byColl = await llamalendData();
+  const hits: { collateral: string; m: LlamalendMkt }[] = [];
+  for (const [coll, mkts] of byColl) if (want.has(coll)) for (const m of mkts) hits.push({ collateral: coll, m });
+  if (!hits.length) return [];
+  const loanAddrs = [...new Set(hits.map((h) => h.m.loanAddr))] as Address[];
+  const prices = await getTokenPricesUsd(loanAddrs, "ethereum");
+  // 오라클 — controller.amm() → amm.price_oracle_contract(). 컨트롤러별 캐시(마켓 ~수십개).
+  const oracleByCtrl = new Map<string, string | null>();
+  for (const ctrl of [...new Set(hits.map((h) => h.m.controller))]) {
+    try {
+      const amm = decodeAddressWord(await ethCall("ethereum", ctrl, SEL_AMM));
+      oracleByCtrl.set(ctrl, amm ? decodeAddressWord(await ethCall("ethereum", amm, SEL_PRICE_ORACLE_CONTRACT)) : null);
+    } catch { oracleByCtrl.set(ctrl, null); }
+  }
+  const out: LlamalendAccepting[] = [];
+  for (const h of hits) {
+    let sizeUsd: number | null = null;
+    try {
+      const dRes = await ethCall("ethereum", h.m.controller, SEL_TOTAL_DEBT); // crvUSD 차입 총량(18 dec)
+      if (dRes) { const debt = Number(BigInt(dRes)) / 1e18; const p = prices.get(h.m.loanAddr) ?? 1; sizeUsd = !isFinite(debt) ? null : debt === 0 ? 0 : debt * p; }
+    } catch { sizeUsd = null; }
+    out.push({ collateral: h.collateral, loanAddress: h.m.loanAddr, controller: h.m.controller, idx: h.m.idx, sizeUsd, oracleAddress: oracleByCtrl.get(h.m.controller) ?? null });
+  }
+  return out;
+}
+
+// ── Silo v2 — 격리 대출(이더리움·아비트럼). 마켓 = SiloConfig(silo0,silo1) 2개 ERC4626, 양쪽 다 담보/차입 ──
+//   키리스 서브그래프 없음 → SiloFactory 온체인 전수(multicall). 셀렉터·팩토리 2026-06 검증.
+//   (arb 후보 0xf7dc975c… 는 더스트 테스트 배포라 제외 — 운영 팩토리는 아래.)
+const SILO_FACTORY: Record<string, { chainId: number; addr: string }> = {
+  ethereum: { chainId: 1, addr: "0x22a3cF6149bFa611bAFc89Fd721918EC3Cf7b581" },
+  arbitrum: { chainId: 42161, addr: "0x384DC7759d35313F0b567D42bf2f611B285B657C" },
+};
+const SILO_FACTORY_ABI = [
+  { name: "getNextSiloId", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { name: "idToSiloConfig", type: "function", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "address" }] },
+] as const;
+const SILO_CONFIG_ABI = [
+  { name: "getSilos", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "address" }, { type: "address" }] },
+  { name: "getAssetForSilo", type: "function", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "address" }] },
+  // getConfig(silo) → ConfigData. 담보 silo 의 solvencyOracle 이 이 마켓의 오라클(없으면 0=가격==쿼트토큰).
+  { name: "getConfig", type: "function", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "tuple", components: [
+    { name: "daoFee", type: "uint256" }, { name: "deployerFee", type: "uint256" }, { name: "silo", type: "address" }, { name: "token", type: "address" },
+    { name: "protectedShareToken", type: "address" }, { name: "collateralShareToken", type: "address" }, { name: "debtShareToken", type: "address" },
+    { name: "solvencyOracle", type: "address" }, { name: "maxLtvOracle", type: "address" }, { name: "interestRateModel", type: "address" },
+    { name: "maxLtv", type: "uint256" }, { name: "lt", type: "uint256" }, { name: "liquidationTargetLtv", type: "uint256" }, { name: "liquidationFee", type: "uint256" },
+    { name: "flashloanFee", type: "uint256" }, { name: "hookReceiver", type: "address" }, { name: "callBeforeQuote", type: "bool" },
+  ] }] },
+] as const;
+const SILO_VAULT_ABI = [
+  { name: "totalAssets", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { name: "decimals", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "uint8" }] },
+] as const;
+interface SiloMkt { loanAddr: string; collateralSilo: string; marketId: number; config: string }
+const _silo = new Map<string, Promise<Map<string, SiloMkt[]>>>(); // chain → collateral(lowercase) → markets
+function siloData(chain: string): Promise<Map<string, SiloMkt[]>> {
+  const hit = _silo.get(chain); if (hit) return hit;
+  const p = (async () => {
+    const byColl = new Map<string, SiloMkt[]>();
+    const fac = SILO_FACTORY[chain]; if (!fac) return byColl;
+    try {
+      const c = rpcFor(fac.chainId);
+      const n = Number(await c.readContract({ address: fac.addr as Address, abi: SILO_FACTORY_ABI, functionName: "getNextSiloId" }));
+      const ids = Array.from({ length: Math.max(0, n - 1) }, (_, i) => i + 1); // 유효 id = 1..n-1
+      const cfgRes = await c.multicall({ contracts: ids.map((id) => ({ address: fac.addr as Address, abi: SILO_FACTORY_ABI, functionName: "idToSiloConfig" as const, args: [BigInt(id)] as const })), allowFailure: true, batchSize: 2048 });
+      const valid: { id: number; config: string }[] = [];
+      cfgRes.forEach((r, i) => { if (r.status === "success") { const a = (r.result as string); if (a && a.toLowerCase() !== ZERO_ADDR) valid.push({ id: ids[i], config: a }); } });
+      if (!valid.length) return byColl;
+      const siloRes = await c.multicall({ contracts: valid.map((v) => ({ address: v.config as Address, abi: SILO_CONFIG_ABI, functionName: "getSilos" as const })), allowFailure: true, batchSize: 2048 });
+      const assetCalls: { vIdx: number; silo: string }[] = [];
+      siloRes.forEach((r, i) => { if (r.status !== "success") return; const [s0, s1] = r.result as readonly [string, string]; assetCalls.push({ vIdx: i, silo: s0 }, { vIdx: i, silo: s1 }); });
+      const assetRes = await c.multicall({ contracts: assetCalls.map((a) => ({ address: valid[a.vIdx].config as Address, abi: SILO_CONFIG_ABI, functionName: "getAssetForSilo" as const, args: [a.silo as Address] as const })), allowFailure: true, batchSize: 2048 });
+      const perCfg = new Map<number, { silo: string; asset: string }[]>();
+      assetCalls.forEach((a, i) => { if (assetRes[i].status !== "success") return; const asset = (assetRes[i].result as string).toLowerCase(); (perCfg.get(a.vIdx) ?? perCfg.set(a.vIdx, []).get(a.vIdx)!).push({ silo: a.silo.toLowerCase(), asset }); });
+      for (const [vIdx, sides] of perCfg) {
+        if (sides.length !== 2) continue;
+        const [A, B] = sides; const mid = valid[vIdx].id; const cfg = valid[vIdx].config;
+        (byColl.get(A.asset) ?? byColl.set(A.asset, []).get(A.asset)!).push({ loanAddr: B.asset, collateralSilo: A.silo, marketId: mid, config: cfg });
+        (byColl.get(B.asset) ?? byColl.set(B.asset, []).get(B.asset)!).push({ loanAddr: A.asset, collateralSilo: B.silo, marketId: mid, config: cfg });
+      }
+    } catch { /* 팩토리 스캔 실패 → 빈 맵 */ }
+    return byColl;
+  })();
+  _silo.set(chain, p);
+  return p;
+}
+export interface SiloAccepting { collateral: string; loanAddress: string; collateralSilo: string; marketId: number; sizeUsd: number | null; oracleAddress: string | null }
+/** collateralAddrs 중 Silo v2 마켓이 담보로 받는 것. ethereum/arbitrum. size = 담보 silo totalAssets×가격(예치측). */
+export async function siloAccepting(chain: string, collateralAddrs: string[]): Promise<SiloAccepting[]> {
+  const fac = SILO_FACTORY[chain]; if (!fac) return [];
+  const want = new Set(collateralAddrs.map((a) => a.toLowerCase()).filter((a) => /^0x[0-9a-f]{40}$/.test(a)));
+  if (!want.size) return [];
+  const byColl = await siloData(chain);
+  const hits: { collateral: string; loanAddr: string; collateralSilo: string; marketId: number; config: string }[] = [];
+  for (const [coll, mkts] of byColl) if (want.has(coll)) for (const m of mkts) hits.push({ collateral: coll, ...m });
+  if (!hits.length) return [];
+  const c = rpcFor(fac.chainId);
+  const silos = [...new Set(hits.map((h) => h.collateralSilo))];
+  const taRes = await c.multicall({ contracts: silos.map((s) => ({ address: s as Address, abi: SILO_VAULT_ABI, functionName: "totalAssets" as const })), allowFailure: true, batchSize: 2048 });
+  const taBySilo = new Map<string, bigint | null>(); silos.forEach((s, i) => taBySilo.set(s, taRes[i].status === "success" ? (taRes[i].result as bigint) : null));
+  // 오라클 — SiloConfig.getConfig(담보silo).solvencyOracle. (config, silo) 유일쌍별 1콜(기존 멀티콜에 합류). 0=오라클없음(가격==쿼트).
+  const oPairs = [...new Map(hits.map((h) => [`${h.config}|${h.collateralSilo}`, h])).values()];
+  const oRes = await c.multicall({ contracts: oPairs.map((h) => ({ address: h.config as Address, abi: SILO_CONFIG_ABI, functionName: "getConfig" as const, args: [h.collateralSilo as Address] as const })), allowFailure: true, batchSize: 2048 });
+  const oracleBySilo = new Map<string, string | null>();
+  oPairs.forEach((h, i) => {
+    let o: string | null = null;
+    if (oRes[i].status === "success") { const so = ((oRes[i].result as { solvencyOracle?: string }).solvencyOracle ?? "").toLowerCase(); o = so && so !== ZERO_ADDR ? so : null; }
+    oracleBySilo.set(h.collateralSilo, o);
+  });
+  const collTokens = [...new Set(hits.map((h) => h.collateral))] as Address[];
+  const prices = await getTokenPricesUsd(collTokens, chain);
+  const decRes = await c.multicall({ contracts: collTokens.map((t) => ({ address: t, abi: SILO_VAULT_ABI, functionName: "decimals" as const })), allowFailure: true, batchSize: 2048 });
+  const decByTok = new Map<string, number>(); collTokens.forEach((t, i) => decByTok.set(t.toLowerCase(), decRes[i].status === "success" ? Number(decRes[i].result) : 18));
+  return hits.map((h) => {
+    const ta = taBySilo.get(h.collateralSilo);
+    let sizeUsd: number | null = null;
+    if (ta != null) { const dec = decByTok.get(h.collateral) ?? 18; const amt = Number(ta) / 10 ** dec; const pr = prices.get(h.collateral) ?? 0; sizeUsd = !isFinite(amt) ? null : amt === 0 ? 0 : pr ? amt * pr : null; }
+    return { collateral: h.collateral, loanAddress: h.loanAddr, collateralSilo: h.collateralSilo, marketId: h.marketId, sizeUsd, oracleAddress: oracleBySilo.get(h.collateralSilo) ?? null };
+  });
+}
+
+// ── Dolomite — 공유풀 마진 머니마켓(Arbitrum 주력 + Ethereum/Base). 상장된 마켓 토큰 = 담보 가능(격리모드는 담보전용). ──
+//   키리스 REST(api.dolomite.io/tokens/{chainId}) 1콜로 전 마켓 + supplyLiquidity(실수량) + isolation 플래그. 온체인(DolomiteMargin)과 교차검증됨.
+const DOLOMITE_CHAINID: Record<string, number> = { ethereum: 1, arbitrum: 42161, base: 8453 };
+interface DolomiteTok { id?: string; symbol?: string; decimals?: number; isIsolationMode?: boolean; supplyLiquidity?: string | number; riskInfo?: { isBorrowingDisabled?: boolean; oracle?: string } }
+const _dolo = new Map<string, Promise<DolomiteTok[]>>();
+function dolomiteTokens(chain: string): Promise<DolomiteTok[]> {
+  const hit = _dolo.get(chain); if (hit) return hit;
+  const p = (async () => {
+    const cid = DOLOMITE_CHAINID[chain]; if (!cid) return [];
+    try { const r = await fetch(`https://api.dolomite.io/tokens/${cid}`); if (!r.ok) return []; const j = (await r.json()) as { tokens?: DolomiteTok[] }; return j.tokens ?? []; }
+    catch { return []; } // API 불가 → 빈 배열(Dolomite 엣지만 빠짐)
+  })();
+  _dolo.set(chain, p);
+  return p;
+}
+export interface DolomiteAccepting { collateral: string; symbol: string; isIsolation: boolean; borrowingDisabled: boolean; supplyTokens: number | null; sizeUsd: number | null; oracleAddress: string | null }
+/** collateralAddrs 중 Dolomite 가 상장(담보 가능)한 토큰. arbitrum/ethereum/base. size = 그 토큰의 Dolomite 공급 총량 USD. */
+export async function dolomiteAccepting(chain: string, collateralAddrs: string[]): Promise<DolomiteAccepting[]> {
+  if (!DOLOMITE_CHAINID[chain]) return [];
+  const want = new Set(collateralAddrs.map((a) => a.toLowerCase()).filter((a) => /^0x[0-9a-f]{40}$/.test(a)));
+  if (!want.size) return [];
+  const tokens = await dolomiteTokens(chain);
+  const hits = tokens.filter((t) => t.id && want.has(String(t.id).toLowerCase()));
+  if (!hits.length) return [];
+  const prices = await getTokenPricesUsd(hits.map((h) => String(h.id).toLowerCase() as Address), chain);
+  return hits.map((t) => {
+    const addr = String(t.id).toLowerCase();
+    const supplyTokens = Number(t.supplyLiquidity); // 이미 토큰 실수량(인덱스 반영) — decimals 나누지 말 것
+    const pr = prices.get(addr);
+    const sizeUsd = !isFinite(supplyTokens) ? null : supplyTokens === 0 ? 0 : pr ? supplyTokens * pr : null;
+    return { collateral: addr, symbol: t.symbol ?? "?", isIsolation: !!t.isIsolationMode, borrowingDisabled: !!t.riskInfo?.isBorrowingDisabled, supplyTokens: isFinite(supplyTokens) ? supplyTokens : null, sizeUsd, oracleAddress: (t.riskInfo?.oracle ?? "").toLowerCase() || null };
+  });
+}
+
+// ── Veda BoringVaults — 토큰이 "배킹"으로 재예치되는 일드 볼트(자체 쉐어 토큰 발행). ──
+//   온체인 레지스트리/팩토리 없음(Veda 앱은 오프체인 큐레이트 목록) → 알려진 볼트 리스트 + ERC20.balanceOf(vault).
+//   잔액>더스트면 그 볼트가 토큰을 배킹으로 보유 = 하류 2차 의존성(중요도 중 — 공유노드 거의 안 만듦, 온체인 검증 2026-06-14).
+const VEDA_VAULTS: { chain: string; address: string; symbol: string }[] = [
+  { chain: "ethereum", address: "0xf0bb20865277abd641a307ece5ee04e79073416c", symbol: "liquidETH" },
+  { chain: "ethereum", address: "0x08c6f91e2b681faf5e17227f2a44c307b3c1364c", symbol: "liquidUSD" },
+  { chain: "ethereum", address: "0xbc0f3b23930fff9f4894914bd745ababa9588265", symbol: "UltraYield" },
+  { chain: "ethereum", address: "0x657e8c867d8b37dcc18fa4caead9c45eb088c642", symbol: "eBTC" },
+];
+const VEDA_DUST_USD = 1000; // 의미없는 더스트 잔액(예: $78 sUSDe) 컷 — Veda 는 2차 의존성이라 노이즈 방지
+export interface VedaAccepting { collateral: string; vault: string; vaultSymbol: string; sizeUsd: number | null }
+/** collateralAddrs 중 Veda BoringVault 가 배킹으로 보유한 것(balanceOf>더스트). 이더리움. size = 볼트 보유 잔액 USD. */
+export async function vedaAccepting(chain: string, collateralAddrs: string[]): Promise<VedaAccepting[]> {
+  const vaults = VEDA_VAULTS.filter((v) => v.chain === chain);
+  if (!vaults.length) return [];
+  const want = [...new Set(collateralAddrs.map((a) => a.toLowerCase()))].filter((a) => /^0x[0-9a-f]{40}$/.test(a));
+  if (!want.length) return [];
+  const prices = await getTokenPricesUsd(want as Address[], chain);
+  const decByTok = new Map<string, number>();
+  for (const t of want) { const dr = await ethCall(chain, t, SEL_DECIMALS); decByTok.set(t, dr ? Number(BigInt(dr) & 0xffn) : 18); }
+  const out: VedaAccepting[] = [];
+  for (const v of vaults) {
+    for (const t of want) {
+      try {
+        const balRes = await ethCall(chain, t, (SEL_BALANCE_OF + v.address.slice(2).padStart(64, "0")) as `0x${string}`);
+        if (!balRes) continue;
+        const bal = BigInt(balRes);
+        if (bal === 0n) continue;
+        const amt = Number(bal) / 10 ** (decByTok.get(t) ?? 18);
+        const price = prices.get(t) ?? 0;
+        const sizeUsd = !isFinite(amt) ? null : price ? amt * price : null;
+        if (sizeUsd != null && sizeUsd < VEDA_DUST_USD) continue; // 더스트 컷(의미있는 배킹만)
+        out.push({ collateral: t, vault: v.address, vaultSymbol: v.symbol, sizeUsd });
+      } catch { /* 읽기 실패 → 스킵 */ }
     }
   }
   return out;
@@ -393,6 +679,7 @@ export async function aaveATokenFor(chain: string, tokenAddr: string): Promise<s
 //   담보 수용 판정: 리저브 존재(aToken≠0) ∧ LTV>0 ∧ frozen 아님. LTV=0(차입전용/격리)은 담보 불가 → 제외.
 const SEL_TOTAL_SUPPLY = toFunctionSelector("function totalSupply()");
 const SEL_DECIMALS = toFunctionSelector("function decimals()");
+const SEL_TOTAL_ASSETS = toFunctionSelector("function totalAssets()"); // ERC-4626 (Euler EVault) — 담보볼트 예치 총량
 export interface AaveReserveAccepting {
   collateral: string;   // 담보 파생 주소 (lowercase)
   aToken: string;       // 예치 영수증 토큰 (weightUsd 산출 + evidence)

@@ -11,13 +11,57 @@
  */
 import process from "node:process";
 
+import { oracleTypeForCollateral } from "@/config/alert-thresholds";
 import { closePool, query } from "@/db/client";
 import { ACCEPTOR_ADAPTERS } from "@/lego/acceptors";
 import { aaveATokenFor, convexLpMap, curveLpsFor, metamorphoVaultsFor, pendleMarketsFor } from "@/lego/discover";
 import { symbolsOf } from "@/lego/onchain";
-import { computeTerminalMark, derivNodeId, marketNodeId, type LegoEdge, type LegoNode } from "@/lego/types";
+import { CHAIN_IDS, computeTerminalMark, derivNodeId, marketNodeId, type LegoEdge, type LegoNode } from "@/lego/types";
+import { introspectOracle } from "@/oracle/introspect";
 
 const CHAINS = ["ethereum", "base", "arbitrum"];
+
+// 언더라잉/배킹 체인 레지스트리 — "토큰이 무엇으로 구성되는가"를 언더라잉 토큰→기반자산→리스테이킹 venue 까지 단계로 푼다.
+//   (심볼 lowercase 키, 순서 = 즉시 언더라잉 → … → 기반 → venue. 모두 단일 노드 + backed_by 엣지로 체인.)
+//   weETH→eETH→ETH→EigenLayer: 주소·관계 온체인 검증(weETH.eETH()=eETH rate 1.097, eETH←1.84M ETH ether.fi).
+//   EigenLayer 멤버십은 정설 LRT(온체인 토큰 프로브 불가: stakerStrategyListLength(LRT)=0 — 리스테이킹은 프로토콜별
+//     NodeDelegator/EigenPod 가 함, 연구 검증). sUSDe→USDe 는 sUSDe.asset()==USDe 온체인 검증.
+//   ★가치★: 궁극 기반(ETH)·venue(EigenLayer) node id 가 체인 공유라 형제 토큰(weETH·rsETH·ezETH)이 같은 ETH·EigenLayer
+//     노드를 공유 → 상류 공동위험이 한 노드로 모인다. venue 가 블랙박스로 끝나지 않고 언더라잉 토큰까지 연결된다.
+interface ChainStep { symbol: string; address?: string; brandSlug: string; kind: "underlying" | "base" | "venue"; venueSlug?: string }
+const UNDERLYING_CHAIN: Record<string, ChainStep[]> = {
+  weeth: [
+    { symbol: "eETH", address: "0x35fa164735182de50811e8e2e824cfb9b6118ac2", brandSlug: "etherfi", kind: "underlying" },
+    { symbol: "ETH", brandSlug: "ethereum", kind: "base" },
+    { symbol: "EigenLayer", brandSlug: "eigenlayer", kind: "venue", venueSlug: "eigenlayer" },
+  ],
+  ezeth: [{ symbol: "ETH", brandSlug: "ethereum", kind: "base" }, { symbol: "EigenLayer", brandSlug: "eigenlayer", kind: "venue", venueSlug: "eigenlayer" }],
+  rseth: [{ symbol: "ETH", brandSlug: "ethereum", kind: "base" }, { symbol: "EigenLayer", brandSlug: "eigenlayer", kind: "venue", venueSlug: "eigenlayer" }],
+  rsweth: [{ symbol: "ETH", brandSlug: "ethereum", kind: "base" }, { symbol: "EigenLayer", brandSlug: "eigenlayer", kind: "venue", venueSlug: "eigenlayer" }],
+  pufeth: [{ symbol: "ETH", brandSlug: "ethereum", kind: "base" }, { symbol: "EigenLayer", brandSlug: "eigenlayer", kind: "venue", venueSlug: "eigenlayer" }],
+  susde: [
+    { symbol: "USDe", address: "0x4c9edd5852cd905f086c759e8383e09bff1e68b3", brandSlug: "ethena", kind: "underlying" },
+    { symbol: "Ethena", brandSlug: "ethena", kind: "venue", venueSlug: "ethena" },
+  ],
+  usde: [{ symbol: "Ethena", brandSlug: "ethena", kind: "venue", venueSlug: "ethena" }],
+};
+// 배킹 프로토콜 TVL(노드 크기) — DeFiLlama /protocol/{slug} currentChainTvls 합(차입/스테이킹 파생 제외). 슬러그별 캐시.
+const _backingTvl = new Map<string, number | null>();
+async function backingTvlUsd(slug: string): Promise<number | null> {
+  if (_backingTvl.has(slug)) return _backingTvl.get(slug)!;
+  let v: number | null = null;
+  try {
+    const r = await fetch(`https://api.llama.fi/protocol/${slug}`);
+    if (r.ok) {
+      const j = (await r.json()) as { currentChainTvls?: Record<string, number> };
+      const t = j.currentChainTvls ?? {};
+      const sum = Object.entries(t).filter(([k]) => !/-(borrowed|staking|pool2|vesting)/i.test(k)).reduce((s, [, n]) => s + (typeof n === "number" ? n : 0), 0);
+      v = sum > 0 ? sum : null;
+    }
+  } catch { v = null; }
+  _backingTvl.set(slug, v);
+  return v;
+}
 
 interface TokenRow { node_id: string; address: string; chain: string; label: string }
 
@@ -121,9 +165,10 @@ async function buildFor(t: TokenRow): Promise<{ nodes: LegoNode[]; edges: LegoEd
   // ③ Curve LP (이더리움만 — MetaRegistry)
   if (chain === "ethereum") {
     const lps = await curveLpsFor(t.address);
-    for (const { pool, lp, quote } of lps) {
-      const lpId = addDerivative(lp, "lp", "curve", `Curve LP`, { pool, quote });
-      addEdge(tokenId, lpId, "lp_of", null, { source: "onchain", method: "MetaRegistry.find_pools_for_coins", pool, quote });
+    for (const { pool, lp, quote, sizeUsd } of lps) {
+      const lpId = addDerivative(lp, "lp", "curve", `Curve LP`, { pool, quote, sizeUsd });
+      // lp_of weight = 그 풀에 든 viewed 토큰 잔액 USD(온체인 balanceOf×가격). null=미측정·0=빈풀.
+      addEdge(tokenId, lpId, "lp_of", sizeUsd, { source: "onchain", method: "MetaRegistry.find_pools_for_coins", sizing: "token.balanceOf(pool)*price", pool, quote });
     }
   }
 
@@ -177,7 +222,8 @@ async function buildFor(t: TokenRow): Promise<{ nodes: LegoNode[]; edges: LegoEd
         // 담보 심볼 보강(회장 작업2) — 어댑터는 담보 주소만 안다. 담보 파생노드의 symbol 을 meta.collateral 에 실어
         //   알림 조인(collateral|loan|lltv 변별)이 USDC|0.915 충돌 없이 이 마켓만 집게 한다(추측 없음 — 이미 읽은 온체인 심볼).
         const collSym = nodes.get(dId)?.symbol ?? null;
-        const meta = collSym ? { ...m.meta, collateral: collSym } : m.meta;
+        // 마켓별 자체 오라클 주소를 meta 로 보존(어댑터가 실으면) → 후처리 ⑥'' 가 introspect. 일반화 지점.
+        const meta = { ...m.meta, ...(collSym ? { collateral: collSym } : {}), ...(m.oracleAddress ? { oracleAddress: m.oracleAddress } : {}) };
         addMarket(mId, m.protocol, m.label, meta);
         addEdge(dId, mId, "collateral_at", m.sizeUsd, m.evidence);
       }
@@ -197,7 +243,7 @@ async function buildFor(t: TokenRow): Promise<{ nodes: LegoNode[]; edges: LegoEd
       for (const m of await adapter.accepting(chain, [la])) {
         if (m.collateral.toLowerCase() !== la) continue;
         const mId = marketNodeId(m.protocol, m.marketKey, chain);
-        const meta = baseSym ? { ...m.meta, collateral: baseSym } : m.meta; // 담보 심볼 보강(알림 조인 변별)
+        const meta = { ...m.meta, ...(baseSym ? { collateral: baseSym } : {}), ...(m.oracleAddress ? { oracleAddress: m.oracleAddress } : {}) }; // 담보 심볼 + 마켓 오라클 주소 보강
         addMarket(mId, m.protocol, m.label, meta);
         addEdge(tokenNodeId, mId, "collateral_at", m.sizeUsd, m.evidence);
       }
@@ -250,6 +296,77 @@ async function buildFor(t: TokenRow): Promise<{ nodes: LegoNode[]; edges: LegoEd
   //     12개→대부분 마켓으로 확장돼 "X 큐레이터 볼트가 이 마켓에 $N" 가 관계맵에서 읽힌다(제품 고유가치).
   //     추측 없음 — 이미 DB 에 있는 무료 소스(Morpho GraphQL 적재분) 조인일 뿐. 매칭 실패 마켓은 손대지 않음.
   await attachCurators(chain, viewedSymbolOf(tokenId), nodes);
+
+  // ⑥'' 마켓 오라클 introspection — "마켓마다 자체 오라클"인 수용처(Morpho Blue 등)는 meta.oracleAddress 를 싣는다.
+  //      그 주소를 *온체인* introspect(시장가/교환비/NAV/고정 분류)해 meta.oracle(종류)·oracleProvider·oracleDescription
+  //      에 per-market 로 채운다. 프론트 GraphCanvas 가 이미 `_market.oracle` 을 읽어 엣지 위 오라클 원을 그린다 →
+  //      프론트 무변경으로 Morpho 같은 자체오라클 마켓도 원이 붙는다. 추측 없음: 기존 introspectOracle(description()
+  //      +합성 BASE/QUOTE_FEED+Etherscan 이름) 재사용. 비용 가드: introspectOracle 내부 주소캐시 + 신규 호출 상한.
+  //      ★일반화★: 어떤 수용처 어댑터든 oracleAddress 만 실으면 여기서 자동으로 오라클이 분류·표시된다.
+  {
+    const chainId = CHAIN_IDS[chain] ?? 1;
+    // 한 토큰·체인 스냅샷당 신규 introspect 상한(서로 다른 오라클 주소 기준). 나머지는 심볼 휴리스틱.
+    //   여러 수용처(Morpho·Euler·Fluid·Silo…)가 oracleAddress 를 싣게 되면 토큰당 고유 오라클이 늘어나므로
+    //   여유를 둔다. introspectOracle 은 프로세스 전역 주소캐시라, 토큰들이 공유하는 오라클은 1회만 든다
+    //   (cron legoLoop 은 전체 watchlist 를 한 프로세스로 순회 → 누적 비용은 "전체 고유 오라클 수"로 수렴).
+    const ORACLE_CAP = 36;
+    let attempts = 0;
+    const seen = new Map<string, { type: string; provider: string | null; description: string | null; verified: boolean }>();
+    // 규모순 — 신규 introspect 상한을 큰 마켓에 먼저 쓴다(작은 마켓은 심볼 휴리스틱). 메인 어댑터와 동일 원칙.
+    const mkts = [...nodes.values()]
+      .filter((n) => n.kind === "market" && /^0x[0-9a-f]{40}$/i.test((n.meta?.oracleAddress as string | undefined) ?? ""))
+      .sort((a, b) => ((b.meta?.sizeUsd as number) ?? 0) - ((a.meta?.sizeUsd as number) ?? 0));
+    for (const n of mkts) {
+      const oaddr = n.meta?.oracleAddress as string | undefined;
+      if (!oaddr || !/^0x[0-9a-f]{40}$/i.test(oaddr)) continue;
+      const key = oaddr.toLowerCase();
+      let info = seen.get(key);
+      if (!info) {
+        const collSym = (n.meta?.collateral as string | undefined) ?? null;
+        const collAddr = (n.meta?.collateralAddress as string | undefined) ?? undefined;
+        let oi: Awaited<ReturnType<typeof introspectOracle>> | null = null;
+        if (attempts < ORACLE_CAP) {
+          oi = await introspectOracle(oaddr as `0x${string}`, chainId, collSym ?? undefined, collAddr).catch(() => null);
+          attempts++;
+        }
+        info = {
+          type: oi?.type ?? oracleTypeForCollateral(collSym), // 미검증/상한초과 → 심볼 휴리스틱(verified=false 로 표시)
+          provider: oi?.verified ? oi.provider : null,
+          description: oi?.description ?? null,
+          verified: oi?.verified ?? false,
+        };
+        seen.set(key, info);
+      }
+      // meta.oracle = 종류 문자열(GraphCanvas omkt.oracle 입력). 나머지는 hover/감사용.
+      n.meta = { ...n.meta, oracle: info.type, oracleProvider: info.provider, oracleDescription: info.description, oracleVerified: info.verified };
+    }
+  }
+
+  // ⑥''' 언더라잉/배킹 체인 — "토큰이 무엇으로 구성되는가"를 언더라잉 토큰→기반→venue 단일노드 체인으로(backed_by).
+  //   weETH→eETH→ETH→EigenLayer. 프로토콜 껍데기 안 만든다(중복 방지) — 프론트 backed_by 블록이 단일노드 체인으로 렌더.
+  //   기반(ETH)·venue(EigenLayer) id 체인 공유 → 형제 토큰이 같은 노드로 모임. venue tvl=DeFiLlama.
+  {
+    const sym = viewedSymbolOf(tokenId).toLowerCase();
+    const steps = UNDERLYING_CHAIN[sym];
+    if (steps?.length) {
+      let prevId = tokenId;
+      for (const s of steps) {
+        const id = s.kind === "venue" ? marketNodeId(s.venueSlug!, "backing", chain) : `legochain:${s.symbol.toLowerCase()}@${chain}`;
+        let meta: Record<string, unknown>;
+        if (s.kind === "venue") {
+          const tvl = await backingTvlUsd(s.venueSlug!);
+          meta = { kind: "backing", venue: s.symbol, brandSlug: s.brandSlug, upstreamBacking: true, sizeUsd: tvl, category: `${s.symbol} · 상류 배킹(공유 기반)` };
+        } else if (s.kind === "base") {
+          meta = { kind: "underlying", baseAsset: true, brandSlug: s.brandSlug, symbol: s.symbol, category: `${s.symbol} · 기반 자산(궁극 언더라잉)` };
+        } else {
+          meta = { kind: "underlying", brandSlug: s.brandSlug, address: s.address, symbol: s.symbol, category: `${s.symbol} · 언더라잉 토큰` };
+        }
+        addMarket(id, s.brandSlug, s.symbol, meta);
+        addEdge(prevId, id, "backed_by", null, { source: "underlying-registry", symbol: s.symbol, stepKind: s.kind, ...(s.address ? { address: s.address } : {}) });
+        prevId = id;
+      }
+    }
+  }
 
   // ⑦ 종착 표식 — 다음 홉(예치방향 out엣지)이 없는 노드가 "설계상 진짜 끝"인지 데이터로 확정해 meta 에 얹는다.
   //    트리에서 '끝(종착)'과 '단절(미완)'을 구분하기 위함(감사관 [추궁]). 판정 로직은 types.computeTerminalMark

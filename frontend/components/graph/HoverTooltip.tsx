@@ -4,6 +4,7 @@ import { useMemo } from "react";
 
 import type { GraphEdge, GraphNode, TokenBridgeEntry } from "@/lib/api";
 import { formatUsd } from "@/lib/api";
+import { oracleClassOf } from "@/lib/oracle";
 
 interface NodeHover {
   kind: "node";
@@ -181,7 +182,8 @@ function EdgeBody({ hover }: { hover: EdgeHover }) {
     if (a.core?.amountToken != null) rows.push(["Amount", formatNumber(a.core.amountToken)]);
     if (a.core?.amountUsd != null) rows.push(["TVL", formatUsd(a.core.amountUsd)]);
     if (a.core?.pctOfSupply != null) rows.push(["% supply", pct(a.core.pctOfSupply)]);
-    if (a.oracle?.type && a.oracle.type !== "NONE") rows.push(["Oracle", a.oracle.type]);
+    // 엣지 위 오라클 원과 동일한 보정 분류로 표시(원/범례와 일치) — LST/LRT 의 MARKET 은 환율(LST)로 보정.
+    if (a.oracle?.type && a.oracle.type !== "NONE") rows.push(["Oracle", oracleClassOf(a.oracle.type, (a.oracle as { provider?: string | null }).provider ?? null, hover.sourceLabel)]);
     if (a.lendingRisk?.lt != null) rows.push(["LT", pct(a.lendingRisk.lt)]);
     if (a.dex?.depthAt5pctUsd != null) rows.push(["Depth ±5%", formatUsd(a.dex.depthAt5pctUsd)]);
     if (a.wrapper?.issuedToken) rows.push(["Issued", a.wrapper.issuedToken]);
@@ -191,7 +193,7 @@ function EdgeBody({ hover }: { hover: EdgeHover }) {
       if (funded > 0) rows.push(["Vault-funded markets", `${funded} / ${a.topMarkets.length}`]);
     }
     return rows;
-  }, [a]);
+  }, [a, hover.sourceLabel]);
 
   return (
     <div className="space-y-1.5">

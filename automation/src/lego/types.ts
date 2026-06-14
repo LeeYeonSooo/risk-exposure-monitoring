@@ -10,7 +10,7 @@
  */
 
 export type DerivRole = "pt" | "yt" | "lp" | "receipt" | "wrapper";
-export type LegoRelation = "issues" | "lp_of" | "collateral_at" | "staked_in";
+export type LegoRelation = "issues" | "lp_of" | "collateral_at" | "staked_in" | "backed_by";
 
 /**
  * 종착(terminal) 분류 — 새 relation/kind 를 만들지 않고 노드 meta 에만 얹는다(원칙: "현재 노드 종류 위에서 매핑").

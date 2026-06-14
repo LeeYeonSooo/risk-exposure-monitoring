@@ -36,6 +36,8 @@ export const PROTOCOLS: Record<string, ProtocolBrand> = {
   frax:       { slug: "frax",       label: "Frax",        color: "#111111", mark: "Fx", llama: "frax" },
   stader:     { slug: "stader",     label: "Stader",      color: "#07C8F9", mark: "St", llama: "stader" },
   mantle:     { slug: "mantle",     label: "Mantle",      color: "#65B3AE", mark: "mE", llama: "mantle-staked-eth" },
+  eigenlayer: { slug: "eigenlayer", label: "EigenLayer",  color: "#1A0C6D", mark: "Ei", llama: "eigenlayer" }, // 상류 배킹(LRT 공유 기반)
+  ethena:     { slug: "ethena",     label: "Ethena",      color: "#2F2F2F", mark: "En", llama: "ethena" },     // 상류 배킹(USDe — sUSDe/USDe 공유)
 };
 
 /** Pool-owning protocol from a backend venue tag. */
@@ -47,6 +49,10 @@ export function brandFromVenue(venue?: string | null): ProtocolBrand | null {
   if (v.includes("aave")) return PROTOCOLS.aave;
   if (v.includes("pendle")) return PROTOCOLS.pendle;
   if (v.includes("sky")) return PROTOCOLS.sky;
+  if (v.includes("eigen")) return PROTOCOLS.eigenlayer;
+  if (v.includes("ethena")) return PROTOCOLS.ethena;
+  if (v.includes("etherfi") || v.includes("ether.fi")) return PROTOCOLS.etherfi;
+  if (v.includes("lido")) return PROTOCOLS.lido;
   return null;
 }
 

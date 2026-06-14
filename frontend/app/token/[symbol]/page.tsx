@@ -20,7 +20,7 @@ import { mapAlertsToNodeRisk, type RiskAlertLike } from "@/lib/alert-link";
 import { deOverlapConcentric } from "@/lib/deoverlap-layout";
 import { relayoutConcentric } from "@/lib/concentric-relayout";
 import { applyTreeLayout } from "@/lib/tree-layout";
-import { EDGE_GROUPS, EDGE_TYPE_COLORS, EDGE_TYPE_LABELS } from "@/lib/edge-colors";
+import { EDGE_GROUPS, EDGE_TYPE_COLORS, EDGE_TYPE_LABELS, STRUCTURAL_EDGE_COLOR, VERIFIED_UNMEASURED_COLOR } from "@/lib/edge-colors";
 
 interface Relation { edge: GraphEdge; otherId: string; otherLabel: string; direction: "out" | "in" }
 interface BreadthItem { chain: string; project: string; tvlUsd: number; category: string | null; pools: PoolLike[] }
@@ -56,6 +56,8 @@ export default function TokenPage() {
   // 머니레고 레이어 — 파생토큰(PT/YT/LP/aToken) + 구조 엣지 (snapshot-lego 적재분)
   const [lego, setLego] = useState<{ nodes: LegoApiNode[]; edges: LegoApiEdge[] }>({ nodes: [], edges: [] });
   const [showDerivs, setShowDerivs] = useState(true);
+  // 구조상 가능 엣지(회색 골격) 표시 — 기본 켜짐. 끄면 실제 발생(관측·범례색) 엣지만.
+  const [showStructural, setShowStructural] = useState(true);
 
   useEffect(() => {
     // 이 토큰의 정밀(DB) 서브그래프만 온디맨드로 — 전체 스냅샷(/api/graph) 통째로 받지 않음.
@@ -391,6 +393,12 @@ export default function TokenPage() {
           </ControlGroup>
         )}
         {view === "map" && (
+          <ControlGroup label="엣지">
+            {/* 구조상 가능(회색 골격) on/off — 끄면 실제 발생(관측·범례색) 엣지만 남는다. */}
+            <Seg active={showStructural} onClick={() => setShowStructural((v) => !v)}>구조상 가능 {showStructural ? "표시" : "숨김"}</Seg>
+          </ControlGroup>
+        )}
+        {view === "map" && (
         <div className="flex flex-wrap items-center gap-1">
           <span className="text-[10px] uppercase text-[var(--color-text-muted)]">체인</span>
           {/* 단일 선택 — 한 번에 한 체인의 머니레고 구조만 (사용자 지시: 체크박스→하나씩) */}
@@ -439,7 +447,7 @@ export default function TokenPage() {
               </div>
             </div>
           ) : legoTopology.nodes.length > 1 ? (
-            <GraphCanvas graphKey={`tok-${sym}-${depth}-${shape}-${bridgeHub ? "macro" : "micro"}-${[...hiddenChains].sort().join(",") || "all"}-${legoTopology.nodes.length}`} topology={legoTopology} nodeStates={subNodeStates} selectedNodeId={selNode} onSelectNode={onGraphSelect} staticLayout straightEdges />
+            <GraphCanvas graphKey={`tok-${sym}-${depth}-${shape}-${bridgeHub ? "macro" : "micro"}-${[...hiddenChains].sort().join(",") || "all"}-${legoTopology.nodes.length}`} topology={legoTopology} nodeStates={subNodeStates} selectedNodeId={selNode} onSelectNode={onGraphSelect} showStructural={showStructural} staticLayout straightEdges />
           ) : (
             <Empty msg={`${sym} 의 온체인 엣지가 DB 에 없음 — 스냅샷 대상 토큰이 아닐 수 있어요.`} />
           )}
@@ -541,6 +549,13 @@ function GraphLegend({ bridge, lego }: { bridge: boolean; lego?: boolean }) {
           </span>
         ))}
       </div>
+      {!bridge && (
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 border-t border-[var(--color-border-subtle)] pt-1">
+          <span className="flex items-center gap-1"><span className="inline-block h-0 w-3.5 border-t-2" style={{ borderColor: EDGE_GROUPS[0].color }} />실제 발생 <span className="text-[var(--color-text-muted)]">(범례색)</span></span>
+          <span className="flex items-center gap-1"><span className="inline-block h-0 w-3.5 border-t-2 border-dashed" style={{ borderColor: VERIFIED_UNMEASURED_COLOR }} />관계 검증·금액 미상</span>
+          <span className="flex items-center gap-1"><span className="inline-block h-0 w-3.5 border-t-2 border-dashed" style={{ borderColor: STRUCTURAL_EDGE_COLOR }} />구조상 가능</span>
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 border-t border-[var(--color-border-subtle)] pt-1">
         <span className="text-[var(--color-text-muted)]">오라클</span>
         {oracles.map(([l, c]) => (

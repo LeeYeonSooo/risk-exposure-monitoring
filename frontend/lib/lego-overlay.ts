@@ -38,6 +38,7 @@ const LEGO_PROTO_ALIAS: Record<string, string[]> = {
 const PRETTY_PROTO: Record<string, string> = {
   convex: "Convex", "convex-finance": "Convex", morpho_blue: "Morpho Blue", pendle: "Pendle", curve: "Curve", aave_v3: "Aave V3",
   bridge: "브릿지", // 브릿지 래핑본 파생의 합성 출처 노드(동심원에 브릿지 프로토콜 앵커 없음)
+  eigenlayer: "EigenLayer", ethena: "Ethena", veda: "Veda", // 상류 배킹·yield 재예치
 };
 function canonCandidates(slug: string | null): string[] {
   if (!slug) return [];
@@ -137,6 +138,12 @@ export function overlayLego(
   const derivs = lego.nodes.filter((n) => n.kind === "derivative" && !hiddenChains.has(n.chain) && tokenCenter.has(n.chain));
   if (!derivs.length) return topology;
   const derivById = new Map(derivs.map((d) => [d.id, d] as const));
+  // 발행/구성(issues·lp_of) 엣지의 evidence+금액 — 렌더 엣지에 실어 검증·사이징을 보존한다.
+  //   evidence 가 있으면 "검증된 관계"(금액 null → (b), 금액>0 → 관측색, 측정0 → (a)). dst(파생) 기준 매핑.
+  const legoEdgeByDeriv = new Map<string, { evidence?: Record<string, unknown>; weightUsd: number | null }>();
+  for (const e of lego.edges) {
+    if ((e.relation === "issues" || e.relation === "lp_of") && e.evidence && (e.evidence as { source?: string }).source) legoEdgeByDeriv.set(e.dst, { evidence: e.evidence, weightUsd: e.weight_usd });
+  }
   const viewedSym = (derivs[0]?.parent_token ?? "").replace(/^token:/, "").split("@")[0].toLowerCase();
 
   // B8 레벨2 재귀: 토큰이 아니라 "다른 파생/마켓이 낳은" 파생(Convex 영수증·LP→PT)을 식별 → producer 발(發) id.
@@ -254,8 +261,10 @@ export function overlayLego(
       const ang = slot.ang + off;
       placeDeriv(d, { x: tc.x + Math.cos(ang) * r, y: tc.y + Math.sin(ang) * r });
       const rel = d.role === "lp" ? "lp_of" : "issues";
-      edges.push({ id: `lego:${slot.pid}→${d.id}`, source: slot.pid, target: d.id, type: rel, weight: 0.3,
-        attrs: { meta: { dataSource: "lego" } } as unknown as GraphEdge["attrs"] } as GraphEdge);
+      const le = legoEdgeByDeriv.get(d.id);
+      const usd = typeof le?.weightUsd === "number" ? le.weightUsd : undefined; // 0=측정된 0, undefined=미측정
+      edges.push({ id: `lego:${slot.pid}→${d.id}`, source: slot.pid, target: d.id, type: rel, weight: usd ?? 0.3,
+        attrs: { core: { amountUsd: usd ?? null }, meta: { dataSource: "lego" }, legoEvidence: le?.evidence } as unknown as GraphEdge["attrs"] } as GraphEdge);
     });
   }
 
@@ -285,7 +294,7 @@ export function overlayLego(
       id: mkt.id, type: "DefiProtocol", label: mkt.label, active: true,
       position: { x: c.x - MARKET_PX / 2, y: c.y - MARKET_PX / 2 },
       metadata: { chain: mkt.chain, category: (meta.category as string) ?? "", sizeUsd, sizeUnknown: sizeUsd == null,
-        venue: mkt.protocol, dataSource: "lego", diameterPx: MARKET_PX,
+        venue: mkt.protocol, brandSlug: (meta.brandSlug as string | undefined), dataSource: "lego", diameterPx: MARKET_PX,
         // 종착 표식 전파(snapshot-lego ⑦) — 렌딩 마켓 담보 종착을 hover/배지로 "끝"이라 읽히게.
         terminal: term.terminal === true, terminalKind: term.terminalKind, terminalReason: term.terminalReason, rewardSource: term.rewardSource,
         _market: { ...meta, label: mkt.label, chain: mkt.chain, protocol: PRETTY_PROTO[mkt.protocol ?? ""] ?? mkt.protocol } },
@@ -353,7 +362,11 @@ export function overlayLego(
       id: pid, type: "DefiProtocol", label: PRETTY_PROTO[slug] ?? slug, active: true,
       position: { x: c.x - NEW_PROTO_PX / 2, y: c.y - NEW_PROTO_PX / 2 },
       metadata: { chain, brandSlug: slug, dataSource: "lego", venue: slug, diameterPx: NEW_PROTO_PX,
-        category: "수용처 · 담보 받음", acceptedMarkets: mktLabel ? [mktLabel] : [] },
+        // 카테고리 — 상류 배킹(EigenLayer·Ethena)·일드볼트(Veda)는 "담보 받음"이 아니라 정확한 성격으로 표기.
+        category: (slug === "eigenlayer" || slug === "ethena") ? "상류 배킹 · 공유 기반"
+          : slug === "veda" ? "일드 볼트 · 배킹 재예치"
+          : "수용처 · 담보 받음",
+        acceptedMarkets: mktLabel ? [mktLabel] : [] },
     } as GraphNode;
     nodes.push(gn); byId.set(pid, gn); liveIds.add(pid);
     const slot: ProtoSlot = { pid, c, ang, r: rr };
@@ -361,6 +374,15 @@ export function overlayLego(
     return slot;
   };
   const STRUCT_EDGE: Record<string, string> = { lending: "collateral_isolated", pool: "deposit_supply" };
+  // 엣지 attrs.oracle — snapshot-lego ⑥'' 가 마켓 노드 meta 에 채운 per-market 오라클(종류/제공자/설명)을
+  //   그 마켓으로 가는 collateral_at 엣지에 실어 HoverTooltip 의 "Oracle" 행(provider/description)이 뜨게 한다.
+  //   엣지 위 오라클 원은 GraphCanvas 가 omkt.oracle 폴백으로 이미 그렸고, 여기로 attrs.oracle 까지 채우면 원+툴팁 일치.
+  const oracleAttr = (mkt: LegoApiNode): { type: string; provider: string | null; description: string | null; verified: boolean } | undefined => {
+    const m = mkt.meta as Record<string, unknown> | undefined;
+    const t = m?.oracle as string | undefined;
+    if (!t) return undefined;
+    return { type: t, provider: (m?.oracleProvider as string | null) ?? null, description: (m?.oracleDescription as string | null) ?? null, verified: m?.oracleVerified === true };
+  };
   const mktTarget = new Map<string, string>(); // legoMktId → 실제 연결 대상 노드 id
   const clusterCount = new Map<string, number>();
   const baseClusterCount = new Map<string, number>(); // 베이스 수용처 마켓을 프로토콜 슬롯 둘레에 부채꼴 배치할 인덱스
@@ -401,7 +423,7 @@ export function overlayLego(
         const usd = e.weight_usd ?? undefined;                            // ② 프로토콜→마켓(담보 USD 정본)
         edges.push({ id: `lego-bmkt:${slot.pid}→${mkt.id}`, source: slot.pid, target: mkt.id, type: e.relation,
           weight: usd ?? (mkt.meta?.sizeUsd as number) ?? 0.3,
-          attrs: { core: { amountUsd: usd ?? null }, meta: { dataSource: "lego" }, legoEvidence: e.evidence } as unknown as GraphEdge["attrs"] } as GraphEdge);
+          attrs: { core: { amountUsd: usd ?? null }, meta: { dataSource: "lego" }, legoEvidence: e.evidence, oracle: oracleAttr(mkt) } as unknown as GraphEdge["attrs"] } as GraphEdge);
         mktTarget.set(mkt.id, mkt.id);
       }
       continue;
@@ -429,7 +451,7 @@ export function overlayLego(
           addMarketNode(mkt, { x: tc.x + Math.cos(ang) * rr, y: tc.y + Math.sin(ang) * rr }); // (b) 프로토콜 클러스터 안
           edges.push({ id: `lego-mkt:${protoSlot.pid}→${mkt.id}`, source: protoSlot.pid, target: mkt.id,
             type: STRUCT_EDGE[(mkt.meta?.kind as string) ?? "pool"] ?? "deposit_supply", weight: (mkt.meta?.sizeUsd as number) ?? 0.3,
-            attrs: { meta: { dataSource: "lego" } } as unknown as GraphEdge["attrs"] } as GraphEdge);
+            attrs: { meta: { dataSource: "lego" }, oracle: oracleAttr(mkt) } as unknown as GraphEdge["attrs"] } as GraphEdge);
           targetId = mkt.id;
         }
       } else {
@@ -443,7 +465,33 @@ export function overlayLego(
     if (!targetId || targetId === e.src) continue;
     const usd = e.weight_usd ?? undefined;
     edges.push({ id: `lego:${e.src}→${targetId}:${e.relation}`, source: e.src, target: targetId, type: e.relation,
-      weight: usd ?? 0.3, attrs: { core: { amountUsd: usd ?? null }, meta: { dataSource: "lego" }, legoEvidence: e.evidence } as unknown as GraphEdge["attrs"] } as GraphEdge);
+      weight: usd ?? 0.3, attrs: { core: { amountUsd: usd ?? null }, meta: { dataSource: "lego" }, legoEvidence: e.evidence, oracle: oracleAttr(mkt) } as unknown as GraphEdge["attrs"] } as GraphEdge);
+  }
+
+  // ── 언더라잉/배킹 체인(backed_by) — "토큰이 무엇으로 구성되는가"를 언더라잉 토큰→기반→venue 단일 노드 체인으로.
+  //   weETH→eETH→ETH→EigenLayer. 토큰에서 위쪽 한 줄로(수용처 부채꼴과 분리), 각 단계 단일 노드(프로토콜 껍데기 없음 → 중복 방지).
+  //   기반(ETH)·venue(EigenLayer) id 가 체인 공유라 형제 토큰이 같은 노드로 모인다(상류 공동위험). cyan backed_by 엣지.
+  {
+    const renderId = (legoId: string, chain: string) => (legoId.startsWith("token:") ? `c:${chain}:token` : legoId);
+    for (const [chain, tc] of tokenCenter) {
+      if (hiddenChains.has(chain)) continue;
+      const ce = lego.edges.filter((e) => e.relation === "backed_by" && e.chain === chain);
+      if (!ce.length) continue;
+      const nextOf = new Map(ce.map((e) => [e.src, e] as const));
+      let curId: string | undefined = ce.find((e) => e.src.startsWith("token:"))?.src;
+      const ang = -Math.PI / 2 - 0.22; // 토큰 위쪽(약간 좌상)
+      for (let depth = 1; curId && nextOf.has(curId) && depth < 8; depth++) {
+        const e = nextOf.get(curId)!;
+        const dst = marketLego.get(e.dst);
+        const srcR = renderId(e.src, chain);
+        if (!dst || !byId.has(srcR)) break;
+        const dstR = renderId(e.dst, chain);
+        if (!byId.has(dstR)) addMarketNode(dst, { x: tc.x + Math.cos(ang) * (150 * depth + 80), y: tc.y + Math.sin(ang) * (150 * depth + 80) });
+        edges.push({ id: `lego-back:${e.src}→${e.dst}`, source: srcR, target: dstR, type: "backed_by",
+          weight: 0.3, attrs: { meta: { dataSource: "lego" }, legoEvidence: e.evidence } as unknown as GraphEdge["attrs"] } as GraphEdge);
+        curId = e.dst;
+      }
+    }
   }
 
   // 6) B8 레벨2 재귀 — producer(레벨1 파생 또는 수용처 마켓) 바깥에 배치 + producer→파생 엣지.
@@ -462,11 +510,44 @@ export function overlayLego(
       const dir = Math.atan2(pc.y - tc.y, pc.x - tc.x);
       const r = Math.hypot(pc.x - tc.x, pc.y - tc.y) + 150;
       placeDeriv(d2, { x: tc.x + Math.cos(dir) * r, y: tc.y + Math.sin(dir) * r });
+      const le2 = legoEdgeByDeriv.get(d2id);
+      const usd2 = typeof le2?.weightUsd === "number" ? le2.weightUsd : undefined;
       edges.push({ id: `lego-l2:${prodId}→${d2id}`, source: prodId, target: d2id, type: d2.role === "lp" ? "lp_of" : "issues",
-        weight: 0.3, attrs: { meta: { dataSource: "lego" } } as unknown as GraphEdge["attrs"] } as GraphEdge);
+        weight: usd2 ?? 0.3, attrs: { core: { amountUsd: usd2 ?? null }, meta: { dataSource: "lego" }, legoEvidence: le2?.evidence } as unknown as GraphEdge["attrs"] } as GraphEdge);
     }
     if (next.length === pending.length) break; // 진전 없음
     pending = next;
+  }
+
+  // ── 토큰→수용처허브 트렁크 연결선이 자식 마켓들의 합(담보볼트 중복 제거)을 물려받게 한다.
+  //   오버레이가 만든 token→proto 연결선은 자체 금액이 없어 "구조상 가능(회색)"으로 보이는데, 그 아래
+  //   proto→market 엣지엔 실측 금액이 있다(예: Euler 마켓 = $5.26M). 자식이 관측이면 트렁크도 관측으로 승격.
+  //   ★공유풀 중복 금지★: Euler v2 처럼 여러 마켓이 한 담보볼트를 공유하면 같은 collateralVault 는 1회만 합산
+  //   (안 그러면 2배 부풀려짐 — 검증: naive 합 $10.5M vs 볼트 dedup $5.27M).
+  {
+    const TOK_RE = /^c:[^:]+:token$/;
+    const hubSum = new Map<string, number>();          // protoPid → Σ 자식 amountUsd (담보볼트 dedup)
+    const hubVaults = new Map<string, Set<string>>();
+    for (const e of edges) {
+      if (TOK_RE.test(e.source)) continue;             // 토큰발 엣지는 자식(proto→market) 아님
+      const a = e.attrs as { core?: { amountUsd?: number | null }; legoEvidence?: { collateralVault?: string } } | undefined;
+      const amt = a?.core?.amountUsd;
+      if (typeof amt !== "number" || amt <= 0) continue;
+      const vault = a?.legoEvidence?.collateralVault;
+      if (vault) {
+        const seen = hubVaults.get(e.source) ?? new Set<string>();
+        if (seen.has(vault)) continue;                 // 같은 담보볼트 = 공유풀 → 1회만
+        seen.add(vault); hubVaults.set(e.source, seen);
+      }
+      hubSum.set(e.source, (hubSum.get(e.source) ?? 0) + amt);
+    }
+    for (const e of edges) {
+      if (!TOK_RE.test(e.source)) continue;            // 토큰→프로토콜 연결선만
+      const a = e.attrs as { core?: { amountUsd?: number | null } } | undefined;
+      if (typeof a?.core?.amountUsd === "number" && a.core.amountUsd > 0) continue; // 이미 금액 있으면 둠
+      const sum = hubSum.get(e.target);
+      if (sum && sum > 0) e.attrs = { ...(e.attrs ?? {}), core: { ...(a?.core ?? {}), amountUsd: sum } } as unknown as GraphEdge["attrs"];
+    }
   }
 
   const finalIds = new Set(nodes.map((n) => n.id));
