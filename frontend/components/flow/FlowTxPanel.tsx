@@ -5,7 +5,9 @@ import { ChevronDown, ChevronUp, ExternalLink, GripVertical, Zap } from "lucide-
 
 import { formatUsd } from "@/lib/api";
 import { buildRenderPlan } from "@/lib/flow-match";
-import type { FlowGraph, FlowTx } from "@/lib/flow-types";
+import { LIVE_WINDOW_SEC, type FlowGraph, type FlowTx } from "@/lib/flow-types";
+
+const WIN_MIN = Math.round(LIVE_WINDOW_SEC / 60);
 import { dragStyle, useDragPosition } from "@/lib/use-drag";
 
 /**
@@ -14,11 +16,13 @@ import { dragStyle, useDragPosition } from "@/lib/use-drag";
  */
 const EXPLORER: Record<string, string> = {
   ethereum: "https://etherscan.io", arbitrum: "https://arbiscan.io", base: "https://basescan.org",
+  optimism: "https://optimistic.etherscan.io", polygon: "https://polygonscan.com", avalanche: "https://snowtrace.io",
+  bsc: "https://bscscan.com", gnosis: "https://gnosisscan.io", linea: "https://lineascan.build", scroll: "https://scrollscan.com",
 };
 const KIND_LABEL: Record<FlowTx["kind"], string> = { deposit: "예치", withdraw: "출금", swap: "스왑", mint: "민트", burn: "소각", wrap: "랩", unwrap: "언랩", transfer: "전송" };
 
-export function FlowTxPanel({ txs, txLoading, txAt, txError, graph }: { txs: FlowTx[]; txLoading: boolean; txAt: number | null; txError?: string | null; graph?: FlowGraph | null }) {
-  const [open, setOpen] = useState(true);
+export function FlowTxPanel({ txs, txLoading, txAt, txError, txPartial, graph }: { txs: FlowTx[]; txLoading: boolean; txAt: number | null; txError?: string | null; txPartial?: string[]; graph?: FlowGraph | null }) {
+  const [open, setOpen] = useState(false); // 기본 접힘 — 그래프(토큰 열)를 가리지 않게, 클릭으로 펼침
   const drag = useDragPosition({ withinParent: true }); // 그래프 영역 안에서 끌어서 이동
   // float the transactions that ACTUALLY render on the graph (counterparty resolves to a node) to the top
   const { recent, onGraph, shown, mb } = useMemo(() => {
@@ -48,6 +52,12 @@ export function FlowTxPanel({ txs, txLoading, txAt, txError, graph }: { txs: Flo
       </button>
       {!open ? null : <>
       {txError && <div className="mt-1 rounded bg-[rgba(239,68,68,0.1)] px-1.5 py-0.5 text-[10px] text-[#b91c1c]">피드 오류: {txError} — 아래 목록은 불완전할 수 있음</div>}
+      {!txError && (txPartial?.length ?? 0) > 0 && (
+        <div className="mt-1 rounded bg-[rgba(245,158,11,0.1)] px-1.5 py-0.5 text-[10px] text-[#b45309]"
+          title={`전송량이 많아 ${WIN_MIN}분 윈도우의 오래된 쪽 일부를 표시에서 잘랐습니다 (표시 캡) — 최신 쪽은 완전합니다.`}>
+          부분 커버리지: {txPartial!.slice(0, 4).join(", ")}{txPartial!.length > 4 ? ` 외 ${txPartial!.length - 4}` : ""} — {WIN_MIN}분 중 오래된 쪽 일부 누락 가능
+        </div>
+      )}
       <div className="mt-1.5 flex items-center gap-2 text-[11px]">
         <span className="flex items-center gap-1 font-medium text-[var(--color-text-primary)]"><span className="size-2 rounded-full bg-[#6366f1]" />그래프 흐름 {shown}건</span>
         {mb > 0 && <span className="ml-auto text-[10px] text-[var(--color-text-muted)]">발행소각 {mb}건</span>}
