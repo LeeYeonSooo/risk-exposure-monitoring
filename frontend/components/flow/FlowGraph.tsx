@@ -22,8 +22,11 @@ import type { FlowGraph as FlowGraphData, FlowMode, FlowNode, FlowTx, RiskLevel 
  * 스타일 — 사용자 확정 2026-06-12). **탄력 복귀 없음**(사용자 확정): 홈 앵커 없음, 안정
  * 거리 = 드래그 시작 시점의 현재 거리, 놓은 노드는 fx/fy 핀으로 그 자리에 영구 고정 —
  * "놓은 자리가 곧 자리". 정렬 초기화 버튼만이 핀을 풀고 동심원으로 되돌린다.
- * activity(트랜잭션이 하나라도 탄 노드·엣지 집합)가 주어지면 나머지는 회색으로 딤 처리해
- * 실제 흐름이 있는 곳만 상대적으로 도드라진다 (실시간/평소 모드 공통).
+ * activity(트랜잭션이 하나라도 탄 노드·엣지 집합)가 주어지면 나머지는 아예 **숨긴다**(hidden) —
+ * 실제 흐름이 있는 노드·엣지만 화면에 남고, 새 트랜잭션이 그 노드·엣지를 다시 활동으로 만들면
+ * 위치(posRef)가 보존돼 **같은 자리**에 다시 나타난다 (실시간/평소 모드 공통). 선택한 노드·엣지는
+ * 활동이 없어도 숨기지 않는다(상세 패널과 일관). activity 가 없으면(피드 로딩·실패·활동 0) 숨기지
+ * 않고 구조 전체를 흐릿하게(dim) 보여준다 — 빈 화면이 "피드 죽음"을 "활동 없음"으로 위장하지 않게.
  */
 
 const nodeTypes = { flow: FlowNodeShell };
@@ -63,6 +66,11 @@ function Inner({
   const posRef = useRef<Map<string, { x: number; y: number }>>(new Map());
   const chainsKeyRef = useRef("");
   const firstBuildRef = useRef(true);
+  // 자동 컴팩트 배치 — 활동 노드만 모아 배치하고 화면을 맞춘다. 사용자가 직접 드래그/팬/줌하면
+  // userMoved 가 켜져 자동 배치를 멈춘다(놓은 자리·본 화면 보존, 기존 설계 유지). 토큰/모드/체인이
+  // 바뀌면(graphKey) 다시 풀린다. lastLayoutSig = 마지막으로 배치한 활동 노드 집합(같으면 재배치 안 함).
+  const userMovedRef = useRef(false);
+  const lastLayoutSigRef = useRef("");
   // 드래그 물리 — 평소엔 정지(alpha 0), 드래그하는 동안만 alphaTarget 으로 살아난다
   const simRef = useRef<Simulation<SimNode, SimLink> | null>(null);
   const simByIdRef = useRef<Map<string, SimNode>>(new Map());
@@ -80,6 +88,8 @@ function Inner({
     () => graph.nodes.map((n) => n.id).join(",") + "|" + chainsOrder.join(","),
     [graph, chainsOrder],
   );
+  // 활동 노드 집합의 서명 — 이게 바뀔 때만(새 노드 등장/소멸) 컴팩트 재배치한다. activity 없으면 빈 문자열.
+  const activeSig = useMemo(() => (activity ? [...activity.nodeIds].sort().join(",") : ""), [activity]);
 
   // ── build nodes: 정적 레이아웃은 "새 노드"에만, 기존 노드는 posRef 위치 유지 ──
   useEffect(() => {
@@ -95,6 +105,8 @@ function Inner({
         const r = radiusOf(n);
         const c = posRef.current.get(n.id) ?? layout.get(n.id) ?? { x: W / 2, y: H / 2 };
         posRef.current.set(n.id, c);
+        const act = activityRef.current;
+        const sel = n.id === selRef.current;
         return {
           ...(old.get(n.id) ?? {}),
           id: n.id, type: "flow",
@@ -102,8 +114,10 @@ function Inner({
           width: r * 2, height: r * 2,
           // zIndex 1 > 입자 svg(zIndex 0) — 트랜잭션 알이 노드 원 위를 가로지르지 않고 아래로 지나간다
           zIndex: 1,
-          data: { ...n, radius: r, dim: activityRef.current ? !activityRef.current.nodeIds.has(n.id) : false },
-          draggable: true, selected: n.id === selRef.current,
+          // activity 있음 → 활동 없는 노드는 숨김(단 선택 노드는 노출). activity 없음 → 전부 흐릿하게(dim).
+          data: { ...n, radius: r, dim: !act },
+          hidden: act ? !act.nodeIds.has(n.id) && !sel : false,
+          draggable: true, selected: sel,
         } as Node;
       });
     });
@@ -179,28 +193,76 @@ function Inner({
         data: {
           kind: e.kind, weight: e.weight, tvlUsd: e.tvlUsd, volUsd: e.volUsd, mode, dir: e.dir ?? "both", label: e.label,
           risk: risk === "safe" ? undefined : risk, oracle: e.oracle, trace: e.trace, baseline: e.baseline,
-          dim: activity ? !activity.edgeIds.has(e.id) : false,
+          // activity 없을 때만 흐릿하게 — 있을 땐 활동 엣지만 남으므로 항상 또렷
+          dim: !activity,
         },
+        // 활동 없는 엣지는 숨김(선택 엣지는 노출). 보이는 엣지는 양 끝 노드도 활동(computeActivity 불변식)이라 끊긴 선이 안 생긴다.
+        hidden: activity ? !activity.edgeIds.has(e.id) && e.id !== selectedId : false,
         selected: e.id === selectedId, zIndex: 0,
       } as Edge;
     }));
   }, [graph, mode, selectedId, activity, setEdges]);
 
-  // ── selection + dim on nodes (no reposition) ──
+  // ── selection + show/hide on nodes (no reposition) — 새 트랜잭션이 들어오면 그 노드가 activity 에
+  //    들어와 hidden=false 로 풀리고, 위치(posRef)는 보존돼 같은 자리에 다시 나타난다. activity 가
+  //    없으면 숨기지 않고 전부 흐릿하게(dim) 둔다(빈 화면 방지). 선택 노드는 활동이 없어도 노출. ──
   useEffect(() => {
     setNodes((prev) => prev.map((n) => {
-      const dim = activity ? !activity.nodeIds.has(n.id) : false;
       const sel = n.id === selectedId;
-      if (n.selected === sel && (n.data as FlowNodeData).dim === dim) return n;
-      return { ...n, selected: sel, data: { ...n.data, dim } };
+      const hide = activity ? !activity.nodeIds.has(n.id) && !sel : false;
+      const dim = !activity;
+      if (n.selected === sel && !!n.hidden === hide && (n.data as FlowNodeData).dim === dim) return n;
+      return { ...n, selected: sel, hidden: hide, data: { ...n.data, dim } };
     }));
   }, [selectedId, activity, setNodes]);
+
+  // ── 컴팩트 자동 배치 — 활동 노드만으로 동심 레이아웃을 다시 계산해, 듬성한 빈 링/멀리 떨어진
+  //    노드 없이 모이게 한다(연결 프로토콜은 토큰 근처로 — computeStaticLayout 의 각도 로직 재사용,
+  //    활동 토큰 1개면 중심 허브). 숨김(비활동) 노드는 건드리지 않는다. ──
+  const computeActiveLayout = useCallback(() => {
+    if (!activity) return null;
+    const sub = {
+      ...graph,
+      nodes: graph.nodes.filter((n) => activity.nodeIds.has(n.id)),
+      // 구조 엣지(holds/market/vault/derive)까지 포함해야 동심 배치가 토큰↔프로토콜을 가깝게 둔다
+      edges: graph.edges.filter((e) => activity.nodeIds.has(e.source) && activity.nodeIds.has(e.target)),
+    };
+    return computeStaticLayout(sub, chainsOrder, W, H);
+  }, [activity, graph, chainsOrder]);
+
+  const applyActiveLayout = useCallback((layout: Map<string, { x: number; y: number }>) => {
+    setNodes((prev) => prev.map((n) => {
+      const c = layout.get(n.id);
+      if (!c) return n; // 숨김(비활동) 노드는 그대로
+      const r = (n.data as FlowNodeData).radius ?? 12;
+      posRef.current.set(n.id, c);
+      const s = simByIdRef.current.get(n.id);
+      if (s) { s.x = c.x; s.y = c.y; s.vx = 0; s.vy = 0; s.fx = null; s.fy = null; } // 자동 배치 = 핀 해제
+      return { ...n, position: { x: c.x - r, y: c.y - r } };
+    }));
+    simRef.current?.alpha(0).stop();
+  }, [setNodes]);
+
+  // 토큰/모드/체인이 바뀌면(graphKey) 자동 배치를 다시 푼다 — 새 선택은 새로 최적 배치.
+  useEffect(() => { userMovedRef.current = false; lastLayoutSigRef.current = ""; }, [graphKey]);
+
+  // 활동 셋이 바뀌면(첫 등장 포함) 컴팩트 재배치 + 화면 맞춤 — 단 사용자가 직접 움직였으면 멈춤.
+  useEffect(() => {
+    if (!activeSig || userMovedRef.current || lastLayoutSigRef.current === activeSig) return;
+    const layout = computeActiveLayout();
+    if (!layout) return;
+    lastLayoutSigRef.current = activeSig;
+    applyActiveLayout(layout);
+    const t = setTimeout(() => fitView({ padding: 0.2, duration: 500, maxZoom: 1.4 }).catch(() => {}), 120);
+    return () => clearTimeout(t);
+  }, [activeSig, computeActiveLayout, applyActiveLayout, fitView]);
 
   // ── 드래그: ReactFlow 가 잡은 노드를 옮기고, 시뮬은 그 노드를 고정점(fx/fy)으로 받아
   // 이어진 노드들을 스프링으로 끌고 온다. **놓아도 핀을 풀지 않는다** — 놓은 자리가 그 노드의
   // 자리(탄력 복귀 없음, 사용자 확정). 딸려온 이웃들도 안정거리가 "드래그 직전 거리"라서
   // 따라온 자리 근처에 그대로 정착한다. ──
   const onDragStart: NodeMouseHandler = useCallback((_, node) => {
+    userMovedRef.current = true; // 직접 옮기기 시작 = 자동 컴팩트 배치 중단(놓은 자리 보존)
     const r = (node.data as FlowNodeData).radius ?? 12;
     // 안정거리를 "지금 이 순간의 거리"로 다시 잰다 — 직전 드래그들이 만든 배치가 곧 중립 모양.
     // (이걸 안 하면 스프링이 옛 배치를 기억해 끌 때마다 옛 모양으로 되감으려 든다)
@@ -231,8 +293,17 @@ function Inner({
     simRef.current?.alphaTarget(0); // 이웃들만 자연 감쇠로 자리 잡고 멈춘다
   }, []);
 
-  // 정렬 초기화 — 끌어놓은 위치를 버리고 결정적 레이아웃으로 재배치 (시뮬도 그 자리에 정지)
+  // 정렬 초기화 — 끌어놓은 위치를 버리고 결정적 레이아웃으로 재배치 + 자동 배치 재개.
+  // 활동이 있으면 활동 노드만 컴팩트 배치, 없으면(흐릿 전체) 전체 레이아웃.
   const relayout = useCallback(() => {
+    userMovedRef.current = false; // 자동 컴팩트 배치 재개
+    const active = computeActiveLayout();
+    if (active) {
+      lastLayoutSigRef.current = activeSig;
+      applyActiveLayout(active);
+      setTimeout(() => fitView({ padding: 0.2, duration: 500, maxZoom: 1.4 }).catch(() => {}), 60);
+      return;
+    }
     posRef.current.clear();
     const layout = computeStaticLayout(graph, chainsOrder, W, H);
     setNodes((prev) => prev.map((n) => {
@@ -247,7 +318,7 @@ function Inner({
       if (c) { s.x = c.x; s.y = c.y; s.vx = 0; s.vy = 0; s.fx = null; s.fy = null; }
     }
     setTimeout(() => fitView({ padding: 0.05, duration: 500 }).catch(() => {}), 60);
-  }, [graph, chainsOrder, fitView, setNodes]);
+  }, [activeSig, computeActiveLayout, applyActiveLayout, graph, chainsOrder, fitView, setNodes]);
 
   // 입자 기하 — 노드 위치는 ReactFlow 상태가 진실원 (드래그 중에도 입자가 따라온다)
   const positioned = useMemo(
@@ -276,6 +347,7 @@ function Inner({
       onNodeClick={(_, n) => onSelectNode(n.id)}
       onEdgeClick={(_, e) => onSelectEdge(e.id)}
       onPaneClick={() => onSelectNode("")}
+      onMoveStart={(e) => { if (e) userMovedRef.current = true; }} // 사용자 팬/줌(프로그램 fitView 는 e=null) → 자동 배치 중단
       onNodeDragStart={onDragStart}
       onNodeDrag={onDrag}
       onNodeDragStop={onDragStop}
@@ -325,7 +397,9 @@ function Inner({
           <Lg c="#16a34a" t="파생/발행 (기초↔랩·LP 토큰)" />
           <span className="text-[var(--color-text-muted)]">─o─ = 오라클 의존 · <b style={{ color: "#dc2626" }}>빨강!</b> = 자기참조/NAV</span>
           <span style={{ color: "#c026d3" }}>┈◆┈→ <b>발견</b>(퓨샤·N마커) = 흐름이 찾은 새 연결</span>
-          {activity && <span className="text-[var(--color-text-muted)]">회색(흐림) = 윈도우 내 트랜잭션 없음</span>}
+          {activity
+            ? <span className="text-[var(--color-text-muted)]">트랜잭션 없는 노드·엣지는 숨김 — 흐름이 생기면 같은 자리에 다시 표시</span>
+            : <span className="text-[var(--color-text-muted)]">트랜잭션 없음 — 구조 전체를 흐릿하게 표시</span>}
           <span className="flex items-center gap-1 text-[var(--color-text-muted)]"><span className="size-2 rounded-full" style={{ border: "1.5px dashed #94a3b8" }} />점선 외곽 = 흐름 측정 미지원(어댑터 없음 — 회색≠조용함)</span>
           <span className="text-[var(--color-text-muted)]">노드를 끌면 이어진 노드가 딸려옵니다</span>
           <button onClick={relayout} className="mt-1 rounded border border-[var(--color-border-subtle)] px-1.5 py-0.5 text-[9px] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-raised)]">

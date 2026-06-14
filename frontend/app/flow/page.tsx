@@ -24,7 +24,9 @@ const WIN_MIN = Math.round(LIVE_WINDOW_SEC / 60); // 윈도우 분 — 한 곳(f
  * /flow — the 흐름맵 page (its own page, reached from the header). Two modes:
  *  · 실시간 — 최근 30분(1분 지연)의 실전송이 입자로 엣지를 탄다 (크기 ∝ 금액)
  *  · 평소   — 최근 24h 집계로 "어느 엣지로 얼마나 흐르는 게 평소인가"를 두께·수치로
- * 두 모드 모두, 트랜잭션이 하나라도 탄 노드·엣지만 색을 유지하고 나머지는 회색으로 가라앉는다.
+ * 두 모드 모두, 트랜잭션이 하나라도 탄 노드·엣지만 화면에 남고 나머지는 숨겨진다 — 새 흐름이
+ * 생기면 그 노드·엣지가 (위치 보존) 같은 자리에 다시 나타난다. 트랜잭션이 전혀 없으면(또는 피드
+ * 로딩·실패) 구조 전체를 흐릿하게 보여주고, 진짜 0건일 땐 "트랜잭션 없음" 배지를 띄운다.
  * ?token=SYMBOL preselects a token (e.g. linked from a token page).
  */
 export default function FlowPage() {
@@ -83,6 +85,12 @@ function FlowPageInner() {
     };
   }, [flow.graph, flow.txs, flow.txError, flow.baseline, mode]);
 
+  // 활동이 하나도 없을 때만(피드 한 번은 받아왔고·에러 아님·결과 0건) "트랜잭션 없음" 배지를 띄운다.
+  // 로딩/에러는 제외 — 그래야 빈 화면이 "피드 죽음"을 "활동 없음"으로 위장하지 않는다(딤 전체표시는 유지).
+  const noTx = !!graph && graph.nodes.length > 0 && activity === null && (mode === "live"
+    ? flow.txAt !== null && !flow.txError && flow.txs.length === 0
+    : flow.baseline.at !== null && !flow.baseline.error && flow.baseline.rows.length === 0);
+
   // initial view = the REAL top-5 tokens by TVL (always incl. stETH), single chain — unless the user picked ?tokens
   const [autoPicked, setAutoPicked] = useState(initialTokens.length > 0);
   useEffect(() => {
@@ -133,6 +141,14 @@ function FlowPageInner() {
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-[var(--color-text-muted)]">
               {flow.loading ? "실시간 흐름 그래프 구성 중… (DeFiLlama·Morpho 라이브)" : `${tokens.join(", ")} 흐름 데이터 없음`}
+            </div>
+          )}
+          {/* 활동 0건 — 구조는 흐릿하게 깔린 채(FlowGraph), 그 위에 "트랜잭션 없음" 배지 */}
+          {noTx && (
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+              <div className="rounded-full border border-[var(--color-border-subtle)] bg-[var(--color-surface)]/90 px-4 py-1.5 text-[13px] font-semibold text-[var(--color-text-muted)] shadow-sm backdrop-blur">
+                트랜잭션 없음 <span className="font-normal">· {mode === "live" ? `최근 ${WIN_MIN}분` : "최근 24h"} 흐름 없음 — 구조만 흐릿하게 표시</span>
+              </div>
             </div>
           )}
           {graph && graph.nodes.length > 0 && (mode === "live"
