@@ -61,6 +61,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ token: 
 
     return NextResponse.json({ nodes: [...derivR.rows, ...extraR.rows], edges: edgesR.rows, dbConnected: true });
   } catch (e) {
-    return NextResponse.json({ nodes: [], edges: [], dbConnected: true, error: (e as Error).message }, { status: 500 });
+    const err = e as Error & { code?: string };
+    if (err.code === "42P01" || /relation "lego_(nodes|edges)" does not exist/.test(err.message)) {
+      return NextResponse.json({ nodes: [], edges: [], dbConnected: true, missingTables: true });
+    }
+    return NextResponse.json({ nodes: [], edges: [], dbConnected: true, error: err.message }, { status: 500 });
   }
 }

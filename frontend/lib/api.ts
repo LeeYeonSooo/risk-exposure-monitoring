@@ -16,6 +16,93 @@
 export type NodeType = "Token" | "TokenProtocol" | "DefiProtocol" | "DerivativeToken" | "Oracle" | "Bridge" | "IslandHandle";
 export type RiskLevel = "safe" | "caution" | "danger";
 
+export interface DetailCounterparty {
+  address: string;
+  kind?: "eoa" | "safe" | "contract" | "unknown" | null;
+  label?: string | null;
+  amount?: number | null;
+  amountUsd?: number | null;
+  /** Share of the adapter's denominator, e.g. aToken/Comet total holder balance or market exposure. */
+  sharePct?: number | null;
+  source?: string | null;
+}
+
+export interface RelationMarketRow {
+  label: string;
+  count: number;
+  amountUsd?: number | null;
+}
+
+export interface RelationDetailMetrics {
+  /** Amount of the viewed token, when an adapter can provide token units. */
+  tokenAmount?: number | null;
+  /** USD value of the viewed token accepted/held in this protocol or pool. */
+  tokenAmountUsd?: number | null;
+  /** Protocol/market total value locked. Often the same as tokenAmountUsd for single-token pools. */
+  tvlUsd?: number | null;
+  /** DEX liquidity that includes the viewed token. */
+  dexLiquidityUsd?: number | null;
+  /** Weekly swap volume in viewed-token units. Requires a DEX volume adapter. */
+  weeklySwapTokenAmount?: number | null;
+  /** Weekly swap volume in USD. Requires a DEX volume adapter. */
+  weeklySwapUsd?: number | null;
+  depositCount?: number | null;
+  collateralCount?: number | null;
+  borrowCount?: number | null;
+  poolCount?: number | null;
+  /** Protocol-specific market/reserve/pool role rows for precise panel labels. */
+  marketRows?: RelationMarketRow[] | null;
+  ltv?: number | null;
+  lltv?: number | null;
+  utilization?: number | null;
+  topDepositors?: DetailCounterparty[] | null;
+  topBorrowers?: DetailCounterparty[] | null;
+  /** Missing adapter-backed fields surfaced honestly in the panel. */
+  dataGaps?: string[] | null;
+}
+
+export interface LstFlowDailyPoint {
+  date: string;
+  mint: number;
+  redeem: number;
+  queueIn: number;
+  queueOut: number;
+}
+
+export interface LstFlowWeekly {
+  mint: number;
+  redeem: number;
+  queueIn: number;
+  queueOut: number;
+  queueNet: number;
+}
+
+export interface LstFlowQueueSnapshot {
+  amount?: number | null;
+  requests?: number | null;
+  lastRequestId?: number | null;
+  lastFinalizedRequestId?: number | null;
+}
+
+export interface LstFlowData {
+  symbol: string;
+  supported: boolean;
+  tokenType?: "lst" | "lrt" | "unknown";
+  protocol?: string | null;
+  /** Underlying unit used for the flow series, e.g. wstETH uses stETH protocol flow. */
+  basisSymbol?: string | null;
+  unit?: string | null;
+  windowDays?: number;
+  queueSupported?: boolean;
+  daily?: LstFlowDailyPoint[];
+  weekly?: LstFlowWeekly;
+  queueNow?: LstFlowQueueSnapshot | null;
+  source?: string | null;
+  notes?: string[];
+  updatedAt?: string;
+  error?: string;
+}
+
 export interface NodeMetadata {
   /** On-chain address for exact transaction-flow matching when available. */
   address?: string | null;
@@ -61,6 +148,8 @@ export interface NodeMetadata {
   sizeUnknown?: boolean | null;
   /** 동심원 합성 노드 — 프로토콜 로고 resolve 용 DeFiLlama slug */
   brandSlug?: string | null;
+  /** Protocol/pool detail panel metrics computed from current relation-map data. */
+  relationMetrics?: RelationDetailMetrics | null;
   /** 동심원 합성 마켓 노드 payload (클릭 시 상세) */
   _market?: Record<string, unknown> | null;
   /** 동심원 합성 볼트 노드 payload (클릭 시 상세) */

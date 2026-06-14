@@ -12,7 +12,7 @@ import { BridgeView } from "@/components/bridge/BridgeView";
 import { GraphCanvas } from "@/components/graph/GraphCanvas";
 import { TokenDossier, type DossierData } from "@/components/graph/TokenDossier";
 import { ADDR_EXPLORER, PRow, TokenSpecRows, pct1, sevDots, shortAddr, useNodeAlertCounts } from "@/components/panel/spec";
-import { SAFE_NODE_STATE, formatUsd, type GraphEdge, type GraphNode, type NodeTickState } from "@/lib/api";
+import { SAFE_NODE_STATE, formatUsd, type GraphEdge, type GraphNode, type LstFlowData, type NodeTickState, type RelationDetailMetrics } from "@/lib/api";
 import { normalizeToBoost, pageRank, usdLogWeight } from "@/lib/centrality";
 import { applyConcentricLayout, type PoolLike, type MorphoMkt, type EulerVault } from "@/lib/concentric-layout";
 import { overlayLego, type LegoApiEdge, type LegoApiNode } from "@/lib/lego-overlay";
@@ -46,11 +46,14 @@ export default function TokenPage() {
   const [picked, setPicked] = useState<Record<string, unknown> | null>(null);
   const [dossier, setDossier] = useState<DossierData | null>(null);
   const [dossierLoading, setDossierLoading] = useState(true);
+  const [lstFlow, setLstFlow] = useState<LstFlowData | null>(null);
+  const [lstFlowLoading, setLstFlowLoading] = useState(false);
   const [breadth, setBreadth] = useState<BreadthItem[]>([]);
   const [tokenAddr, setTokenAddr] = useState<Record<string, string>>({});
   const [morphoByChain, setMorphoByChain] = useState<Record<string, MorphoMkt[]>>({});
   const [eulerByChain, setEulerByChain] = useState<Record<string, EulerVault[]>>({});
   const [supplyByChain, setSupplyByChain] = useState<Record<string, { supply: number; supplyUsd: number }>>({});
+  const [relationDetailsByKey, setRelationDetailsByKey] = useState<Record<string, RelationDetailMetrics>>({});
   const [bridgeAuth, setBridgeAuth] = useState<Record<string, { bridgeAddr: string; authType: string; mintLimit: number | null; note: string | null }[]>>({});
   const [breadthLoading, setBreadthLoading] = useState(false); // 라이브 데이터 수집 중
   // 머니레고 레이어 — 파생토큰(PT/YT/LP/aToken) + 구조 엣지 (snapshot-lego 적재분)
@@ -68,9 +71,12 @@ export default function TokenPage() {
     // dossier(판결 바 + 우측 도시에 공유) — 페이지에서 한 번만 받아 양쪽에 내려줌.
     setDossier(null); setDossierLoading(true);
     fetch(`/api/dossier/${encodeURIComponent(sym)}`, { cache: "no-store" }).then((r) => r.json()).then((j) => setDossier(j)).catch(() => {}).finally(() => setDossierLoading(false));
+    // LST/LRT 발행·상환·출금큐 흐름 — 별도 API로 분리해 그래프 로딩을 막지 않음.
+    setLstFlow(null); setLstFlowLoading(true);
+    fetch(`/api/lst-flow/${encodeURIComponent(sym)}`, { cache: "no-store" }).then((r) => r.json()).then((j) => setLstFlow(j)).catch(() => {}).finally(() => setLstFlowLoading(false));
     // breadth(전 체인 DeFiLlama 라이브) — DB 가 못 잡는 체인/프로토콜/마켓·풀까지 으아아악 수집
-    setBreadth([]); setTokenAddr({}); setMorphoByChain({}); setEulerByChain({}); setSupplyByChain({}); setBridgeAuth({}); setBreadthLoading(true);
-    fetch(`/api/breadth/${encodeURIComponent(sym)}`, { cache: "no-store" }).then((r) => r.json()).then((d) => { setBreadth(d.items ?? []); setTokenAddr(d.tokenAddrByChain ?? {}); setMorphoByChain(d.morphoMarkets ?? {}); setEulerByChain(d.eulerVaults ?? {}); setSupplyByChain(d.supplyByChain ?? {}); }).catch(() => {}).finally(() => setBreadthLoading(false));
+    setBreadth([]); setTokenAddr({}); setMorphoByChain({}); setEulerByChain({}); setSupplyByChain({}); setRelationDetailsByKey({}); setBridgeAuth({}); setBreadthLoading(true);
+    fetch(`/api/breadth/${encodeURIComponent(sym)}`, { cache: "no-store" }).then((r) => r.json()).then((d) => { setBreadth(d.items ?? []); setTokenAddr(d.tokenAddrByChain ?? {}); setMorphoByChain(d.morphoMarkets ?? {}); setEulerByChain(d.eulerVaults ?? {}); setSupplyByChain(d.supplyByChain ?? {}); setRelationDetailsByKey(d.relationDetailsByKey ?? {}); }).catch(() => {}).finally(() => setBreadthLoading(false));
     fetch(`/api/bridge-authority/${encodeURIComponent(sym)}`, { cache: "no-store" }).then((r) => r.json()).then((d) => setBridgeAuth(d.byChain ?? {})).catch(() => {});
     // 머니레고 구조 (파생토큰·수용처) — 없으면 빈 배열(레이어 안 그림)
     setLego({ nodes: [], edges: [] });
@@ -179,8 +185,8 @@ export default function TokenPage() {
   // 4-링 동심원(체인별 원): 토큰→프로토콜→마켓/풀→볼트. GraphCanvas staticLayout 으로 고정 렌더.
   const [selNode, setSelNode] = useState<string | null>(null);
   const { topology: subTopology } = useMemo(
-    () => applyConcentricLayout({ symbol: sym, tokenIds: tokenIdSet, relations: mergedRelations, dbNodes: mergedNodes, hiddenChains, poolsByKey, tokenAddrByChain: tokenAddr, includeMarkets, includeVaults, morphoByChain, eulerByChain, supplyByChain, bridgeAuthByChain: bridgeAuth, bridgeHub }),
-    [sym, tokenIdSet, mergedRelations, mergedNodes, hiddenChains, poolsByKey, tokenAddr, includeMarkets, includeVaults, morphoByChain, eulerByChain, supplyByChain, bridgeAuth, bridgeHub],
+    () => applyConcentricLayout({ symbol: sym, tokenIds: tokenIdSet, relations: mergedRelations, dbNodes: mergedNodes, hiddenChains, poolsByKey, tokenAddrByChain: tokenAddr, includeMarkets, includeVaults, morphoByChain, eulerByChain, supplyByChain, relationDetailsByKey, bridgeAuthByChain: bridgeAuth, bridgeHub }),
+    [sym, tokenIdSet, mergedRelations, mergedNodes, hiddenChains, poolsByKey, tokenAddr, includeMarkets, includeVaults, morphoByChain, eulerByChain, supplyByChain, relationDetailsByKey, bridgeAuth, bridgeHub],
   );
   // 머니레고 오버레이 — 동심원 위에 파생토큰 노드·구조 엣지를 얹음 (토글로 끔/켬, B11 때 정식 레이아웃)
   const legoTopology = useMemo(() => {
@@ -330,11 +336,11 @@ export default function TokenPage() {
     } else if (id && node) {
       // 프로토콜 — 전 체인 관계의 topMarkets 를 모아 스펙 행 입력으로
       const realId = id.replace(/^c:[^:]+:/, "");
-      const rels = relations.filter((r) => r.otherId === realId || r.otherId.split("@")[0] === realId.split("@")[0]);
+      const rels = mergedRelations.filter((r) => r.otherId === realId || r.otherId.split("@")[0] === realId.split("@")[0]);
       if (!rels.length) { setPicked(null); return; }
       const markets = rels.flatMap((r) => r.edge.attrs?.topMarkets ?? []);
       const totalUsd = rels.reduce((s, r) => s + (r.edge.attrs?.core?.amountUsd ?? 0), 0);
-      setPicked({ kind: "protocol", nodeId: realId.split("@")[0], label: node.label, markets, totalUsd, chain: md?.chain });
+      setPicked({ kind: "protocol", nodeId: realId.split("@")[0], label: node.label, markets, totalUsd, chain: md?.chain, relationMetrics: md?.relationMetrics });
     } else setPicked(null);
   };
 
@@ -459,7 +465,7 @@ export default function TokenPage() {
             ) : (
               <div className="px-5 py-4">
                 <div className="mb-3"><div className="text-lg font-semibold text-[var(--color-text-primary)]">{sym}</div></div>
-                <TokenDossier node={tokenNode} relations={relations} state={state} data={dossier} dataLoading={dossierLoading} />
+                <TokenDossier node={tokenNode} relations={relations} state={state} data={dossier} dataLoading={dossierLoading} lstFlow={lstFlow} lstFlowLoading={lstFlowLoading} />
               </div>
             )}
           </aside>
@@ -560,6 +566,114 @@ function GraphLegend({ bridge, lego }: { bridge: boolean; lego?: boolean }) {
   );
 }
 
+const compact = (n: number) => Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 2 }).format(n);
+const missing = (m: RelationDetailMetrics | null, key: string) => m?.dataGaps?.includes(key) ? "미수집" : null;
+function eoaFlowHref(address: string, chain: string) {
+  const params = new URLSearchParams({ address });
+  if (chain) params.set("chain", chain);
+  return `/eoa-flow?${params.toString()}`;
+}
+function CounterpartyList({ label, rows, missingValue, chain, badge }: {
+  label: string;
+  rows: RelationDetailMetrics["topDepositors"];
+  missingValue?: string | null;
+  chain: string;
+  badge?: "verified" | "estimated";
+}) {
+  const visible = (rows ?? []).filter((r) => /^0x[0-9a-fA-F]{40}$/.test(r.address)).slice(0, 5);
+  if (!visible.length && !missingValue) return null;
+  return (
+    <div className="py-1 text-[12px]">
+      <div className="mb-1 flex items-center justify-between gap-3">
+        <span className="shrink-0 text-[var(--color-text-muted)]">{label}</span>
+        {visible.length ? (
+          <span className="text-[10px] text-[var(--color-text-muted)]">{visible.length}개</span>
+        ) : (
+          <span className="flex items-center gap-1 font-mono text-[var(--color-text-primary)]">
+            {missingValue}
+            {badge === "estimated" && <span title="추정" className="shrink-0 text-[10px] text-[var(--color-text-muted)]">~</span>}
+          </span>
+        )}
+      </div>
+      {visible.length > 0 && (
+        <div className="space-y-1 rounded-md border border-[var(--color-border-subtle)] bg-[var(--color-surface-raised)] px-2 py-1.5">
+          {visible.map((r) => {
+            const amount = r.amountUsd != null ? formatUsd(r.amountUsd) : r.amount != null ? compact(r.amount) : null;
+            return (
+              <div key={r.address} className="grid grid-cols-[minmax(76px,1fr)_auto] items-center gap-x-2 gap-y-0.5">
+                <Link href={eoaFlowHref(r.address, chain)} className="min-w-0 truncate font-mono text-[var(--color-accent)] hover:underline" title={`${chain}:${r.address}`}>
+                  {r.label || shortAddr(r.address)}
+                </Link>
+                <span className="shrink-0 font-mono text-[var(--color-text-primary)]">{r.sharePct != null ? pct1(r.sharePct) : "비중 미상"}</span>
+                <span className="truncate text-[10px] text-[var(--color-text-muted)]">{r.kind ?? "unknown"}</span>
+                {amount && <span className="truncate text-right font-mono text-[10px] text-[var(--color-text-secondary)]">{amount}</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+function tokenList(v: unknown): string | null {
+  if (!Array.isArray(v) || !v.length) return null;
+  return v.slice(0, 3).map((x) => typeof x === "string" && /^0x[0-9a-fA-F]{40}$/.test(x) ? shortAddr(x) : String(x)).join(" · ");
+}
+
+function MetricRows({ metrics, showDex = false, showTopBorrowers = true, chain = "ethereum" }: {
+  metrics: RelationDetailMetrics | null;
+  showDex?: boolean;
+  showTopBorrowers?: boolean;
+  chain?: string;
+}) {
+  if (!metrics) return null;
+  const tokenAmount = metrics.tokenAmount != null
+    ? `${compact(metrics.tokenAmount)}${metrics.tokenAmountUsd != null ? ` · ${formatUsd(metrics.tokenAmountUsd)}` : ""}`
+    : metrics.tokenAmountUsd != null
+      ? `${formatUsd(metrics.tokenAmountUsd)} · 수량 미수집`
+      : missing(metrics, "token_amount");
+  const ltv = metrics.ltv != null || metrics.lltv != null
+    ? `${metrics.ltv != null ? pct1(metrics.ltv) : "—"} / ${metrics.lltv != null ? pct1(metrics.lltv) : "—"}`
+    : null;
+  const weekly = metrics.weeklySwapTokenAmount != null || metrics.weeklySwapUsd != null
+    ? metrics.weeklySwapTokenAmount != null
+      ? `${compact(metrics.weeklySwapTokenAmount)}${metrics.weeklySwapUsd != null ? ` · ${formatUsd(metrics.weeklySwapUsd)}` : ""}`
+      : metrics.weeklySwapUsd != null ? formatUsd(metrics.weeklySwapUsd) : null
+    : missing(metrics, "weekly_swap");
+  const marketRows = metrics.marketRows?.filter((r) => r.count > 0) ?? [];
+  return (
+    <>
+      <PRow k="토큰 예치" v={tokenAmount} badge={metrics.tokenAmount == null && tokenAmount ? "estimated" : undefined} />
+      <PRow k="TVL" v={metrics.tvlUsd != null ? formatUsd(metrics.tvlUsd) : null} />
+      {marketRows.map((r) => (
+        <PRow key={r.label} k={r.label} v={`${r.count}개${r.amountUsd != null ? ` · ${formatUsd(r.amountUsd)}` : ""}`} />
+      ))}
+      <PRow k="LTV / LLTV" v={ltv} warn={(metrics.lltv ?? 0) >= 0.945 || (metrics.ltv ?? 0) >= 0.9} />
+      <PRow k="이용률" v={metrics.utilization != null ? pct1(metrics.utilization) : null} warn={(metrics.utilization ?? 0) >= 0.95} />
+      {showDex && <PRow k="DEX 유동성" v={metrics.dexLiquidityUsd != null && metrics.dexLiquidityUsd > 0 ? formatUsd(metrics.dexLiquidityUsd) : null} />}
+      {showDex && <PRow k="주간 swap" v={weekly} badge={weekly === "미수집" ? "estimated" : undefined} />}
+      {(!showDex || metrics.topDepositors?.length) && (
+        <CounterpartyList
+          label={showDex ? "탑 LP" : "탑 예치자"}
+          rows={metrics.topDepositors}
+          missingValue={missing(metrics, "top_depositors")}
+          chain={chain}
+          badge={!metrics.topDepositors?.length && missing(metrics, "top_depositors") ? "estimated" : undefined}
+        />
+      )}
+      {showTopBorrowers && (
+        <CounterpartyList
+          label="탑 차입자"
+          rows={metrics.topBorrowers}
+          missingValue={missing(metrics, "top_borrowers")}
+          chain={chain}
+          badge={!metrics.topBorrowers?.length && missing(metrics, "top_borrowers") ? "estimated" : undefined}
+        />
+      )}
+    </>
+  );
+}
+
 function PickDetail({ d, onClose }: { d: Record<string, unknown>; onClose: () => void }) {
   // 스펙 패널 — 값은 한 줄 토큰 · 없으면 행 숨김 · 위험 ⚠빨강 · 주소 ↗ · ✓검증/~추정
   const kind = String(d.kind ?? (("curator" in d || "allocationUsd" in d) ? "vault" : "market"));
@@ -568,6 +682,8 @@ function PickDetail({ d, onClose }: { d: Record<string, unknown>; onClose: () =>
   const ROLE_DESC: Record<string, string> = { pt: "원금 토큰 (PT)", yt: "수익 토큰 (YT)", lp: "유동성 풀 토큰 (LP)", receipt: "예치 영수증", wrapper: "볼트 쉐어" };
   const head = kind === "token" ? "토큰" : kind === "vault" ? "볼트 (큐레이터 운용)" : kind === "bridge" ? "브릿지" : kind === "protocol" ? "프로토콜" : kind === "derivative" ? "파생토큰 (머니레고)" : kind === "pool" ? "풀/마켓" : "마켓";
   const title = kind === "token" ? String(d.symbol) : kind === "vault" ? String(d.curator ?? d.vault ?? "vault") : String(d.label ?? d.market ?? d.protocol ?? "");
+  const metrics = (d.relationMetrics as RelationDetailMetrics | null | undefined) ?? null;
+  const showDexMetrics = !!metrics && ((metrics.dexLiquidityUsd ?? 0) > 0 || !!metrics.dataGaps?.includes("weekly_swap"));
 
   let body: React.ReactNode = null;
   if (kind === "token") {
@@ -618,10 +734,9 @@ function PickDetail({ d, onClose }: { d: Record<string, unknown>; onClose: () =>
     const utils = markets.map((m) => m.utilization).filter((v): v is number => v != null);
     const maxLltv = lltvs.length ? Math.max(...lltvs) : null;
     const avgUtil = utils.length ? utils.reduce((a, b) => a + b, 0) / utils.length : null;
-    const totalUsd = (d.totalUsd as number) ?? 0;
     body = (
       <>
-        <PRow k="담보 · 마켓" v={markets.length ? `${markets.length}개 · ${formatUsd(totalUsd)}` : totalUsd > 0 ? formatUsd(totalUsd) : null} />
+        <MetricRows metrics={metrics} showDex={showDexMetrics} chain={chain} />
         <PRow k="최고 LLTV" v={maxLltv != null ? pct1(maxLltv) : null} warn={maxLltv != null && maxLltv >= 0.945} />
         <PRow k="평균 이용률" v={avgUtil != null ? pct1(avgUtil) : null} warn={avgUtil != null && avgUtil >= 0.95} />
         <PRow k="알림" v={protoCounts ? sevDots(protoCounts.crit, protoCounts.warnN) : null} warn={(protoCounts?.crit ?? 0) > 0} />
@@ -630,7 +745,9 @@ function PickDetail({ d, onClose }: { d: Record<string, unknown>; onClose: () =>
   } else if (kind === "pool") {
     body = (
       <>
+        <MetricRows metrics={metrics} showDex={d.exposure === "multi" || showDexMetrics} showTopBorrowers={false} chain={chain} />
         <PRow k="페어" v={d.poolMeta != null ? String(d.poolMeta) : String(d.market ?? "")} />
+        <PRow k="구성 토큰" v={tokenList(d.underlyingTokens)} />
         <PRow k="프로토콜" v={d.protocol != null ? String(d.protocol) : null} />
         <PRow k="규모" v={(d.sizeUsd as number) > 0 ? formatUsd(d.sizeUsd as number) : null} badge="estimated" />
         <PRow k="APY" v={d.apy != null ? `${(d.apy as number).toFixed(2)}%` : null} badge="estimated" />
@@ -647,13 +764,15 @@ function PickDetail({ d, onClose }: { d: Record<string, unknown>; onClose: () =>
     const fv = (d.fundingVaults as { curator?: string | null; vault?: string | null }[] | null | undefined) ?? [];
     const curators = [...new Set(fv.map((v) => v.curator ?? v.vault).filter(Boolean))] as string[];
     const oracleAddr = d.oracleAddress != null ? String(d.oracleAddress) : null;
+    const marketSizeUsd = Number(d.marketSizeUsd ?? d.sizeUsd ?? metrics?.tvlUsd ?? metrics?.tokenAmountUsd ?? 0);
     body = (
       <>
+        <MetricRows metrics={metrics} chain={chain} />
         <PRow k="페어" v={d.collateralAsset != null || d.loanAsset != null ? `${String(d.collateralAsset ?? "?")} / ${String(d.loanAsset ?? "?")}` : String(d.market ?? "")} />
         <PRow k="LLTV / 여유" v={cushion != null ? `${pct1(lltv)} · ${cushion.toFixed(1)}%p` : lltv ? pct1(lltv) : null}
           warn={lltv >= 0.945 || (cushion != null && cushion <= 8)} badge={agg != null ? "verified" : undefined} />
         <PRow k="이용률" v={d.utilization != null ? pct1(d.utilization as number) : null} warn={((d.utilization as number) ?? 0) >= 0.95} />
-        <PRow k="규모" v={(d.marketSizeUsd as number) > 0 ? formatUsd(d.marketSizeUsd as number) : (d.sizeUsd as number) > 0 ? formatUsd(d.sizeUsd as number) : null} />
+        <PRow k="규모" v={marketSizeUsd > 0 ? formatUsd(marketSizeUsd) : null} />
         <PRow k="오라클" v={oracleAddr ? shortAddr(oracleAddr) : null} href={oracleAddr ? ADDR_EXPLORER[chain]?.(oracleAddr) : null} badge={oracleAddr ? "verified" : undefined} />
         <PRow k="큐레이터" v={curators.length ? `${curators.slice(0, 2).join(" · ")}${curators.length > 2 ? ` +${curators.length - 2}` : ""}` : null} />
         {d.ouroborosRisk === true && <PRow k="구조" v="자기참조 (ouroboros)" warn />}
