@@ -19,6 +19,9 @@ function pool(): pg.Pool | null {
 
 interface Row { token: string; chain: string; bridge_addr: string; auth_type: string; mint_limit: number | null; current_limit_raw: string | null; note: string | null }
 
+// 2026-06-12 스코프 축소: 이더리움·베이스·아비트럼만 서빙 (DB 의 과거 다른 체인 행은 보존하되 숨김).
+const ALLOWED_CHAINS = new Set(["ethereum", "base", "arbitrum"]);
+
 export async function GET(_req: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const p = pool();
@@ -31,22 +34,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ token: 
     );
     const byChain: Record<string, { bridgeAddr: string; authType: string; mintLimit: number | null; note: string | null; standard?: string }[]> = {};
     for (const x of r.rows) {
+      if (!ALLOWED_CHAINS.has(x.chain)) continue;
       (byChain[x.chain] ??= []).push({ bridgeAddr: x.bridge_addr, authType: x.auth_type, mintLimit: x.mint_limit, note: x.note });
     }
-    // 비-EVM 표준 브릿지(bridge_detections, 파이썬 8계열 탐지기) 병합 — 표준명 → authType 슬러그
-    try {
-      const d = await p.query<{ chain: string; standard: string; bridge_address: string; note: string | null }>(
-        `SELECT chain, standard, bridge_address, note FROM bridge_detections WHERE lower(token) = lower($1) ORDER BY chain, standard`,
-        [token],
-      );
-      const slugOf = (s: string) =>
-        /cctp/i.test(s) ? "cctp" : /wormhole/i.test(s) ? "wormhole" : /ibc/i.test(s) ? "ibc"
-        : /starkgate/i.test(s) ? "starkgate" : /sui bridge/i.test(s) ? "sui_bridge"
-        : /layerzero|oft/i.test(s) ? "layerzero" : s.toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 24);
-      for (const x of d.rows) {
-        (byChain[x.chain] ??= []).push({ bridgeAddr: x.bridge_address, authType: slugOf(x.standard), mintLimit: null, note: x.note, standard: x.standard });
-      }
-    } catch { /* 테이블 미생성 시 EVM 권한만 반환 */ }
+    // (2026-06-12) 비-EVM bridge_detections 병합 제거 — EVM 3체인 스코프. EVM 민트권한(bridge_authorities)만 반환.
     return NextResponse.json({ token, byChain, dbConnected: true });
   } catch (e) {
     return NextResponse.json({ byChain: {}, dbConnected: true, error: (e as Error).message }, { status: 500 });

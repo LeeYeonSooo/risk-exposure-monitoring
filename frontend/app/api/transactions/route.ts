@@ -1,46 +1,162 @@
 import { NextResponse } from "next/server";
+import pg from "pg";
 
-import {
-  ALCHEMY_NET, ZERO_ADDR, bestHopMatch, buildCounterpartyRegistry,
-  fetchPrices, fetchTransfers, resolveAddresses, transferTs, type AlchemyTransfer, type CpTarget,
-} from "@/lib/counterparties";
-import { erc20Symbol, isContract, wrappedUnderlying } from "@/lib/lending-pools";
-import { LIVE_DELAY_SEC, LIVE_WINDOW_SEC, MAX_FLOW_TARGETS, type FlowTx } from "@/lib/flow-types";
+import type { FlowTx } from "@/lib/flow-types";
+import { uniswapPoolsFor } from "@/lib/uniswap-pools";
+import { curvePoolsFor } from "@/lib/curve-pools";
+import { compoundComets, erc20Symbol, isContract, lendingReceiptAddrs, MORPHO_BLUE, UNISWAP_V4_POOL_MANAGER, wrappedUnderlying } from "@/lib/lending-pools";
+import { aerodromePoolsFor } from "@/lib/aerodrome-pools";
+import { topTokensByTvl } from "@/lib/flow-core";
 
 /**
  * GET /api/transactions?addrs=ethereum:0xabc..,base:0xdef..&tokens=stETH&chains=ethereum
  *
  * Near-real-time real transfer feed for the 흐름맵 (transaction flow). We surface transfers
- * whose block time is in [now-DELAY-WINDOW, now-DELAY] — 최근 30분 윈도우(1분 정산 버퍼).
- * Alchemy 페이지네이션(pageKey)으로 윈도우 시작까지 거슬러 받는다(페이지 캡에 걸리는
- * 극단적 버스트 토큰은 윈도우의 OLDEST 쪽이 잘릴 수 있음 — partial 로 정직 표기).
- *
- * **EVM 전용** (팀 결정 2026-06-12) — 비-EVM 어댑터(solana/tron/aptos/starknet/sui)는 제거됨.
+ * whose block time is in [now-DELAY-WINDOW, now-DELAY] from the newest 1000 transfers per
+ * token (single Alchemy page) — extreme-burst tokens may have the OLDEST part of the window
+ * truncated. DELAY is just a tiny settle buffer (1 min).
  *
  * EVERY transfer is returned equally (no normal/suspicious split). Each carries its real
  * counterparty (resolved to a protocol/market/vault label when the address is one of our
- * graph nodes / on-chain registries) so the client can place the particle on the REAL edge.
+ * graph nodes) so the client can place the particle on the REAL edge, and its real USD
+ * size so the particle size + frequency reflect actual on-chain activity.
  *
- * 카운터파티 레지스트리·가격·전송 페치는 lib/counterparties.ts (평소 모드 API 와 공용).
+ * Source: Alchemy alchemy_getAssetTransfers (needs ALCHEMY_API_KEY). Prices: DeFiLlama.
  */
 export const dynamic = "force-dynamic";
-// 콜드 폴(첫 수집)은 토큰당 최대 30페이지 Alchemy 페이지네이션이라 수 초가 걸릴 수 있다 — 서버리스
-// (Vercel Hobby 10s/Pro 15s 기본) 타임아웃에 잘리지 않게 상한을 올린다. 상주 Node 면 무영향. (2026-06-13 감사)
-export const maxDuration = 60;
 
 const KEY = process.env.ALCHEMY_API_KEY;
+const DATABASE_URL = process.env.DATABASE_URL;
 
-const DELAY_SEC = LIVE_DELAY_SEC;   // 1-min settle (on-chain counterparty resolution is fast)
-const WINDOW_SEC = LIVE_WINDOW_SEC; // 최근 30분 트레일링 윈도우 — 각 전송이 입자 하나
-const MAX_RETURN = 1000;            // **최근 1000건** 표시 (사용자 확정) — 워터필로 토큰에 공정 분배.
-                                   // 30분 윈도우 안에서 가장 최근 1000건(바쁜 뷰 ≈ 최근 20분), collected 로 캡 전 실수집량 노출.
-// 증분 수집: 첫 폴은 깊게(30분 전체 — USDT 는 30분에 2만 건까지 실측, 30페이지로 전수 커버),
-// 이후 폴은 직전 폴 newest 이후의 증분만(보통 1페이지). 윈도우 데이터는 프로세스 캐시에 유지·프룬.
-const FIRST_PAGES = 30;
-const POLL_PAGES = 5;
+const DELAY_SEC = 60;            // 1-min settle (on-chain counterparty resolution is fast — no need for 5 min)
+const WINDOW_SEC = 5 * 60;       // show a 5-min trailing window of transfers, each as a particle
+const MAX_RETURN = 600;
 
-interface WinCache { transfers: AlchemyTransfer[]; newestTs: number; coveredFromTs: number }
-const _winCache = new Map<string, WinCache>(); // `${chain}:${addr}` — 30분 슬라이딩 윈도우 전송 캐시
+// Alchemy-supported networks (others are skipped, not faked)
+// 2026-06-12 스코프 축소: 이더리움·베이스·아비트럼 3체인 (비EVM 경로 제거).
+const ALCHEMY_NET: Record<string, string> = {
+  ethereum: "eth-mainnet", base: "base-mainnet", arbitrum: "arb-mainnet",
+};
+const CHAIN_PREFIX: Record<string, string> = {
+  ethereum: "ethereum", base: "base", arbitrum: "arbitrum",
+};
+
+const BUILTIN_TOKEN: Record<string, Record<string, string>> = {
+  ethereum: {
+    STETH: "0xae7ab96520de3a18e5e111b5eaab095312d7fe84", WSTETH: "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+    WEETH: "0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee", WBTC: "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+    USDE: "0x4c9edd5852cd905f086c759e8383e09bff1e68b3", USDC: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+    USDT: "0xdac17f958d2ee523a2206206994597c13d831ec7", DAI: "0x6b175474e89094c44da98b954eedeac495271d0f",
+  },
+};
+const ZERO = "0x0000000000000000000000000000000000000000";
+
+// NO hardcoded protocol registry, NO name()/brand heuristics. Counterparties are matched ONLY to the
+// REAL structure-node addresses the client passes (vaults etc.) + addresses resolved live ON-CHAIN
+// (Curve MetaRegistry, Uniswap factory, lending-protocol receipt tokens). Anything unmatched is dropped.
+
+let _pool: pg.Pool | null = null;
+function pool(): pg.Pool | null {
+  if (!DATABASE_URL) return null;
+  if (_pool) return _pool;
+  _pool = new pg.Pool({ connectionString: DATABASE_URL, max: 3 });
+  return _pool;
+}
+
+/**
+ * address → structure-node label, straight from the DB nodes (real markets/vaults that carry an
+ * address). Keys are `${chain}:${addr}` — the DB topology is mainnet-anchored, so these labels
+ * apply to ethereum ONLY (the same address on another chain can be an unrelated contract).
+ */
+async function knownCounterparties(): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const p = pool();
+  if (p) {
+    try {
+      const r = await p.query<{ label: string; address: string }>(
+        `SELECT label, address FROM nodes WHERE address IS NOT NULL AND type <> 'Token'`,
+      );
+      for (const row of r.rows) if (/^0x[0-9a-fA-F]{40}$/.test(row.address)) out.set(`ethereum:${row.address.toLowerCase()}`, row.label);
+    } catch { /* ignore */ }
+  }
+  return out;
+}
+
+/** fallback symbol→address resolution (when the client didn't pass addrs) */
+async function resolveAddresses(symbols: string[], chain: string): Promise<{ token: string; addr: string }[]> {
+  const out: { token: string; addr: string }[] = [];
+  const seen = new Set<string>();
+  for (const s of symbols) {
+    const a = BUILTIN_TOKEN[chain]?.[s.toUpperCase()];
+    if (a) { out.push({ token: s, addr: a.toLowerCase() }); seen.add(s); }
+  }
+  const missing = symbols.filter((s) => !seen.has(s));
+  const p = pool();
+  if (p && missing.length && chain === "ethereum") {
+    try {
+      const r = await p.query<{ label: string; address: string }>(`SELECT label, address FROM nodes WHERE type='Token' AND address IS NOT NULL`);
+      const bySym = new Map(r.rows.map((row) => [row.label.toUpperCase(), row.address.toLowerCase()] as const));
+      for (const s of missing) { const a = bySym.get(s.toUpperCase()); if (a) out.push({ token: s, addr: a }); }
+    } catch { /* ignore */ }
+  }
+  return out;
+}
+
+// Real top-TVL token addresses (with symbols) to use as pool "quote" partners. The ranked symbol
+// list is real (DeFiLlama TVL) and the addresses come from the DB token nodes — no hardcoded list.
+// Cached ~10 min so the 30s tx poll doesn't re-fetch DeFiLlama every time.
+let _quoteCache: { at: number; quotes: { token: string; addr: string }[] } | null = null;
+async function quoteAddrs(): Promise<{ token: string; addr: string }[]> {
+  if (_quoteCache && Date.now() - _quoteCache.at < 10 * 60 * 1000) return _quoteCache.quotes;
+  try {
+    const top = await topTokensByTvl(30);
+    const resolved = await resolveAddresses(top.map((t) => t.symbol), "ethereum");
+    _quoteCache = { at: Date.now(), quotes: resolved };
+    return resolved;
+  } catch { return _quoteCache?.quotes ?? []; }
+}
+
+/** prices keyed `${chain}:${addr}` — 슬러그를 모르는 체인은 조회 자체를 생략 (이더리움 키로 다른 토큰
+ *  가격을 가져다 붙이는 조작 금지), 같은 주소가 체인마다 다른 토큰인 경우도 섞이지 않는다. */
+async function fetchPrices(items: { chain: string; addr: string }[]): Promise<Map<string, { price: number; decimals: number | null }>> {
+  const out = new Map<string, { price: number; decimals: number | null }>();
+  const wanted = items.filter(({ chain }) => CHAIN_PREFIX[chain]);
+  if (!wanted.length) return out;
+  const byLlamaKey = new Map<string, string>(); // lowercase(llama key) → `${chain}:${addr}`
+  const reqKeys: string[] = [];
+  for (const { chain, addr } of wanted) {
+    const a = addr.toLowerCase();
+    const lk = `${CHAIN_PREFIX[chain]}:${a}`;
+    if (!byLlamaKey.has(lk.toLowerCase())) { byLlamaKey.set(lk.toLowerCase(), `${chain}:${a}`); reqKeys.push(lk); }
+  }
+  try {
+    const r = await fetch(`https://coins.llama.fi/prices/current/${reqKeys.map(encodeURIComponent).join(",")}`, { cache: "no-store" });
+    if (!r.ok) return out;
+    const j = (await r.json()) as { coins?: Record<string, { price?: number; decimals?: number }> };
+    for (const [k, v] of Object.entries(j.coins ?? {})) {
+      const key = byLlamaKey.get(k.toLowerCase());
+      if (key && v.price != null) out.set(key, { price: v.price, decimals: v.decimals ?? null });
+    }
+  } catch { /* ignore */ }
+  return out;
+}
+
+interface AlchemyTransfer { hash?: string; from?: string; to?: string; value?: number; asset?: string; metadata?: { blockTimestamp?: string } }
+async function fetchTransfers(net: string, contract: string, maxCount = 1000): Promise<AlchemyTransfer[]> {
+  const url = `https://${net}.g.alchemy.com/v2/${KEY}`;
+  try {
+    const res = await fetch(url, {
+      method: "POST", headers: { "Content-Type": "application/json" }, cache: "no-store",
+      body: JSON.stringify({
+        jsonrpc: "2.0", id: 1, method: "alchemy_getAssetTransfers",
+        params: [{ contractAddresses: [contract], category: ["erc20"], order: "desc", maxCount: `0x${maxCount.toString(16)}`, withMetadata: true, excludeZeroValue: true }],
+      }),
+    });
+    if (!res.ok) return [];
+    const j = (await res.json()) as { result?: { transfers?: AlchemyTransfer[] } };
+    return j.result?.transfers ?? [];
+  } catch { return []; }
+}
 
 export async function GET(req: Request) {
   if (!KEY) return NextResponse.json({ txs: [], error: "ALCHEMY_API_KEY not set" });
@@ -52,7 +168,7 @@ export async function GET(req: Request) {
   const chainParam = (url.searchParams.get("chains") ?? "ethereum").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
 
   // build the work list of { token, chain, addr }
-  const targets: CpTarget[] = [];
+  const targets: { token: string; chain: string; addr: string }[] = [];
   for (const pair of addrParam) {
     const [chain, addrEnc, sym] = pair.split(":");
     if (!chain || !addrEnc) continue;
@@ -60,7 +176,7 @@ export async function GET(req: Request) {
     let addr = addrEnc;
     try { addr = decodeURIComponent(addrEnc); } catch { /* 원문 유지 */ }
     const token = (sym ?? "").toUpperCase() || addr.slice(0, 6);
-    if (ALCHEMY_NET[c]) targets.push({ token, chain: c, addr: addr.toLowerCase() }); // EVM 전용 — 그 외 체인은 스킵
+    if (ALCHEMY_NET[c]) targets.push({ token, chain: c, addr: addr.toLowerCase() });
   }
   if (!targets.length && tokenParam.length) {
     for (const chain of chainParam) {
@@ -68,57 +184,102 @@ export async function GET(req: Request) {
       for (const { token, addr } of await resolveAddresses(tokenParam, chain)) targets.push({ token: token.toUpperCase(), chain, addr });
     }
   }
-  // 공개·무인증 엔드포인트 보호 — chain:addr 중복 제거 + 개수 상한(제자리). 무제한 addrs 가 unbounded
-  // Alchemy fan-out(공유 CU 고갈/소켓 폭주)을 일으키지 못하게 한다. (2026-06-13 배포 준비성 감사)
-  { const seen = new Set<string>(); let w = 0; for (const t of targets) { const k = `${t.chain}:${t.addr}`; if (seen.has(k) || w >= MAX_FLOW_TARGETS) continue; seen.add(k); targets[w++] = t; } targets.length = w; }
   if (!targets.length) return NextResponse.json({ txs: [] });
 
   const nowSec = Math.floor(Date.now() / 1000);
   const hiTs = nowSec - DELAY_SEC;              // newest allowed (1 min ago)
-  const loTs = nowSec - DELAY_SEC - WINDOW_SEC; // oldest allowed (31 min ago = 1-min delay + 30-min window)
+  const loTs = nowSec - DELAY_SEC - WINDOW_SEC; // oldest allowed (6 min ago = 1-min delay + 5-min window)
 
-  const [reg, prices] = await Promise.all([
-    buildCounterpartyRegistry(targets, url.searchParams.get("nodes") ?? ""),
+  const [known, prices] = await Promise.all([
+    knownCounterparties(),
     fetchPrices(targets.map(({ chain, addr }) => ({ chain, addr }))),
   ]);
-  const { known, dexAddrs, pairHint, tokenSymByAddr, wrapPairs } = reg;
-
-  // 토큰별로 따로 수집한다(활성 토큰이 조용한 토큰을 밀어내지 않게). 표시 예산(MAX_RETURN) 배분은
-  // 아래서 max-min 워터필링으로 — 단순 floor(예산/N) 캡은 USDC 선택 시 딸려오는 파생/LP 토큰 수십
-  // 개가 N을 키워 활성 토큰을 굶기던 문제(USDC 900건→40건)를 일으켰다(2026-06-13 감사).
-  const isMatchedRow = (t: FlowTx) => t.counterparty != null || t.kind === "mint" || t.kind === "burn";
-  const partialTokens: string[] = []; // 윈도우 전체를 못 본/표시 캡에 잘린 토큰 — 숨기지 않고 표기
-  let collectedMatched = 0;           // 캡 적용 전 윈도우 내 실제 매칭 흐름 총수 (정직성 — total 과 비교)
-  const perTarget = await Promise.all(targets.map(async ({ token, chain, addr }) => {
-    // 30분 슬라이딩 윈도우 — 증분 수집: 캐시 newest 이후만 새로 받고(2분 오버랩), 윈도우 밖은 프룬.
-    const ck = `${chain}:${addr}`;
-    const cached = _winCache.get(ck);
-    const sinceTs = cached ? Math.max(loTs, cached.newestTs - 120) : loTs;
-    const { transfers: fresh, covered } = await fetchTransfers(ALCHEMY_NET[chain], addr, { maxCount: 1000, maxPages: cached ? POLL_PAGES : FIRST_PAGES, stopBeforeTs: sinceTs });
-    const seenK = new Set<string>();
-    const merged: AlchemyTransfer[] = [];
-    for (const t of [...fresh, ...(cached?.transfers ?? [])]) {
-      const ts = transferTs(t);
-      if (!ts || ts < loTs) continue; // 윈도우 밖 프룬 (슬라이딩)
-      const dk = `${t.hash}|${t.from}|${t.to}|${t.value}`; // 오버랩 구간 중복 제거
-      if (seenK.has(dk)) continue;
-      seenK.add(dk);
-      merged.push(t);
+  // rank 2 = 구조-특정 라벨(볼트/마켓 — DB·그래프 노드), rank 1 = 프로토콜 수준 레지스트리.
+  // 한 tx 가 [지갑→볼트→모르포 싱글톤] 처럼 두 카운터파티를 거치면 더 특정한(볼트) 쪽을 채택.
+  const knownRank = new Map<string, number>();
+  for (const k of known.keys()) knownRank.set(k, 2);
+  // graph node addresses passed by the client (vault contracts etc.) → match transfers to them too.
+  // format `chain:addr~label` (legacy `addr~label` = ethereum). chain-scoped so a base transfer
+  // can never pick up a mainnet vault label that happens to share the address.
+  for (const pair of (url.searchParams.get("nodes") ?? "").split("|")) {
+    const i = pair.indexOf("~"); if (i < 0) continue;
+    let key = pair.slice(0, i).toLowerCase();
+    const label = pair.slice(i + 1);
+    if (!key.includes(":")) key = `ethereum:${key}`;
+    const [kc, ka] = key.split(":");
+    if (/^0x[0-9a-f]{40}$/.test(ka ?? "") && label && ALCHEMY_NET[kc]) { known.set(`${kc}:${ka}`, label); knownRank.set(`${kc}:${ka}`, 2); }
+  }
+  // ── PER-CHAIN real counterparty registries (이더리움 전용이던 매칭을 전 체인으로) ──
+  //  · Uniswap V2/V3 — CREATE2 per official chain factory (deterministic, keyless)
+  //  · Uniswap V4 — official PoolManager singleton per chain
+  //  · Curve — on-chain MetaRegistry (mainnet) incl the native-ETH sentinel (stETH/ETH-type pools)
+  //  · Aave V3 / Spark — aToken resolved LIVE via Pool.getReserveData (deposit = transfer to aToken)
+  //  · Morpho Blue — canonical singleton escrow
+  // dexAddrs = swap counterparties; lending receipts stay deposit/withdraw — keeps the kind honest.
+  const evmTargets = targets;
+  const dexAddrs = new Set<string>();
+  const pairHint = new Map<string, string>(); // `${chain}:${poolAddr}` → "SYMA-SYMB" (파생 풀의 알려진 페어)
+  const chainsInPlay = [...new Set(evmTargets.map((t) => t.chain))];
+  const quotes = await quoteAddrs(); // real top-TVL quote partners (DEX numeraires) — mainnet pool expansion
+  // 심볼 맵: 선택 토큰(체인별) + 상위 TVL 쿼트(메인넷) + 커브 네이티브 ETH 표기
+  const tokenSymByAddr = new Map<string, string>(); // `${chain}:${addr}` → symbol
+  for (const t of targets) tokenSymByAddr.set(`${t.chain}:${t.addr}`, t.token);
+  const symByChainAddr = new Map(tokenSymByAddr);
+  for (const q of quotes) if (!symByChainAddr.has(`ethereum:${q.addr}`)) symByChainAddr.set(`ethereum:${q.addr}`, q.token.toUpperCase());
+  symByChainAddr.set("ethereum:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "ETH");
+  await Promise.all(chainsInPlay.map(async (chain) => {
+    // all registries are CHAIN-SCOPED (`chain:addr` keys) — no cross-chain label bleed
+    const addKnown = (addr: string, label: string, dex: boolean, pair?: [string, string]) => {
+      const k = `${chain}:${addr.toLowerCase()}`;
+      if (!known.has(k)) known.set(k, label);
+      if (dex) dexAddrs.add(k);
+      if (pair) {
+        const a = symByChainAddr.get(`${chain}:${pair[0]}`), b = symByChainAddr.get(`${chain}:${pair[1]}`);
+        if (a && b && !pairHint.has(k)) pairHint.set(k, `${a}-${b}`); // 페어를 아는 풀 → 마켓 노드 매칭 힌트
+      }
+    };
+    const chainAddrs = evmTargets.filter((t) => t.chain === chain).map((t) => t.addr);
+    const quoteAddrList = quotes.map((q) => q.addr);
+    const uniUniverse = chain === "ethereum" ? [...new Set([...chainAddrs, ...quoteAddrList])] : chainAddrs;
+    try { for (const { addr, label, pair } of uniswapPoolsFor(uniUniverse, chain)) addKnown(addr, label, true, pair); } catch { /* ignore */ }
+    const pm = UNISWAP_V4_POOL_MANAGER[chain];
+    if (pm) addKnown(pm, "uniswap-v4", true);
+    if (chain === "ethereum") {
+      const CURVE_NATIVE_ETH = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+      const curveUniverse = [...new Set([...chainAddrs, ...quoteAddrList.slice(0, 8), CURVE_NATIVE_ETH])];
+      try { for (const { addr, label, pair } of await curvePoolsFor(curveUniverse)) addKnown(addr, label, true, pair); } catch { /* ignore */ }
     }
-    let newestTs = cached?.newestTs ?? 0, oldestFresh = 0;
-    for (const t of fresh) { const ts = transferTs(t); if (ts > newestTs) newestTs = ts; if (ts && (!oldestFresh || ts < oldestFresh)) oldestFresh = ts; }
-    // coveredFrom = 이 시각 이후로는 빠짐없이 본 시점. covered=true 면 캐시의 기존 커버리지에 접합,
-    // false(증분이 sinceTs 까지 못 닿음 — 폭주/실패)면 fresh 의 oldest 부터만 연속 보장.
-    const coveredFromTs = covered ? Math.max(loTs, cached ? Math.min(cached.coveredFromTs, sinceTs) : loTs) : Math.max(loTs, oldestFresh || sinceTs);
-    _winCache.set(ck, { transfers: merged, newestTs, coveredFromTs });
-    if (coveredFromTs > loTs + 90) partialTokens.push(`${token}@${chain}`);
-    const transfers = merged;
+    if (chain === "base") {
+      // Aerodrome = base's main DEX — pools read live from the official factories (v1 + Slipstream)
+      try { for (const { addr, label, pair } of await aerodromePoolsFor(chainAddrs)) addKnown(addr, label, true, pair); } catch { /* ignore */ }
+    }
+    try { for (const { addr, label } of await lendingReceiptAddrs(chain, chainAddrs)) addKnown(addr, label, false); } catch { /* ignore */ }
+    // Compound V3 comets — official candidates, sanity-checked on-chain (baseToken()) before use
+    try { for (const { addr, label } of await compoundComets(chain)) addKnown(addr, label, false); } catch { /* ignore */ }
+    const mb = MORPHO_BLUE[chain];
+    if (mb) addKnown(mb, "morpho-blue", false);
+  }));
+  // wrap/unwrap fast-path: 선택 토큰끼리의 검증된 랩 쌍 (asset()/stETH()/eETH() 가 원토큰을 반환).
+  // 검증 안 되면 랩이라고 말하지 않는다 (USDC를 USDT 컨트랙트로 잘못 보낸 전송 ≠ 랩).
+  const wrapPairs = new Set<string>(); // `${chain}:${wrapperAddr}:${underlyingAddr}`
+  await Promise.all(targets.map(async (t) => {
+    const u = await wrappedUnderlying(t.chain, t.addr);
+    if (u && tokenSymByAddr.has(`${t.chain}:${u}`)) wrapPairs.add(`${t.chain}:${t.addr}:${u}`);
+  }));
+
+  // collect PER TARGET so every token is represented (a hyper-active token like WETH can't
+  // crowd a quieter one like wstETH out of the response). The cap derives from the global
+  // budget so the final MAX_RETURN slice can never undo this fairness.
+  const PER_TOKEN_CAP = Math.max(1, Math.min(200, Math.floor(MAX_RETURN / targets.length)));
+  const isMatchedRow = (t: FlowTx) => t.counterparty != null || t.kind === "mint" || t.kind === "burn";
+  const perTarget = await Promise.all(evmTargets.map(async ({ token, chain, addr }) => {
+    const transfers = await fetchTransfers(ALCHEMY_NET[chain], addr, 1000);
     const price = prices.get(`${chain}:${addr}`)?.price ?? 0;
     // group this token's transfers by tx hash → reconstruct the REAL movement chain (a swap routes
     // through several contracts in one tx; we scan ALL hops, not just one entry's from/to).
     const byHash = new Map<string, AlchemyTransfer[]>();
     for (const t of transfers) {
-      const ts = transferTs(t);
+      const ts = t.metadata?.blockTimestamp ? Math.floor(new Date(t.metadata.blockTimestamp).getTime() / 1000) : 0;
       if (!ts || ts > hiTs || ts < loTs) continue; // delay window
       const h = t.hash ?? ""; if (!h) continue;
       const a = byHash.get(h); if (a) a.push(t); else byHash.set(h, [t]);
@@ -126,14 +287,21 @@ export async function GET(req: Request) {
     const local: FlowTx[] = [];
     const pending: { hsh: string; ts: number; maxVal: number; from: string; to: string }[] = [];
     for (const [hsh, hops] of byHash) {
+      // 모든 hop 을 스캔해 가장 SPECIFIC 한 매칭을 채택 (볼트/DB 노드 rank2 > 프로토콜 레지스트리
+      // rank1). cpVal = 그 카운터파티를 실제로 거친 금액 — 입자 크기는 실제 흐름.
+      let best: { label: string; addr: string; dir: "in" | "out"; key: string; rank: number; v: number } | null = null;
       let maxVal = 0, ts = 0, from = "", to = "";
       for (const h of hops) {
-        const hts = transferTs(h);
+        const hts = h.metadata?.blockTimestamp ? Math.floor(new Date(h.metadata.blockTimestamp).getTime() / 1000) : 0;
         if (hts > ts) ts = hts;
         const v = h.value ?? 0; if (v > maxVal) { maxVal = v; from = (h.from ?? "").toLowerCase(); to = (h.to ?? "").toLowerCase(); }
+        const hf = (h.from ?? "").toLowerCase(), ht = (h.to ?? "").toLowerCase();
+        const kt = `${chain}:${ht}`, kf = `${chain}:${hf}`;
+        const mt = known.get(kt);
+        if (mt !== undefined) { const r = knownRank.get(kt) ?? 1; if (!best || r > best.rank) best = { label: mt, addr: ht, dir: "in", key: kt, rank: r, v }; }
+        const mf = known.get(kf);
+        if (mf !== undefined) { const r = knownRank.get(kf) ?? 1; if (!best || r > best.rank) best = { label: mf, addr: hf, dir: "out", key: kf, rank: r, v }; }
       }
-      // 모든 hop 스캔 → 가장 SPECIFIC 한 매칭 (rank2 볼트/DB 노드 > rank1 프로토콜 레지스트리)
-      const best = bestHopMatch(hops.map((h) => ({ from: (h.from ?? "").toLowerCase(), to: (h.to ?? "").toLowerCase(), value: h.value ?? 0 })), chain, reg);
       if (best) {
         local.push({
           hash: hsh, chain, token, from, to, valueUsd: (best.v || maxVal) * price, ts, direction: best.dir,
@@ -142,8 +310,8 @@ export async function GET(req: Request) {
         });
         continue;
       }
-      if (from === ZERO_ADDR) { local.push({ hash: hsh, chain, token, from, to, valueUsd: maxVal * price, ts, direction: "in", kind: "mint", counterparty: null, counterpartyAddr: null, marketHint: null, reasons: [] }); continue; }
-      if (to === ZERO_ADDR) { local.push({ hash: hsh, chain, token, from, to, valueUsd: maxVal * price, ts, direction: "out", kind: "burn", counterparty: null, counterpartyAddr: null, marketHint: null, reasons: [] }); continue; }
+      if (from === ZERO) { local.push({ hash: hsh, chain, token, from, to, valueUsd: maxVal * price, ts, direction: "in", kind: "mint", counterparty: null, counterpartyAddr: null, marketHint: null, reasons: [] }); continue; }
+      if (to === ZERO) { local.push({ hash: hsh, chain, token, from, to, valueUsd: maxVal * price, ts, direction: "out", kind: "burn", counterparty: null, counterpartyAddr: null, marketHint: null, reasons: [] }); continue; }
       // 선택 토큰끼리의 검증된 랩 쌍 fast-path
       const wrapTo = tokenSymByAddr.get(`${chain}:${to}`), wrapFrom = tokenSymByAddr.get(`${chain}:${from}`);
       if (wrapTo && wrapPairs.has(`${chain}:${to}:${addr}`)) { local.push({ hash: hsh, chain, token, from, to, valueUsd: maxVal * price, ts, direction: "in", kind: "wrap", counterparty: wrapTo, counterpartyAddr: to, marketHint: null, reasons: [] }); continue; }
@@ -176,42 +344,19 @@ export async function GET(req: Request) {
       // 그 외 = 지갑간/미식별 전송 — 숨기지 않고 패널에 kind:transfer 로 보여준다 (그래프엔 안 그림, 라벨 추측 없음)
       else local.push({ hash: p.hsh, chain, token, from: p.from, to: p.to, valueUsd: p.maxVal * price, ts: p.ts, direction: "out", kind: "transfer", counterparty: null, counterpartyAddr: null, marketHint: null, reasons: [] });
     }
-    // 토큰별 매칭/지갑전송을 정렬만 해서 반환 — 예산 배분은 아래 워터필링이 담당.
-    const matched = local.filter(isMatchedRow).sort((a, b) => b.ts - a.ts);
-    const plain = local.filter((t) => !isMatchedRow(t)).sort((a, b) => b.ts - a.ts);
-    return { token, chain, matched, plain };
+    // 매칭 흐름 우선 + 지갑 전송은 토큰당 최대 40건 (활동은 보이되 매칭 흐름을 밀어내지 않게)
+    const matchedRows = local.filter(isMatchedRow).sort((a, b) => b.ts - a.ts).slice(0, PER_TOKEN_CAP);
+    const plainRows = local.filter((t) => !isMatchedRow(t)).sort((a, b) => b.ts - a.ts).slice(0, Math.max(0, Math.min(40, PER_TOKEN_CAP - matchedRows.length)));
+    return [...matchedRows, ...plainRows];
   }));
-
-  // ── 표시 예산(MAX_RETURN) 배분 — max-min 페어 워터필링: 보유량 적은 토큰부터 남은 예산을 남은
-  //    토큰에 균등 분배하되 자기 보유분을 안 넘는다 → 조용한 토큰이 비운 슬롯이 활성 토큰으로 흘러가
-  //    USDC(900건)를 40건이 아니라 거의 다 표시. 활성 토큰이 균형하게 많으면 자연히 균등 분배. ──
-  const order = [...perTarget].sort((a, b) => a.matched.length - b.matched.length);
-  const take = new Map<(typeof perTarget)[number], number>();
-  let rem = MAX_RETURN, left = order.length;
-  for (const t of order) { const share = left > 0 ? Math.floor(rem / left) : 0; const k = Math.min(t.matched.length, share); take.set(t, k); rem -= k; left--; }
-  const matchedOut: FlowTx[] = [];
-  for (const t of perTarget) {
-    const k = take.get(t) ?? 0;
-    collectedMatched += t.matched.length; // 캡 적용 전 실제 매칭 흐름 수 (정직성 — collected>total 이면 표시 잘림)
-    // **표시 캡 정직 표기**: 워터필 몫(k)보다 매칭이 많으면 oldest 쪽이 표시상 잘린 것 → partial 로
-    // 알린다(페치 커버리지 갭과 같은 "윈도우 끝 절단" 증상, 입자 1만개는 못 그림).
-    if (t.matched.length > k && !partialTokens.includes(`${t.token}@${t.chain}`)) partialTokens.push(`${t.token}@${t.chain}`);
-    matchedOut.push(...t.matched.slice(0, k));
-  }
-  // 지갑간 전송(미매칭)은 남는 예산 한도 내 토큰당 소량(≤8) — 활동 신호용, 매칭을 밀어내지 않음
-  let plainBudget = Math.max(0, MAX_RETURN - matchedOut.length);
-  const plainOut: FlowTx[] = [];
-  for (const t of perTarget) { if (plainBudget <= 0) break; const room = Math.min(t.plain.length, 8, plainBudget); plainOut.push(...t.plain.slice(0, room)); plainBudget -= room; }
-  const txs = [...matchedOut, ...plainOut].sort((a, b) => b.ts - a.ts).slice(0, MAX_RETURN);
-  const total = txs.length;
+  const allTargets = perTarget;
+  const total = allTargets.reduce((s, a) => s + a.length, 0);
+  const txs = allTargets.flat().sort((a, b) => b.ts - a.ts).slice(0, MAX_RETURN);
 
   return NextResponse.json({
     txs,
     delaySec: DELAY_SEC, windowSec: WINDOW_SEC,
     generatedAt: new Date().toISOString(),
-    // total = 표시 건수(캡 적용 후) · collected = 윈도우 내 실제 매칭 흐름 수(캡 전) — collected>total 이면 표시가 잘린 것
-    counts: { total, returned: txs.length, collected: collectedMatched },
-    // 30분 윈도우의 oldest 쪽이 잘렸을 수 있는 토큰(페치 커버리지 갭 ∪ 표시 캡 절단) — 클라이언트가 "불완전" 배지로 정직 표기
-    partial: partialTokens.length ? partialTokens : undefined,
+    counts: { total, returned: txs.length },
   });
 }

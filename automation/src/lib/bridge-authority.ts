@@ -1,7 +1,7 @@
 import { type Address, createPublicClient, getAddress, http, keccak256, type PublicClient, toHex } from "viem";
 
 import { chainIdOf, evmRpcUrl } from "@/config/chains";
-import { detectBridgeStandards, resolveCcipTopology, type ExtraAuthType } from "./bridge-standards";
+import { detectBridgeStandards, deriveBridgedVariant, resolveCcipTopology, type BridgedVariant, type CcipRemote, type ExtraAuthType } from "./bridge-standards";
 import { discoverBridgesByMintEvents } from "./bridge-mint-events";
 import { archiveClientFor, hasArchiveRpc, publicClientFor, scanLogsRecent } from "./public-rpc";
 
@@ -79,6 +79,8 @@ export interface BridgeAuthorityResult {
   sources: AuthType[];
   decimals: number;
   bridges: BridgeAuthority[];
+  // CCIP TokenPool 원격 토폴로지(연결 체인별 원격 풀/토큰). 적재부가 원격 토큰을 token_variants 로 1급화.
+  ccipRemotes?: CcipRemote[];
 }
 
 const fmtUnits = (raw: bigint, decimals: number): number => {
@@ -97,6 +99,7 @@ export async function readBridgeAuthority(tokenAddr: string, chain: string): Pro
 
   const bridges: BridgeAuthority[] = [];
   const sources = new Set<AuthType>();
+  let ccipRemotes: CcipRemote[] = [];
   const pushUniq = (b: BridgeAuthority) => { if (!bridges.some((x) => x.address === b.address && x.type === b.type)) bridges.push(b); };
 
   // 1) xERC20 — BridgeLimitsSet 로 브릿지 enumerate.
@@ -155,6 +158,7 @@ export async function readBridgeAuthority(tokenAddr: string, chain: string): Pro
       if (pool && !ZERO32.test(pool)) {
         // Method B — CCIP 원격 토폴로지: 연결 체인 + 각 체인의 원격 풀/토큰 주소.
         const topo = await resolveCcipTopology(client, getAddress(pool)).catch(() => [] as Awaited<ReturnType<typeof resolveCcipTopology>>);
+        ccipRemotes = topo; // 적재부가 원격 토큰을 token_variants 로 1급화(source_chain=조회 체인).
         const chains = topo.map((r) => r.chain);
         const rtxt = chains.length ? ` · 연결 ${chains.length}체인: ${chains.slice(0, 6).join(", ")}` : "";
         pushUniq({ address: pool.toLowerCase(), type: "ccip_pool", mintLimit: null, mintLimitRaw: null, currentLimitRaw: null, note: "Chainlink CCIP 토큰풀" + rtxt });
@@ -207,5 +211,24 @@ export async function readBridgeAuthority(tokenAddr: string, chain: string): Pro
     }
   }
 
-  return { tokenAddr: token.toLowerCase(), chain, sources: [...sources], decimals, bridges };
+  return { tokenAddr: token.toLowerCase(), chain, sources: [...sources], decimals, bridges, ccipRemotes };
+}
+
+export interface WrappedAuthority { variant: BridgedVariant; result: BridgeAuthorityResult; }
+
+/**
+ * 래핑(lock&mint) 변형 브릿지 권한 — 정규 L1 토큰(이더리움 주소)에서 targetChain 의 표준-브릿지
+ * 래핑본(USDC.e 등)을 도출하고, 그 래핑본의 브릿지 권한(L2 캐노니컬 minter)을 읽는다.
+ * native 토큰만 보면 놓치는 lock&mint 경로를 메운다. 래핑본이 없거나(=native) 브릿지 0건이면 null.
+ */
+export async function readWrappedVariantAuthority(l1TokenAddr: string, targetChain: string): Promise<WrappedAuthority | null> {
+  const l1Client = clientFor("ethereum");
+  if (!l1Client) return null;
+  let l1Token: Address;
+  try { l1Token = getAddress(l1TokenAddr); } catch { return null; }
+  const variant = await deriveBridgedVariant(l1Client, l1Token, targetChain);
+  if (!variant || variant.address === l1TokenAddr.toLowerCase()) return null;
+  const result = await readBridgeAuthority(variant.address, targetChain).catch(() => null);
+  if (!result || !result.bridges.length) return null;
+  return { variant, result };
 }

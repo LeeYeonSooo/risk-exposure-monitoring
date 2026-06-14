@@ -83,7 +83,9 @@ async function main() {
           token,
           protocolNodeId: row.protocol,
           message: `High-LLTV: ${token}/${m.loanAsset} @ ${(m.lltv * 100).toFixed(1)}% (${fmtUsd(m.marketSizeUsd)}) — 청산 여유 적음`,
-          detail: { loanAsset: m.loanAsset, lltv: m.lltv, sizeUsd: m.marketSizeUsd },
+          // collateral 포함(회장 작업3) — 담보+대출+LLTV 마켓 변별. 스캐너가 실제 가진 심볼만 실음(추측 없음).
+          //   collateralAsset 없으면 token(=담보 토큰) 으로 폴백. 관계맵 alert-link 가 이 마켓만 위험색.
+          detail: { collateral: m.collateralAsset ?? token, loanAsset: m.loanAsset, lltv: m.lltv, sizeUsd: m.marketSizeUsd },
         });
         n++;
       }
@@ -103,6 +105,8 @@ async function main() {
             `부실채권 임계: ${token}/${m.loanAsset} — 담보가 −${(bd.dropToUnderwater * 100).toFixed(1)}% 빠지면 underwater` +
             ` (~${fmtUsd(bd.debtUsd)} 위험, ${bd.mode})`,
           detail: {
+            // collateral 포함(회장 작업3) — bad_debt 는 critical 발화 가능. 담보+대출+LLTV 로 그 마켓만 위험색(추측 없음).
+            collateral: m.collateralAsset ?? token,
             loanAsset: m.loanAsset,
             lltv: m.lltv,
             aggLtv: bd.aggLtv,
