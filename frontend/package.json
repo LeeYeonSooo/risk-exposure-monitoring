@@ -6,6 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
+    "debank:compare": "node scripts/debank-compare.mjs",
+    "wallet:compare": "node scripts/wallet-portfolio-compare.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
