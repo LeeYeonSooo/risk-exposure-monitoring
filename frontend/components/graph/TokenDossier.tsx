@@ -5,6 +5,7 @@ import { Activity, AlertTriangle, ShieldCheck } from "lucide-react";
 
 import type { GraphEdge, GraphNode, NodeTickState } from "@/lib/api";
 import { formatUsd } from "@/lib/api";
+import { prettyMessage } from "@/lib/alert-kinds";
 
 interface Relation {
   edge: GraphEdge;
@@ -391,7 +392,7 @@ function AlertHistory({ loading, alerts }: { loading: boolean; alerts: DossierDa
         <div key={i} className="flex items-start gap-1.5 text-[10px] leading-snug">
           <span className="mt-1 size-1.5 shrink-0 rounded-full" style={{ backgroundColor: sevColor(a.severity) }} />
           <span className="shrink-0 text-[var(--color-text-muted)]">{new Date(a.created_at).toISOString().slice(5, 16).replace("T", " ")}</span>
-          <span className="text-[var(--color-text-secondary)]">{a.message}</span>
+          <span className="text-[var(--color-text-secondary)]">{prettyMessage(a.message, a.kind)}</span>
         </div>
       ))}
       {alerts.length > 4 && (

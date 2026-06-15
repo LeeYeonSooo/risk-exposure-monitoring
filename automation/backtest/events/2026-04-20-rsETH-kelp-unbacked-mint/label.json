@@ -1,0 +1,37 @@
+{
+  "event": "Kelp DAO rsETH bridge exploit (2026-04-20). A compromised single-validator LayerZero DVN minted 116,500 unbacked rsETH; ~107k ended up as Aave V3/V4 collateral, leaving ~$200M bad debt. The detection signature is a cross-chain backing-conservation breach: Sigma(remote rsETH supply) exceeds the home-chain escrow backing by 116,500. This is the project's reference incident (CLAUDE.md fact #3). Added to the backtest suite 2026-06 (was only a curated structural graph in data/kelp_dao.json for the Python rule engine, never a TS-detector replay case).",
+  "source": "Aave governance forum 'rsETH Incident Report (April 20, 2026)' + The Block + DL News (per data/kelp_dao.json). 116,500 unbacked rsETH / ~$200M bad debt documented. The backing/remote absolutes are MODELED to reproduce the Sigma(remote)-backing = 116,500 breach; the rsETH escrow is not archive-measurable with an Ethereum-only key -> ASSERTED (same fidelity convention as Wormhole's researcher-asserted Solana leg).",
+  "closed": false,
+  "cases": [
+    {
+      "id": "kelp-rseth-unbacked-at-exploit",
+      "snapshot": "snapshots/kelp_breach.json",
+      "now": "2026-04-20T12:00:00Z",
+      "should_fire": [
+        {
+          "signal_type": "UNBACKED_SUPPLY",
+          "node_id": "token:rsETH",
+          "min_severity": "HIGH"
+        }
+      ],
+      "must_not_fire": [],
+      "beta": 2.0,
+      "note": "BREACH. 116,500 rsETH minted unbacked via a compromised single-DVN -> Sigma(remote 816.5k) > home escrow backing (700k) by 116,500 rsETH (~$200M). Single-snapshot detectable (backing < circulating, gap far past tolerance/in-flight skew) -> UNBACKED_SUPPLY must fire >= HIGH. 116,500 unbacked is the documented figure; the absolutes are MODELED to reproduce the breach (escrow not archive-measured -> ASSERTED). This is THE Kelp reference incident; supply_conservation / evaluateBacking (Sigma-remote vs escrow invariant) is its primary detector. node_id token:rsETH."
+    },
+    {
+      "id": "kelp-rseth-balanced-pre-exploit-fp-trap",
+      "snapshot": "snapshots/kelp_balanced.json",
+      "now": "2026-04-19T12:00:00Z",
+      "should_fire": [],
+      "must_not_fire": [
+        {
+          "signal_type": "UNBACKED_SUPPLY",
+          "node_id": "token:rsETH",
+          "why": "Pre-exploit healthy state: Sigma(remote) == escrow backing (balanced). Normal in-flight bridging is transiently OVER-backed (lock before mint), never under. UNBACKED_SUPPLY must stay silent — control proving the invariant does not false-fire on a balanced cross-chain token."
+        }
+      ],
+      "beta": 2.0,
+      "note": "CONTROL. Healthy pre-exploit baseline (day before): remote == backing. UNBACKED_SUPPLY must stay silent (no breach), proving no FP on a balanced bridged token."
+    }
+  ]
+}

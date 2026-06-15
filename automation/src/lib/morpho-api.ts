@@ -167,7 +167,11 @@ export async function fetchVaultsByCollateralExposure(token: string): Promise<Mo
 // ─────────────────────────────────────────────────────────────
 export interface MarketPosition {
   user: { address: string };
-  state: { borrowAssetsUsd: number | null; supplyAssetsUsd: number | null };
+  /** (담보$×LLTV)/차입$ — 1 에 가까울수록 청산 임박. 순공급자(차입 0)는 null/무한. */
+  healthFactor: number | null;
+  /** 담보 가격이 청산까지 변동해야 하는 비율(Morpho 제공). 이국적/무가격 담보에선 비현실값이 나올 수 있어 healthFactor 우선. */
+  priceVariationToLiquidationPrice: number | null;
+  state: { borrowAssetsUsd: number | null; supplyAssetsUsd: number | null; collateralUsd: number | null };
 }
 
 const MARKET_POSITIONS = gql`
@@ -180,7 +184,9 @@ const MARKET_POSITIONS = gql`
     ) {
       items {
         user { address }
-        state { borrowAssetsUsd supplyAssetsUsd }
+        healthFactor
+        priceVariationToLiquidationPrice
+        state { borrowAssetsUsd supplyAssetsUsd collateralUsd }
       }
     }
   }

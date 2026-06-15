@@ -27,55 +27,12 @@ function fmtUsd(v: number): string {
 }
 
 async function main() {
-  const snaps = (
-    await query<{ ts: string }>(
-      `SELECT DISTINCT snapshot_ts ts FROM vault_allocations ORDER BY snapshot_ts DESC LIMIT 2`,
-    )
-  ).rows;
-  if (snaps.length < 2) {
-    console.log(`[scan:derisk] vault_allocations 스냅샷이 ${snaps.length}개 — 비교할 이력 부족, skip.`);
-    await closePool().catch(() => {});
-    return;
-  }
-  const [curr, prev] = [snaps[0].ts, snaps[1].ts];
-
-  const load = async (ts: string) =>
-    (await query<AllocRow>(
-      `SELECT snapshot_ts, vault_address, vault_name, curator, market_key, collateral, supply_usd, in_withdraw_queue
-       FROM vault_allocations WHERE snapshot_ts=$1`,
-      [ts],
-    )).rows;
-  const prevRows = await load(prev);
-  const currRows = await load(curr);
-  const currByKey = new Map<string, AllocRow>();
-  for (const r of currRows) currByKey.set(`${r.vault_address}|${r.market_key}`, r);
-
-  let n = 0;
-  for (const p of prevRows) {
-    const prevUsd = Number(p.supply_usd ?? 0);
-    if (prevUsd < 1_000_000) continue; // 의미있는 규모만
-    const c = currByKey.get(`${p.vault_address}|${p.market_key}`);
-    const currUsd = c ? Number(c.supply_usd ?? 0) : 0;
-    const drop = prevUsd > 0 ? (prevUsd - currUsd) / prevUsd : 0;
-    // 할당이 40%+ 빠졌거나, 큰 포지션이 사라짐(=withdraw queue 빠짐/청산회피)
-    if (drop >= 0.4) {
-      const sev = drop >= 0.8 ? "warning" : "info";
-      const token = (p.collateral || "?").replace(/^.*:/, "");
-      await insertAlert({
-        severity: sev,
-        kind: "curator_derisk",
-        token,
-        source: "builtin-v1",
-        message:
-          `큐레이터 디리스킹: ${p.curator} 가 ${p.vault_name} 의 ${token} 마켓 할당을 ` +
-          `${fmtUsd(prevUsd)} → ${fmtUsd(currUsd)} (-${(drop * 100).toFixed(0)}%) 로 축소` +
-          `${currUsd === 0 ? " (완전 회수)" : ""} — 부실채권 노출 회피 선행신호`,
-        detail: { curator: p.curator, vault: p.vault_name, market: p.market_key, prevUsd, currUsd, dropPct: drop },
-      });
-      n++;
-    }
-  }
-  console.log(`[scan:derisk] ${prev} → ${curr} 비교, curator_derisk ${n}건 적재`);
+  // ⚠️ DEPRECATED (2026-06 감사 A6): 이 DB-vs-DB 디텍터는 market_key=coll|loan|lltv 2요소라 H1 키충돌로
+  //   별개 Morpho 마켓을 한 키로 합쳐 split-rotation 을 총액과 비교 → 가짜 curator_derisk(#261) 발화.
+  //   curator_derisk 는 snapshot-curators.ts 가 라이브 담당: marketId(uniqueKey) 키 + vault net-outflow 게이트
+  //   + 신호1(큐 제거)·신호2(≥60% 인출)·신호3(100% 완전회수 prev 역순회) 으로 이 스크립트가 잡던 케이스를 커버.
+  //   (민감도는 의도적으로 낮음: 인출 floor 0.4→0.6 + vault 순유출 동반 요구 = FP 감소.) cron 미등록·비활성.
+  console.warn("[scan:derisk] DEPRECATED — snapshot-curators.ts(marketId 키 + net-outflow) 가 대체. 알림 미발화로 종료.");
   await closePool().catch(() => {});
 }
 

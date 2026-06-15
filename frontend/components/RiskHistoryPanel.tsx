@@ -8,6 +8,8 @@
 import { AlertTriangle } from "lucide-react";
 import { useState } from "react";
 
+import { prettyMessage } from "@/lib/alert-kinds";
+
 interface AlertRow { created_at: string; severity: string; kind: string; message: string; source: string }
 
 const sevColor = (s: string) => (s === "critical" ? "var(--color-danger)" : s === "warning" ? "#fbbf24" : "#60a5fa");
@@ -46,9 +48,10 @@ export function RiskHistoryPanel({
             <div key={i} className="flex items-start gap-1.5 text-[11px] leading-snug">
               <span className="mt-1 size-1.5 shrink-0 rounded-full" style={{ backgroundColor: sevColor(a.severity) }} />
               <span className="shrink-0 text-[10px] text-[var(--color-text-muted)]">
-                {new Date(a.created_at).toISOString().slice(5, 16).replace("T", " ")}
+                {/* 로컬 시각(ko-KR) — toISOString(UTC) 은 KST 와 9시간 어긋났음 */}
+                {new Date(a.created_at).toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
               </span>
-              <span className="text-[var(--color-text-secondary)]">{a.message}</span>
+              <span className="text-[var(--color-text-secondary)]">{prettyMessage(a.message, a.kind)}</span>
             </div>
           ))}
           {alerts.length > 8 && (

@@ -11,8 +11,13 @@ export interface AlertLike {
 }
 
 const SYM_RE = /^[A-Za-z0-9.\-+_]{2,24}$/;
+const isUsable = (s: string | null | undefined): s is string => {
+  const v = (s ?? "").trim();
+  return v !== "" && v.toUpperCase() !== "UNKNOWN" && SYM_RE.test(v);
+};
 
-export function alertChain(a: AlertLike): string {
+/** 체인 추정 — 모르면 null(흐름맵에서 chains 파라미터 생략). 'ethereum' 강제 디폴트는 멀티체인 토큰을 오핀. */
+export function alertChain(a: AlertLike): string | null {
   const p = a.protocol_node_id ?? "";
   if (p.includes("@")) {
     const c = p.split("@")[1]?.toLowerCase();
@@ -20,15 +25,20 @@ export function alertChain(a: AlertLike): string {
   }
   const dc = (a.detail as { chain?: unknown } | null | undefined)?.chain;
   if (typeof dc === "string" && dc) return dc.toLowerCase();
-  return "ethereum";
+  return null;
 }
 
 export function alertFlowHref(a: AlertLike): string {
-  const tokens: string[] = [a.token];
+  const tokens: string[] = [];
+  if (isUsable(a.token)) tokens.push(a.token); // token=UNKNOWN 이면 제외(빈 흐름맵 방지)
   const d = (a.detail ?? {}) as Record<string, unknown>;
   for (const k of ["loanAsset", "loan_symbol", "collateralAsset", "collateral_symbol"]) {
     const v = d[k];
-    if (typeof v === "string" && SYM_RE.test(v) && !tokens.some((t) => t.toUpperCase() === v.toUpperCase())) tokens.push(v);
+    if (typeof v === "string" && isUsable(v) && !tokens.some((t) => t.toUpperCase() === v.toUpperCase())) tokens.push(v);
   }
-  return `/flow?tokens=${encodeURIComponent(tokens.join(","))}&chains=${encodeURIComponent(alertChain(a))}`;
+  const chain = alertChain(a);
+  const parts: string[] = [];
+  if (tokens.length) parts.push(`tokens=${encodeURIComponent(tokens.join(","))}`);
+  if (chain) parts.push(`chains=${encodeURIComponent(chain)}`);
+  return `/flow${parts.length ? `?${parts.join("&")}` : ""}`;
 }

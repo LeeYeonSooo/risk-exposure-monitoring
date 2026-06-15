@@ -1,5 +1,11 @@
-import "dotenv/config";
+import "dotenv/config";              // automation/.env (CWD, 우선)
+import dotenv from "dotenv";
+import { homedir } from "os";
+import { join } from "path";
 import { mainnet } from "viem/chains";
+
+// ~/.env 도 폴백 로드 — 사용자가 키(DUNE/ETHERSCAN 등)를 홈 .env 에 두는 경우. dotenv 는 기존 값 override 안 함(CWD·shell 우선).
+dotenv.config({ path: join(homedir(), ".env") });
 
 export const CHAIN = mainnet;
 export const CHAIN_ID = 1;
@@ -51,7 +57,7 @@ export interface EvmChainCfg {
 }
 export const EVM_CHAINS: Record<string, EvmChainCfg> = {
   ethereum:   { chainId: 1,      alchemy: "eth-mainnet",        publicRpc: "https://ethereum-rpc.publicnode.com",           avgBlockSec: 12 },
-  base:       { chainId: 8453,   alchemy: "base-mainnet",       publicRpc: "https://base-rpc.publicnode.com",               avgBlockSec: 2 },
+  base:       { chainId: 8453,   alchemy: "base-mainnet",       publicRpc: "https://base.drpc.org",                          avgBlockSec: 2 },
   arbitrum:   { chainId: 42161,  alchemy: "arb-mainnet",        publicRpc: "https://arbitrum-one-rpc.publicnode.com",       avgBlockSec: 0.26 },
   optimism:   { chainId: 10,     alchemy: "opt-mainnet",        publicRpc: "https://optimism-rpc.publicnode.com",           avgBlockSec: 2 },
   polygon:    { chainId: 137,    alchemy: "polygon-mainnet",    publicRpc: "https://polygon-bor-rpc.publicnode.com",        avgBlockSec: 2.1 },
@@ -71,6 +77,15 @@ export const EVM_CHAINS: Record<string, EvmChainCfg> = {
 };
 export const EVM_CHAIN_KEYS = Object.keys(EVM_CHAINS);
 
+// ─────────────────────────────────────────────────────────────
+// 현재 **활성** 체인 (2026-06: eth/base/arb 3체인만 지원). EVM_CHAINS 정의는 전부 보존(삭제 X) —
+// 확장 시 이 배열에만 추가하면 cron·디텍터·프론트가 함께 따라간다. 비활성 체인은 스캔·알림 생성 안 함.
+// ─────────────────────────────────────────────────────────────
+export const ACTIVE_CHAINS = ["ethereum", "base", "arbitrum"];
+export function isActiveChain(chain: string | null | undefined): boolean {
+  return !!chain && ACTIVE_CHAINS.includes(chain);
+}
+
 /** 디텍터용 RPC URL — env(${UPPER}_RPC_URL) > Alchemy(키 있으면) > 공개 RPC. 미등록 체인 null. */
 export function evmRpcUrl(chain: string): string | null {
   if (chain === "ethereum") return RPC_URL; // 기존 해석(ALCHEMY → RPC_URL → public) 유지
@@ -86,7 +101,7 @@ export function avgBlockSecOf(chain: string): number { return EVM_CHAINS[chain]?
 
 export const env = {
   ALCHEMY_API_KEY: ALCHEMY_KEY,
-  ETHERSCAN_API_KEY: process.env.ETHERSCAN_API_KEY ?? "",
+  ETHERSCAN_API_KEY: process.env.ETHERSCAN_API_KEY ?? process.env.ETHERSCAN_API ?? "",  // ~/.env 의 ETHERSCAN_API 별칭 허용
   DUNE_API_KEY: process.env.DUNE_API_KEY ?? "",
   // 알림 채널(설계 D#9) — 설정 시에만 warning/critical 발송. 비우면 DB 적재만(기본 zero-cost).
   DISCORD_WEBHOOK_URL: process.env.DISCORD_WEBHOOK_URL ?? "",

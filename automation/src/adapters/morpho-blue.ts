@@ -1,9 +1,11 @@
 import type { Address } from "viem";
 
 import {
+  fetchMarketPositions,
   fetchMarketsByCollateral,
   fetchMarketsByLoan,
   fetchVaultsByCollateralExposure,
+  type MarketPosition,
   type MorphoMarket,
   type MorphoVault,
 } from "@/lib/morpho-api";
@@ -14,15 +16,41 @@ import {
   type FundingVault,
   type MarketEntry,
   type OracleInfo,
+  type RiskiestPosition,
   makeMultiClassification,
   sumRolesToCore,
 } from "@/types/edge-schema";
 
-import { oracleTypeForCollateral } from "@/config/alert-thresholds";
+import { isNavPricedLoop, oracleTypeForCollateral } from "@/config/alert-thresholds";
 import { introspectOracle } from "@/oracle/introspect";
 import type { AdapterContext, ProtocolAdapter } from "./types";
 
 const MORPHO_BLUE: Address = "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb";
+
+// 개별 포지션 청산위험(near_liquidation) 게이트 — 큰 차입자만 평가(작은 포지션 청산은 전염 미미)·무료 API 콜 바운드.
+const POSITION_MIN_BORROW_USD = 1_000_000; // 이 차입 미만 포지션은 무시(규모 게이트)
+const POSITION_FETCH_CAP = 12;             // 토큰당 포지션 조회 마켓 수 상한
+
+/**
+ * 한 마켓의 차입자들 중 **청산임계 최근접 + 충분히 큰** 포지션 1건. 집계 LTV 의 FN/FP 회피용(포지션 단위).
+ *   가드: 차입 ≥ minBorrowUsd · collateralUsd 가격됨(>0) · healthFactor 유효(>0). 이국적/무가격 담보(collateralUsd null,
+ *   HF 비현실값)는 제외 — 그런 마켓은 NAV/교환비 루프라 애초에 면제 대상. dropToLiquidation = max(0, 1 − 1/HF).
+ */
+export function pickRiskiestPosition(positions: MarketPosition[], minBorrowUsd: number): RiskiestPosition | null {
+  let best: RiskiestPosition | null = null;
+  for (const p of positions) {
+    const borrowUsd = p.state.borrowAssetsUsd ?? 0;
+    const collateralUsd = p.state.collateralUsd ?? 0;
+    const hf = p.healthFactor;
+    if (borrowUsd < minBorrowUsd) continue;
+    if (!(collateralUsd > 0)) continue;
+    if (hf == null || !(hf > 0)) continue;
+    if (!best || hf < best.healthFactor) {
+      best = { user: p.user.address, borrowUsd, collateralUsd, healthFactor: hf, dropToLiquidation: Math.max(0, 1 - 1 / hf) };
+    }
+  }
+  return best;
+}
 
 /**
  * Morpho Blue adapter — collateral-side isolated markets.
@@ -58,17 +86,31 @@ export const morphoBlueAdapter: ProtocolAdapter = {
 
     if (collMarkets.length === 0 && loanMarkets.length === 0) return null;
 
-    // ── Build MarketEntry[] with inline funding vaults ────────────
-    const topMarkets: MarketEntry[] = collMarkets.map((m) => {
+    // ── Build MarketEntry[] with inline funding vaults + per-position 청산위험 ────
+    //   포지션 조회는 비싸므로(마켓당 1 API 콜) 물질 마켓(차입 ≥ $1M)·비 NAV루프만, 토큰당 CAP 까지. supplyUsd 내림차순이라
+    //   큰 마켓 우선. posFetches 증가는 각 콜백의 await 이전 동기 구간에서 일어나 결정론적(JS 단일스레드).
+    let posFetches = 0;
+    const topMarkets: MarketEntry[] = await Promise.all(collMarkets.map(async (m): Promise<MarketEntry> => {
       const fundingVaults = buildFundingVaults(m.uniqueKey, vaults);
       const lltvFloat = Number(m.lltv) / 1e18;
       const sizeUsd = m.state.supplyAssetsUsd ?? 0;
+      const borrowUsd = m.state.borrowAssetsUsd ?? null;
 
       // 동일패밀리 재담보(ouroboros) = "같은 계열이면 레버리지 가능"이라는 약한 추정 휴리스틱이라 제외(항상 false).
       const ouroboros = false;
 
       const totalFundedUsd = fundingVaults.reduce((s, v) => s + v.allocationUsd, 0);
       const shareOfSupply = sizeUsd > 0 ? totalFundedUsd / sizeUsd : null;
+
+      // near_liquidation 을 집계가 아니라 포지션 단위로: 이 마켓의 큰 차입자 중 청산임계 최근접 1건.
+      //   NAV/교환비 루프(LST·달러↔달러·PT)는 시장가-청산 채널이 약해 면제(CLAUDE.md 규칙1) → 조회 자체를 생략(콜 절약).
+      let riskiestPosition: RiskiestPosition | null = null;
+      const navPriced = isNavPricedLoop(m.collateralAsset?.symbol, m.loanAsset.symbol);
+      if ((borrowUsd ?? 0) >= POSITION_MIN_BORROW_USD && !navPriced && posFetches < POSITION_FETCH_CAP) {
+        posFetches++;
+        const positions = await fetchMarketPositions(m.uniqueKey, ctx.chainId ?? 1).catch(() => [] as MarketPosition[]);
+        riskiestPosition = pickRiskiestPosition(positions, POSITION_MIN_BORROW_USD);
+      }
 
       return {
         loanAsset: m.loanAsset.symbol,
@@ -81,12 +123,13 @@ export const morphoBlueAdapter: ProtocolAdapter = {
         ouroborosRisk: ouroboros,
         // 부실채권 임계용 aggLTV 재료 (담보 예치 USD / 차입 USD)
         collateralUsd: m.state.collateralAssetsUsd ?? null,
-        borrowUsd: m.state.borrowAssetsUsd ?? null,
+        borrowUsd,
+        riskiestPosition,
         vaultFunded: fundingVaults.length > 0,
         fundingVaults: fundingVaults.length > 0 ? fundingVaults : null,
         vaultFundedShareOfSupply: shareOfSupply,
       };
-    });
+    }));
 
     // 마켓별 오라클 introspection — Morpho 는 마켓마다 다른 오라클 주소를 넣을 수 있으므로 각 마켓을 개별 검증.
     //   introspectOracle 은 주소 캐시 → 같은 오라클 공유 마켓은 1회만 호출. 비용 가드로 서로 다른 주소 최대

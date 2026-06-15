@@ -35,6 +35,11 @@ export async function GET(req: Request) {
   const limit = Math.min(Number(url.searchParams.get("limit") ?? 100), 500);
   const token = url.searchParams.get("token");
   const severityParam = url.searchParams.get("severity");
+  // sort=severity → 심각도(critical>warning>info) 우선, 동급은 최신순. 기본은 시간순(기존 동작 유지).
+  //   info/warning 폭주 시 critical 이 limit 밖으로 밀려 안 보이던 문제(critical 매몰) 대응.
+  const sortBySeverity = url.searchParams.get("sort") === "severity";
+  // counts 집계는 ?withCounts=1 일 때만 — Dock 처럼 안 쓰는 표면의 불필요한 GROUP BY 제거.
+  const withCounts = url.searchParams.get("withCounts") === "1";
 
   const p = pool();
   if (!p) return NextResponse.json({ alerts: [], counts: {}, dbConnected: false });
@@ -53,27 +58,35 @@ export async function GET(req: Request) {
         conds.push(`severity = ANY($${params.length}::text[])`);
       }
     }
-    // acknowledged(처리/무시됨) 알림은 기본 제외 — 활성 피드만. ?includeAck=1 로 포함.
-    if (url.searchParams.get("includeAck") !== "1") conds.push(`acknowledged IS NOT TRUE`);
+    // 활성 = 미확인(acknowledged) AND 미해소(resolved_at). 조건 해소된 상태형 알림은 자동 제외. ?includeAck=1 로 포함.
+    if (url.searchParams.get("includeAck") !== "1") conds.push(`acknowledged IS NOT TRUE AND resolved_at IS NULL`);
     const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
     params.push(limit);
 
+    const orderBy = sortBySeverity
+      ? `ORDER BY CASE severity WHEN 'critical' THEN 3 WHEN 'warning' THEN 2 WHEN 'info' THEN 1 ELSE 0 END DESC,
+                  COALESCE(snapshot_ts, created_at) DESC, created_at DESC`
+      : `ORDER BY COALESCE(snapshot_ts, created_at) DESC, created_at DESC`;
+
     const r = await p.query<AlertRow>(
       `SELECT id, created_at, snapshot_ts, severity, kind, token, protocol_node_id, message, detail, acknowledged
-       FROM alerts ${where} ORDER BY COALESCE(snapshot_ts, created_at) DESC, created_at DESC LIMIT $${params.length}`,
+       FROM alerts ${where} ${orderBy} LIMIT $${params.length}`,
       params,
     );
 
-    const countsR = await p.query<{ severity: string; n: string }>(
-      `SELECT severity, count(*) AS n FROM alerts WHERE acknowledged IS NOT TRUE GROUP BY severity`,
-    );
-    const counts: Record<string, number> = {};
-    for (const row of countsR.rows) counts[row.severity] = Number(row.n);
+    let counts: Record<string, number> = {};
+    if (withCounts) {
+      const countsR = await p.query<{ severity: string; n: string }>(
+        `SELECT severity, count(*) AS n FROM alerts WHERE acknowledged IS NOT TRUE AND resolved_at IS NULL GROUP BY severity`,
+      );
+      for (const row of countsR.rows) counts[row.severity] = Number(row.n);
+    }
 
     return NextResponse.json({ alerts: r.rows, counts, dbConnected: true });
   } catch (e) {
+    // dbConnected:false 로 — 에러를 '알림 없음'(정상)으로 오인 표시하지 않게.
     return NextResponse.json(
-      { alerts: [], counts: {}, dbConnected: true, error: (e as Error).message },
+      { alerts: [], counts: {}, dbConnected: false, error: (e as Error).message },
       { status: 500 },
     );
   }

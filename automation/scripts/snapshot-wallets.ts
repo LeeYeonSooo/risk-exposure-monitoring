@@ -18,15 +18,10 @@ import process from "node:process";
 import type { Address } from "viem";
 
 import { getAllTokenBalances } from "@/lib/alchemy";
-import { detectBridgeOutflow, loadVerifiedBridgeAddrs } from "@/lib/wallet-bridge-guard";
 import { closePool, query } from "@/db/client";
 import { debankApiAvailable, fetchDebankApi } from "@/lib/debank-api";
 import { closeDebankBrowser, scrapeDebankPortfolio, type DebankProfile } from "@/lib/debank-scrape";
 
-// 급감 임계 — 직전 스냅샷 대비.
-const MIN_USD = 500_000;      // 이 미만 지갑은 노이즈 → 알림 스킵
-const DROP_WARN = 0.30;       // 30% 급감 → warning
-const DROP_CRIT = 0.50;       // 50% 급감 → critical
 const GAP_MS = 4_000;         // 지갑 사이 간격(rate-limit 보호)
 const SKIP_DEBANK = process.env.WALLET_SKIP_DEBANK === "1"; // 차단 환경 → 온체인-매핑만
 
@@ -125,31 +120,7 @@ async function activeWallets(): Promise<TrackedWallet[]> {
   return r.rows;
 }
 
-async function prevTotal(wallet: string, beforeTs: string): Promise<number | null> {
-  const r = await query<{ total_usd: string }>(
-    `SELECT total_usd FROM wallet_snapshots WHERE wallet=$1 AND snapshot_ts < $2 ORDER BY snapshot_ts DESC LIMIT 1`,
-    [wallet, beforeTs],
-  );
-  return r.rows.length ? Number(r.rows[0].total_usd) : null;
-}
-
-async function insertAlert(a: {
-  snapshotTs: string; severity: string; kind: string; token: string;
-  message: string; detail: Record<string, unknown>;
-}): Promise<boolean> {
-  const dup = await query<{ n: number }>(
-    `SELECT count(*)::int n FROM alerts
-     WHERE kind=$1 AND detail->>'wallet' = $2 AND created_at > now() - interval '26 hours'`,
-    [a.kind, String(a.detail.wallet ?? "")],
-  ).catch(() => ({ rows: [{ n: 0 }] }) as { rows: { n: number }[] });
-  if ((dup.rows[0]?.n ?? 0) > 0) return false;
-  await query(
-    `INSERT INTO alerts (snapshot_ts, severity, kind, token, protocol_node_id, message, detail, source)
-     VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)`,
-    [a.snapshotTs, a.severity, a.kind, a.token, null, a.message, JSON.stringify(a.detail), "wallet-track"],
-  );
-  return true;
-}
+// 지갑 포트폴리오 스냅샷 전용(wallet_value_drop 알림 제거 2026-06) — wallet_snapshots 시계열만 수집(대시보드/그래프용).
 
 async function main() {
   await seedFromArgs();
@@ -161,8 +132,7 @@ async function main() {
   }
   const snapshotTs = new Date().toISOString();
   console.log(`[wallets] ${wallets.length}개 지갑 스냅샷 @ ${snapshotTs}`);
-  let ok = 0, alerts = 0;
-  const verifiedBridges = await loadVerifiedBridgeAddrs(query); // P2-7: bridge_authorities 검증 주소(브릿지 in-flight 가드용)
+  let ok = 0;
 
   for (const tw of wallets) {
     const w = tw.wallet;
@@ -214,29 +184,10 @@ async function main() {
       ok++;
       console.log(`[wallets] ${tag}: $${Math.round(total).toLocaleString()} (${source}) · ${protocols.length}개 프로토콜 · 매핑토큰 $${Math.round(onchain.usd).toLocaleString()}`);
 
-      // 밸류 급감 감시 — 직전 스냅샷 대비.
-      const prev = await prevTotal(w, snapshotTs);
-      if (prev != null && prev >= MIN_USD) {
-        const dropPct = (prev - total) / prev;
-        if (dropPct >= DROP_WARN) {
-          let sev = dropPct >= DROP_CRIT ? "critical" : "warning";
-          let note = "자금 이탈/디리스킹 의심";
-          // P2-7: 자금이 known 브릿지로 갔으면 in-flight/settling(Optimistic 7일 챌린지 등) → FP 가드.
-          //   페이지를 막되(severity→info) 기록은 남긴다. (ALCHEMY 키 없으면 가드 미작동 = 원래대로 발화.)
-          const sinceTs = Math.floor(Date.now() / 1000) - 3 * 86400; // 급감 윈도우(최근 3일) 아웃고잉 확인
-          const bridgeHit = await detectBridgeOutflow(w, sinceTs, verifiedBridges).catch(() => null);
-          if (bridgeHit) {
-            sev = "info";
-            note = `브릿지 in-flight/settling 추정 — ${bridgeHit.chain} 아웃고잉이 known 브릿지(${bridgeHit.to.slice(0, 10)}…)로 (7일 챌린지 가능). FP 가드`;
-          }
-          const added = await insertAlert({
-            snapshotTs, severity: sev, kind: "wallet_value_drop", token: tw.source_token || tag,
-            message: `지갑 밸류 급감: ${tag} ${(dropPct * 100).toFixed(0)}% 하락 ($${Math.round(prev).toLocaleString()} → $${Math.round(total).toLocaleString()}) — ${note}`,
-            detail: { wallet: w, label: tw.label, kind: tw.kind, prevUsd: Math.round(prev), currUsd: Math.round(total), dropPct: Number(dropPct.toFixed(3)), bridgeInFlight: !!bridgeHit, bridgeTo: bridgeHit?.to ?? null, bridgeChain: bridgeHit?.chain ?? null },
-          });
-          if (added) alerts++;
-        }
-      }
+      // ⚠️ wallet_value_drop 알림 제거(2026-06, 사용자 결정): 추적 지갑이 Dune 상위홀더 넷팅으로 자동발견된
+      //   **미식별 주소**(label=주소 placeholder, kind=휴리스틱 추측)라, "지갑 밸류 X%↓"만으로는 행동가능한 신호가
+      //   아니다 — 자금이 *어디로*(CEX·프로토콜 등 식별 destination) 갔는지 귀속이 있어야 의미. 단순 밸류 급감은
+      //   알림 피드에서 제외한다(스냅샷 데이터는 계속 수집 — 대시보드/그래프용). destination-귀속 재설계는 후속과제.
     } catch (e) {
       console.warn(`[wallets] ${tag} 실패:`, (e as Error).message);
     }
@@ -244,7 +195,7 @@ async function main() {
   }
 
   if (!SKIP_DEBANK) await closeDebankBrowser();
-  console.log(`[wallets] 완료 — 스냅샷 ${ok}/${wallets.length} · 급감알림 ${alerts}`);
+  console.log(`[wallets] 완료 — 스냅샷 ${ok}/${wallets.length}`);
   await closePool();
 }
 

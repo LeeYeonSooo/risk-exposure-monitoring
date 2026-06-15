@@ -4,9 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, ArrowRight, Bell, Waves, X } from "lucide-react";
 
-import { AlertDock } from "@/components/AlertDock";
-import { FlowMapBoard } from "@/components/flowmap/FlowMapBoard";
 import { alertFlowHref } from "@/lib/alert-link";
+import { kindLabel, catOf, CAT_LABEL, prettyMessage, displayToken, isStaleEvent, isActiveChain, type AlertCategory } from "@/lib/alert-kinds";
+import { SEV_COLOR, SEV_LABEL, compareSeverityDesc, severityAtLeast } from "@/lib/severity";
 import { formatUsd } from "@/lib/api";
 
 /**
@@ -21,16 +21,7 @@ interface Alert {
   detail?: { chain?: string } | null;
 }
 interface TokenExposure { usd: number; dbUsd: number; breadthUsd: number; mcapUsd: number | null; source: string; snapshotTs: string | null }
-const SEV_COLOR: Record<string, string> = { critical: "#f87171", warning: "#fbbf24", info: "#60a5fa" };
-const SEV_LABEL: Record<string, string> = { critical: "위험", warning: "경고", info: "정보" };
-const KIND_LABEL: Record<string, string> = {
-  supply_spike: "공급 급증", liquidity_drop_lending: "대출 유동성 급감", liquidity_drop_dex: "DEX 유동성 급감",
-  bad_debt_threshold: "부실채권 임계", reserve_frozen: "리저브 동결", collateral_adoption: "신규 담보 채택",
-  utilization_jump: "이용률 급등", high_utilization: "고이용률", unverified_large_exposure: "미검증 대형 익스포저",
-  high_lltv_market: "고 LLTV 마켓", oracle_changed: "오라클 변경",
-  irm_changed: "IRM 변경", depeg: "디페그", new_market: "신규 마켓", chain_supply_spike: "체인 공급 급증",
-  wallet_value_drop: "지갑 밸류 급감", flow_anomaly: "흐름 급변",
-};
+// 심각도 색·라벨·kind 라벨·카테고리는 공유 lib(lib/severity·lib/alert-kinds)에서 — 표면 간 불일치 제거.
 
 // 알림의 체인 추정: protocol_node_id 의 @chain → 그 체인 / detail.chain / @없고 프로토콜 있으면 이더리움 / 둘 다 없으면 토큰레벨
 function chainOf(a: Alert): string | null {
@@ -60,10 +51,11 @@ export default function MainLanding() {
   const [mcap, setMcap] = useState<Record<string, number>>({}); // 시가총액(순위 기준), 없으면 익스포저 폴백
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
-  const [railEl, setRailEl] = useState<HTMLElement | null>(null); // 상황판 레일 포털 타깃(알림 패널 상단)
   const [searchOpen, setSearchOpen] = useState(false);
   const [chainSel, setChainSel] = useState<string>("전체");
   const [sevSel, setSevSel] = useState<string>("전체");
+  const [catSel, setCatSel] = useState<AlertCategory | "전체">("전체");
+  const [expandedId, setExpandedId] = useState<string | null>(null); // 클릭한 알림 = 메시지 펼침
 
   useEffect(() => {
     fetch("/api/tokens").then((r) => r.json()).then((d) => {
@@ -80,39 +72,66 @@ export default function MainLanding() {
       setMcap(mc);
     }).catch(() => {});
     const loadAlerts = () => {
-      fetch("/api/alerts?limit=300", { cache: "no-store" }).then((r) => r.json()).then((d) => {
+      // 심각도 우선 정렬 + counts 동반(헤더 카운트용). 탭이 보일 때만 폴링(백그라운드 낭비 차단).
+      fetch("/api/alerts?limit=300&sort=severity&withCounts=1", { cache: "no-store" }).then((r) => r.json()).then((d) => {
         setAlerts((d.alerts ?? []) as Alert[]);
         setCounts((d.counts ?? {}) as Record<string, number>);
       }).catch(() => {});
     };
     loadAlerts();
-    const iv = setInterval(loadAlerts, 15_000);
+    const iv = setInterval(() => { if (document.visibilityState === "visible") loadAlerts(); }, 15_000);
     return () => clearInterval(iv);
   }, []);
 
   const chainChips = useMemo(() => {
     const c = new Map<string, number>();
-    for (const a of alerts) { const ch = chainOf(a) ?? "토큰레벨"; c.set(ch, (c.get(ch) ?? 0) + 1); }
+    // 활성 체인(eth/base/arb)만 칩으로. 토큰레벨(체인 null)·비활성 체인은 칩 안 만듦.
+    for (const a of alerts) { const ch = chainOf(a); if (isActiveChain(ch)) c.set(ch!, (c.get(ch!) ?? 0) + 1); }
     return [...c.entries()].sort((a, b) => b[1] - a[1]);
   }, [alerts]);
 
+  // 필터(누적 심각도 + 체인 + 카테고리) 적용 후, (kind·token·protocol) 단위로 묶어 최신 1건 + 'xN' 배지.
+  //   같은 마켓 반복 알림이 피드를 도배해 critical 이 묻히던 문제 대응.
   const shownAlerts = useMemo(() => {
-    return alerts.filter((a) => {
-      if (sevSel !== "전체" && a.severity !== sevSel) return false;
+    const filtered = alerts.filter((a) => {
+      const ch0 = chainOf(a);
+      // 비활성 체인(eth/base/arb 외) 알림은 숨김(2026-06: 3체인만 지원). 토큰레벨(null)은 전 체인 기준이라 표시.
+      if (ch0 !== null && !isActiveChain(ch0)) return false;
+      if (sevSel !== "전체" && !severityAtLeast(a.severity, sevSel)) return false; // '경고' 선택 시 위험 포함
+      if (catSel !== "전체" && catOf(a.kind) !== catSel) return false;
       if (chainSel !== "전체") {
-        const ch = chainOf(a);
-        if (chainSel === "토큰레벨") { if (ch !== null) return false; }
-        else if (ch !== chainSel && ch !== null) return false;
+        // 특정 체인 선택 시 그 체인 알림 + 체인없는(토큰레벨, 전 체인 기준) 알림을 함께 표시.
+        if (ch0 !== null && ch0 !== chainSel) return false;
       }
       return true;
     });
-  }, [alerts, sevSel, chainSel]);
+    const groups = new Map<string, { rep: Alert; count: number; maxSev: string; latestMs: number }>();
+    for (const a of filtered) {
+      const key = `${a.kind}|${a.token}|${a.protocol_node_id ?? ""}`;
+      const ms = new Date(alertEventTime(a)).getTime();
+      const g = groups.get(key);
+      if (!g) groups.set(key, { rep: a, count: 1, maxSev: a.severity, latestMs: ms });
+      else {
+        g.count++;
+        // 대표(rep)=가장 최신 발생(현재 상태·시각 반영). 표시 심각도는 그룹 최대(worst). 재발화하는 ongoing
+        //   조건(예: 8일째 디페그)이 오래된 critical 을 rep 으로 잡아 stale 오인되던 것 방지 — 최신 발생으로 판정.
+        if (ms > g.latestMs) { g.rep = a; g.latestMs = ms; }
+        if (compareSeverityDesc(a.severity, g.maxSev) < 0) g.maxSev = a.severity;
+      }
+    }
+    // 정렬: ① 신선한 알림 먼저(이벤트형이 24h+ 미발생 = 사건종료로 뒤로) ② 심각도(그룹 최대) ③ 최신.
+    const stale = (g: { rep: Alert; latestMs: number }) => isStaleEvent(g.rep.kind, g.latestMs);
+    return [...groups.values()].sort((x, y) =>
+      (Number(stale(x)) - Number(stale(y)))
+      || compareSeverityDesc(x.maxSev, y.maxSev)
+      || (y.latestMs - x.latestMs));
+  }, [alerts, sevSel, chainSel, catSel]);
 
   const go = (sym: string) => router.push(`/token/${encodeURIComponent(sym)}`);
 
   return (
     <div className="flex h-screen flex-col bg-[var(--color-bg)]">
-      <AlertDock />
+      {/* AlertDock(우측 플로팅 알림)은 메인에선 숨김 — 인라인 '실시간 모니터링' 피드가 대체. token·flow 페이지에선 표시. */}
 
       {/* ── 헤더: 로고 · 검색바 · 흐름맵 버튼 (스케치 구조) ── */}
       <header className="flex shrink-0 items-center gap-4 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-5 py-2.5">
@@ -134,17 +153,10 @@ export default function MainLanding() {
         </button>
       </header>
 
-      <div className="flex min-h-0 flex-1">
-        {/* ── 중앙: 실시간 상황판 (이벤트 기반 — 안=토큰, 밖=프로토콜, 이상 흐름만 발화).
-              레일(이상 흐름·레버)은 railPortal 로 우측 알림 패널에 합쳐 렌더 — 겹침 방지 + 한 패널. ── */}
-        <div className="relative min-h-0 min-w-0 flex-1">
-          <FlowMapBoard railPortal={railEl} />
-        </div>
-
-        {/* ── 우: 상황판 레일 + 실시간 모니터링 알림 (한 패널) ── */}
-        <aside className="flex w-[420px] shrink-0 flex-col border-l border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
-          {/* 상황판 레일 포털 타깃 — 보드가 이상 흐름/대형 단일/레버를 여기로 렌더(호버 연동 유지) */}
-          <div ref={setRailEl} className="max-h-[42%] shrink-0 overflow-y-auto border-b border-[var(--color-border-subtle)] empty:hidden" />
+      <div className="flex min-h-0 flex-1 justify-center">
+        {/* 메인은 실시간 모니터링 알림 단독 — 그래프(FlowMapBoard)·상황판 레일 숨김(2026-06 사용자 요청).
+            중앙 정렬 단일 패널. 그래프/상황판은 token·flow 페이지에서 계속 제공. */}
+        <aside className="flex w-full max-w-3xl flex-col bg-[var(--color-surface)]">
           <div className="flex flex-wrap items-center gap-2.5 px-5 pb-2 pt-4">
             <Bell size={16} className="text-[var(--color-accent)]" />
             <span className="text-[15px] font-bold text-[var(--color-text-primary)]">실시간 모니터링 알림</span>
@@ -172,16 +184,28 @@ export default function MainLanding() {
               })}
             </div>
           </div>
-          <div className="flex items-center gap-1.5 border-b border-[var(--color-border-subtle)] px-5 pb-2 pt-2">
-            <span className="mr-1 text-[10px] uppercase text-[var(--color-text-muted)]">심각도</span>
-            {["전체", "critical", "warning", "info"].map((s) => {
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-[var(--color-border-subtle)] px-5 pb-1.5 pt-2">
+            <span className="mr-1 w-9 shrink-0 text-[10px] uppercase text-[var(--color-text-muted)]">심각도</span>
+            {/* 누적('이상') 필터 — '경고↑' 선택 시 위험 포함 */}
+            {[["전체", "전체"], ["critical", "위험"], ["warning", "경고↑"]].map(([s, lbl]) => {
               const on = sevSel === s;
-              const lbl = s === "전체" ? "전체" : SEV_LABEL[s];
               return (
                 <button key={s} onClick={() => setSevSel(s)}
                   className={"rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors " + (on ? "bg-[var(--color-surface-raised)] text-[var(--color-text-primary)]" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]")}
                   style={on && s !== "전체" ? { color: SEV_COLOR[s] } : undefined}>
                   {lbl}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-[var(--color-border-subtle)] px-5 pb-2 pt-1.5">
+            <span className="mr-1 w-9 shrink-0 text-[10px] uppercase text-[var(--color-text-muted)]">분류</span>
+            {(["전체", "minting", "depeg", "contract", "liquidity"] as const).map((c) => {
+              const on = catSel === c;
+              return (
+                <button key={c} onClick={() => setCatSel(c)}
+                  className={"rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors " + (on ? "bg-[var(--color-surface-raised)] text-[var(--color-text-primary)]" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]")}>
+                  {c === "전체" ? "전체" : CAT_LABEL[c]}
                 </button>
               );
             })}
@@ -192,30 +216,43 @@ export default function MainLanding() {
               <div className="flex h-full items-center justify-center px-8 text-center text-sm text-[var(--color-text-muted)]">
                 {alerts.length === 0 ? "알림 로딩 중… (DB 연결 시 표시)" : "필터에 해당하는 알림이 없어요."}
               </div>
-            ) : shownAlerts.map((a) => {
-              const col = SEV_COLOR[a.severity] ?? "#94a3b8";
+            ) : shownAlerts.map(({ rep: a, count, maxSev, latestMs }) => {
+              const col = SEV_COLOR[maxSev] ?? "#94a3b8";  // 그룹 최대 심각도(worst)로 표시
               const ch = chainOf(a);
-              const eventTs = alertEventTime(a);
+              const eventTs = alertEventTime(a);            // rep=최신 발생이라 가장 최근 시각
+              const expanded = expandedId === a.id;
+              const stale = isStaleEvent(a.kind, latestMs); // 그룹 최신 발생 기준 — ongoing 조건 오인 방지
               return (
-                <button key={a.id} onClick={() => router.push(alertFlowHref(a))}
-                  title="클릭: 이 알림의 토큰·체인만 선택된 흐름맵으로"
-                  className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2 text-left transition-colors hover:bg-[var(--color-surface-raised)]">
-                  <span className="mt-1.5 size-2 shrink-0 rounded-full" style={{ backgroundColor: col, boxShadow: `0 0 6px ${col}99` }} />
+                <div key={a.id}
+                  onClick={() => setExpandedId(expanded ? null : a.id)}
+                  title={expanded ? "클릭: 접기" : "클릭: 메시지 펼치기"}
+                  style={stale ? { opacity: 0.5 } : undefined}
+                  className="flex w-full cursor-pointer items-start gap-2.5 rounded-lg px-3 py-2 text-left transition-colors hover:bg-[var(--color-surface-raised)]">
+                  <span className="mt-1.5 size-2 shrink-0 rounded-full" style={{ backgroundColor: stale ? "#94a3b8" : col, boxShadow: stale ? "none" : `0 0 6px ${col}99` }} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="rounded bg-[var(--color-surface-raised)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--color-text-primary)]">{a.token}</span>
+                      <span className="rounded bg-[var(--color-surface-raised)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--color-text-primary)]">{displayToken(a.token)}</span>
                       {ch && <span className="rounded bg-[var(--color-bg)] px-1.5 py-0.5 text-[10px] capitalize text-[var(--color-text-muted)]">{ch}</span>}
-                      <span className="text-[11px] font-medium" style={{ color: col }}>{KIND_LABEL[a.kind] ?? a.kind}</span>
+                      <span className="text-[11px] font-medium" style={{ color: stale ? "var(--color-text-muted)" : col }}>{kindLabel(a.kind)}</span>
+                      {count > 1 && <span className="rounded-full bg-[var(--color-surface-raised)] px-1.5 py-0.5 font-mono text-[9px] text-[var(--color-text-muted)]" title={`동일 알림 ${count}건`}>×{count}</span>}
+                      {stale && <span className="rounded bg-[var(--color-bg)] px-1 py-0.5 text-[9px] text-[var(--color-text-muted)]" title="이벤트형 알림이 24시간+ 갱신 안 됨 — 사건 종료 추정">지난</span>}
                       <span className="ml-auto shrink-0 font-mono text-[10px] text-[var(--color-text-muted)]" title={`이벤트 관측: ${absTime(eventTs)}`}>{relTime(eventTs)}</span>
                     </div>
-                    <div className="mt-0.5 truncate text-[12px] leading-snug text-[var(--color-text-secondary)]">{a.message}</div>
+                    <div className={"mt-0.5 text-[12px] leading-snug text-[var(--color-text-secondary)] " + (expanded ? "whitespace-pre-wrap break-words" : "truncate")}>{prettyMessage(a.message, a.kind)}</div>
+                    {expanded && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); router.push(alertFlowHref(a)); }}
+                        className="mt-1.5 inline-flex items-center gap-1 rounded bg-[var(--color-surface-raised)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-accent)] hover:brightness-110">
+                        흐름맵으로 <ArrowRight size={11} />
+                      </button>
+                    )}
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
           <div className="border-t border-[var(--color-border-subtle)] px-5 py-1.5 text-[10px] text-[var(--color-text-muted)]">
-            토큰레벨 알림은 전 체인 기준 · 시간은 이벤트 관측 시각 · 알림 클릭 = 흐름맵 이동
+            시간은 이벤트 관측 시각 · 동일 알림은 묶음(×N) · '지난'=이벤트형 24h+ 미갱신(사건종료 추정) · 클릭 = 펼치기
           </div>
         </aside>
       </div>

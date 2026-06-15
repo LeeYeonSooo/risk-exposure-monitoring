@@ -177,16 +177,19 @@ async function main() {
 
       const uSev = severityForValue(r.utilization, T.utilizationLiquidity.utilizationAbsolute);
       if (uSev) {
-        if (!DRY) await insertAlert({ severity: uSev, kind: "high_utilization", token: r.symbol, protocolNodeId: proto, source: `${r.protocol}-v1`, message: `${r.protocol} ${r.symbol} 이용률 ${(r.utilization * 100).toFixed(1)}% (${chain}) — 가용 유동성 소진(인출/청산 위험)`, detail });
+        if (!DRY) await insertAlert({ severity: uSev, kind: "high_utilization", token: r.symbol, protocolNodeId: proto, source: `${r.protocol}-v1`, message: `${r.protocol} ${r.symbol} ${chain} — 이용률 ${(r.utilization * 100).toFixed(1)}%`, detail });
         alerts++;
       }
       if (r.maxLtv != null && r.maxLtv >= T.newMarket.highLltvWarning) {
-        if (!DRY) await insertAlert({ severity: r.maxLtv >= T.newMarket.highLltvCritical ? "warning" : "info", kind: "high_lltv_market", token: r.symbol, protocolNodeId: proto, source: `${r.protocol}-v1`, message: `${r.protocol} ${r.symbol} maxLTV ${(r.maxLtv * 100).toFixed(1)}% (${chain}) — 고LTV 담보(가격 급락 시 청산 여유 작음)`, detail });
+        // ⚠️ 의도적: highLltvCritical(94.5%) 임계를 넘어도 severity 는 critical 이 아니라 warning 에서 캡(2026-06 확인).
+        //   비-EVM 은 EVM new_market 과 달리 담보품질 검증(VERIFIED_CORE) 데이터가 없어 "고LTV 마켓 존재" 자체는
+        //   구조적 위험 정보일 뿐 page(critical) 근거가 약하다. ≥94.5%=warning, ≥90%=info 의 상태 정보 신호.
+        if (!DRY) await insertAlert({ severity: r.maxLtv >= T.newMarket.highLltvCritical ? "warning" : "info", kind: "high_lltv_market", token: r.symbol, protocolNodeId: proto, source: `${r.protocol}-v1`, message: `${r.protocol} ${r.symbol} ${chain} — maxLTV ${(r.maxLtv * 100).toFixed(1)}%`, detail });
         alerts++;
       }
       // 오라클 staleness(피드 멈춤=가격 동결→청산 미발화) — EVM 과 동일 stalenessFactor. (Kamino 등 신선도 제공 시)
       if (r.oracleAgeSec != null && r.oracleMaxAgeSec != null && r.oracleAgeSec > r.oracleMaxAgeSec * T.oracle.stalenessFactor) {
-        if (!DRY) await insertAlert({ severity: "critical", kind: "oracle_stale", token: r.symbol, protocolNodeId: proto, source: `${r.protocol}-v1`, message: `${r.protocol} ${r.symbol} 오라클 ${r.oracleAgeSec}s 미갱신 (maxAge ${r.oracleMaxAgeSec}s×${T.oracle.stalenessFactor} 초과, ${chain}) — 가격 동결 → 청산 미발화(silent bad-debt) 위험`, detail: { ...detail, oracleAgeSec: r.oracleAgeSec, oracleMaxAgeSec: r.oracleMaxAgeSec, oracleName: r.oracleName } });
+        if (!DRY) await insertAlert({ severity: "critical", kind: "oracle_stale", token: r.symbol, protocolNodeId: proto, source: `${r.protocol}-v1`, message: `${r.protocol} ${r.symbol} ${chain} — 오라클 ${r.oracleAgeSec}s / ${r.oracleMaxAgeSec}s`, detail: { ...detail, oracleAgeSec: r.oracleAgeSec, oracleMaxAgeSec: r.oracleMaxAgeSec, oracleName: r.oracleName } });
         alerts++;
       }
     }

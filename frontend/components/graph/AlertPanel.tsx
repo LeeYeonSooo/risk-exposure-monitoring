@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, Bell, ChevronRight, RefreshCw } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { catOf, prettyMessage } from "@/lib/alert-kinds";
 
 /**
  * 알림 패널 — 우측 세로 도킹, 화면 높이의 ~50%.
@@ -42,47 +43,8 @@ function timeAgo(iso: string): string {
 type SevFilter = "all" | "critical" | "warning";
 type CatFilter = "all" | "minting" | "depeg" | "contract" | "liquidity";
 
-// 알림 kind → 카테고리 (민팅·공급 / 디페깅 / 컨트랙트레벨 / 렌딩유동성)
-const CATEGORY: Record<string, Exclude<CatFilter, "all">> = {
-  depeg: "depeg",
-  bad_debt_threshold: "depeg", // 디페그→부실채권 임계 (디페그 탭)
-  // 민팅/공급 무결성 (무한민팅·무담보·mint/burn 불일치) — 설계 #1 시그널
-  supply_spike: "minting",
-  unbacked_supply: "minting",    // Detector A — Σremote > backing (무담보 공급)
-  unmatched_mint: "minting",     // Detector B — 소스 burn 없는 mint (무담보민팅)
-  chain_supply_spike: "minting", // 체인 단위 공급 급증
-  supply_single_mint: "minting",
-  supply_jump: "minting",
-  total_supply_jump: "minting",
-  // 컨트랙트 레벨 변화 (pause/new listing/oracle/IRM 등)
-  new_market: "contract",
-  collateral_adoption: "contract",
-  oracle_changed: "contract",
-  oracle_depeg_flag_flip: "contract",
-  oracle_paused_suspect: "contract",
-  oracle_hardcoded_switch: "contract", // 정상→하드코딩 오라클 전환(critical) — P1-4
-  reserve_frozen: "contract",
-  irm_changed: "contract",
-  irm_base_rate_jump: "contract",
-  high_lltv_market: "contract",
-  unverified_large_exposure: "contract",
-  // 렌딩 볼트 유동성 변화/부족
-  utilization_jump: "liquidity",
-  high_utilization: "liquidity",
-  liquidity_drop_lending: "liquidity",
-  liquidity_drop_dex: "liquidity",
-  whale_unwind: "liquidity",
-  curator_derisk: "liquidity",
-  value_drift: "liquidity", // 총가치(NAV×supply) 급락 = 밸류 유출/대량 인출 — P2-6
-};
-const catOf = (kind: string): Exclude<CatFilter, "all"> => CATEGORY[kind] ?? "contract";
-const CAT_LABEL: Record<CatFilter, string> = {
-  all: "전체",
-  minting: "민팅/공급",
-  depeg: "디페깅",
-  contract: "컨트랙트",
-  liquidity: "유동성",
-};
+// kind→카테고리·라벨은 공유 lib(lib/alert-kinds)에서 — 백엔드 발화 kind 전수 매핑 단일 출처.
+const CAT_LABEL: Record<CatFilter, string> = { all: "전체", minting: "민팅/공급", depeg: "디페깅", contract: "컨트랙트", liquidity: "유동성" };
 
 export function AlertPanel({
   rightOffset,
@@ -105,7 +67,7 @@ export function AlertPanel({
     setLoading(true);
     try {
       const sev = filter === "all" ? "" : `&severity=${filter === "warning" ? "critical,warning" : "critical"}`;
-      const res = await fetch(`/api/alerts?limit=200${sev}`, { cache: "no-store" });
+      const res = await fetch(`/api/alerts?limit=200${sev}&withCounts=1`, { cache: "no-store" });
       const data = (await res.json()) as { alerts: AlertItem[]; counts: Record<string, number>; dbConnected: boolean };
       setAlerts(data.alerts ?? []);
       setCounts(data.counts ?? {});
@@ -238,7 +200,7 @@ export function AlertPanel({
                         </span>
                         <span className="shrink-0 text-[10px] text-[var(--color-text-muted)]">{timeAgo(a.created_at)} 전</span>
                       </div>
-                      <p className="mt-1 text-[12px] leading-snug text-[var(--color-text-primary)]">{a.message}</p>
+                      <p className="mt-1 text-[12px] leading-snug text-[var(--color-text-primary)]">{prettyMessage(a.message, a.kind)}</p>
                       <div className="mt-1 flex items-center gap-2 text-[10px] text-[var(--color-text-muted)]">
                         <span className="font-mono">{a.token}</span>
                         {a.protocol_node_id && (

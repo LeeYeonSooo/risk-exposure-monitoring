@@ -1,12 +1,13 @@
 import { env } from "@/config/chains";
 
-const BASE = "https://api.etherscan.io/api";
+const BASE = "https://api.etherscan.io/v2/api"; // V1 은 2025 deprecated → V2(chainid 필수)
 
 /**
  * Etherscan API client — top token holders.
  *
- * Note: `tokenholderlist` requires PRO ($199/mo).
- * Free alternative: use Alchemy `alchemy_getTokenHolders` (separate adapter).
+ * ⚠️ `tokenholderlist` 는 Etherscan PRO($199/mo) 전용 엔드포인트다. 무료 키는 "API Pro endpoint" 로 거부됨.
+ *    → 무료 키 환경에선 whale_unwind 입력(metadata.topHolders)이 안 채워진다(holders.ts 가 throw 를 best-effort 흡수).
+ *    겹치는 '대형 보유자 이탈' 신호는 Dune 기반 wallet_value_drop(tracked_wallets) 가 커버. PRO 키 넣으면 이 경로도 즉시 활성.
  */
 
 interface HoldersResp {
@@ -22,6 +23,7 @@ export async function topHoldersEtherscan(
     throw new Error("ETHERSCAN_API_KEY not set");
   }
   const url = new URL(BASE);
+  url.searchParams.set("chainid", "1");
   url.searchParams.set("module", "token");
   url.searchParams.set("action", "tokenholderlist");
   url.searchParams.set("contractaddress", tokenAddress);

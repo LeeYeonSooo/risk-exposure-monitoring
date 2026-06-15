@@ -76,25 +76,33 @@ export function FlowMapBoard({ sym = "", railPortal }: { sym?: string; railPorta
   const [pinned, setPinned] = useState<string | null>(null); // 클릭 고정 — 다시 클릭/배경 클릭 전까지 격리 유지
   const [tip, setTip] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
+  const cacheRef = useRef<Map<string, FlowMapData>>(new Map()); // 체인별 마지막 응답 — 되돌아올 때 즉시 표시(SWR)
   const togglePin = useCallback((k: string) => setPinned((p) => (p === k ? null : k)), []);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (signal?: AbortSignal) => {
     try {
       setErr(null);
-      const r = await fetch(`/api/flowmap?chain=${encodeURIComponent(chain)}`, { cache: "no-store" });
+      const r = await fetch(`/api/flowmap?chain=${encodeURIComponent(chain)}`, { cache: "no-store", signal });
       const j = await r.json();
       if (!r.ok || j.error) throw new Error(j.error ?? `http ${r.status}`);
+      if (signal?.aborted) return;            // 전환 후 도착한 stale 응답 — 현재 체인 덮어쓰기 금지
+      cacheRef.current.set(chain, j);
       setData(j);
     } catch (e) {
+      if ((e as Error).name === "AbortError") return; // 체인 전환으로 취소됨 — 정상
       setErr(String(e).slice(0, 160));
-    } finally { setLoading(false); }
+    } finally { if (!signal?.aborted) setLoading(false); }
   }, [chain]);
 
   useEffect(() => {
-    setData(null); setLoading(true); setPinned(null); setHover(null); // 체인 전환 — 이전 체인 잔상 금지
-    load();
-    const id = setInterval(() => { if (!document.hidden) load(); }, 60_000);
-    return () => clearInterval(id);
+    setPinned(null); setHover(null);
+    const cached = cacheRef.current.get(chain);
+    if (cached) { setData(cached); setLoading(false); } // 본 적 있는 체인 — 즉시 표시 후 백그라운드 갱신(깜빡임 없음)
+    else { setData(null); setLoading(true); }           // 처음 보는 체인만 로딩 화면
+    const ac = new AbortController();
+    load(ac.signal);
+    const id = setInterval(() => { if (!document.hidden) load(ac.signal); }, 60_000);
+    return () => { ac.abort(); clearInterval(id); };     // 전환 시 진행 중 fetch 취소 → race 차단
   }, [load]);
 
   // 전 체인 요약 — 칩 뱃지(systemic 빨강/whale 호박) + 미수집 체인 백그라운드 수집 트리거
@@ -474,7 +482,7 @@ export function FlowMapBoard({ sym = "", railPortal }: { sym?: string; railPorta
         {/* 레버 경로 — 기준 명시 */}
         <Section title={`↻ 레버 / ↩ 언와인드 ${data.levers.length + data.unwinds.length ? "" : "— 없음"}`} accent={LEVER_COLOR}>
           <p className="px-3 pb-1 text-[9px] leading-relaxed text-[var(--color-text-muted)]">
-            기준 — <b>레버</b>: 같은 tx·같은 주체가 담보 예치 + 다른 토큰 차입(차입 ≥$100K). <b>언와인드</b>: 같은 tx·같은 주체가 상환 + 담보 회수. 원자적 페어만(추정 없음) · 멀티 tx 루프는 레버리지 루프 탭.
+            기준 — <b>레버</b>: 같은 tx·같은 주체가 담보 예치 + 다른 토큰 차입(차입 ≥$100K). <b>언와인드</b>: 같은 tx·같은 주체가 상환 + 담보 회수. 원자적 페어만(추정 없음).
           </p>
           {data.levers.slice(0, 6).map((l, i) => (
             <button key={i} onMouseEnter={() => setHover(`lever:${i}`)} onMouseLeave={() => setHover(null)} onClick={() => togglePin(`lever:${i}`)}

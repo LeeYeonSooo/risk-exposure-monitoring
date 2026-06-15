@@ -7,6 +7,8 @@ import type {
 
 import { cooldownSecondsFor, type Severity } from "@/config/alert-thresholds";
 import { dispatchAlert } from "@/lib/notify";
+import { STATE_SOURCES } from "@/snapshot/detector-registry";
+import { applyFpFilters, defaultFpContext } from "@/snapshot/fp-filters";
 
 import { pool, query } from "./client";
 
@@ -271,17 +273,47 @@ export async function insertAlert(a: {
   snapshotTs?: string;
   /** 알림 계약 — 어느 알고리즘이 낸 알림인지. 외부 알고리즘 swap 시 추적용. 기본 builtin-v1. */
   source?: string;
-}): Promise<void> {
-  // Dedup — 동일 (kind, token, protocol) 알림이 severity 별 쿨다운 내 있으면 skip (반복 발화 방지).
-  // risk_rules cooldown: critical 1h / warning 12h / info 24h (critical 이 더 자주 재발화 — 더 responsive).
+}): Promise<boolean> {
+  // FP 필터 (risk_rules filter 층 포팅, fp-filters.ts) — 양성패턴(CEX/브릿지 이동·RWA 디스카운트·리베이스·
+  // bridge in-flight)은 발화 안 함. CRITICAL·near-LT 은 안전캡으로 항상 통과. coverage-gap(미검증 엣지)은 annotate.
+  const fp = applyFpFilters(
+    { severity: a.severity as "info" | "warning" | "critical", kind: a.kind, token: a.token, protocolNodeId: a.protocolNodeId, detail: a.detail },
+    defaultFpContext(),
+  );
+  if (fp.verdict === "SUPPRESSED") {
+    console.log(`[alerts] FP-filter 억제: ${a.kind}/${a.token} — ${fp.notes}`);
+    return false;
+  }
+  if (fp.verdict === "ANNOTATED") {
+    a.detail = { ...(a.detail ?? {}), fpFilter: { applied: fp.applied, notes: fp.notes } };
+  }
+
+  // Dedup — 동일 (kind, token, protocol) 알림이 쿨다운 내 있으면 skip. 단 **escalation-aware**:
+  //   기존 active 가 새 알림보다 **같거나 높은 severity** 일 때만 억제. 새 알림이 더 높으면(info→warning→critical
+  //   악화) 통과시켜 재발화 = 갑작스런 동결·악화를 묻지 않음(2026-06: standing info 가 전이 warning 을 막던 것 수정).
+  //   resolved 제외 → auto-resolve 후 재발생 즉시 재발화. acknowledged 는 카운트 → 수동 ack 음소거 유지.
+  //   risk_rules cooldown: critical 1h / warning 12h / info 24h.
   const cooldownSec = cooldownSecondsFor(a.severity as Severity);
-  const dup = await query<{ n: number }>(
-    `SELECT count(*)::int n FROM alerts
+  const sevRank = a.severity === "critical" ? 3 : a.severity === "warning" ? 2 : 1;
+  const dup = await query<{ id: string; message: string }>(
+    `SELECT id, message FROM alerts
      WHERE kind=$1 AND token=$2 AND coalesce(protocol_node_id,'')=coalesce($3,'')
-       AND created_at > now() - make_interval(secs => $4::double precision)`,
-    [a.kind, a.token, a.protocolNodeId ?? null, cooldownSec],
-  ).catch(() => ({ rows: [{ n: 0 }] }));
-  if ((dup.rows[0]?.n ?? 0) > 0) return;
+       AND resolved_at IS NULL
+       AND (CASE severity WHEN 'critical' THEN 3 WHEN 'warning' THEN 2 ELSE 1 END) >= $5
+       AND created_at > now() - make_interval(secs => $4::double precision)
+     ORDER BY created_at DESC LIMIT 1`,
+    [a.kind, a.token, a.protocolNodeId ?? null, cooldownSec, sevRank],
+  ).catch(() => ({ rows: [] as { id: string; message: string }[] }));
+  if (dup.rows.length > 0) {
+    // dedup: 재삽입·재발송 안 함. 단 **메시지/detail 이 바뀌었으면 in-place 갱신**(문구 리팩터·라이브 값 최신화).
+    //   created_at(온셋) 보존. 알림 종류·severity 는 그대로라 재페이지 없음. (2026-06: 이벤트 알림 문구 최신화.)
+    const d = dup.rows[0];
+    if (d.message !== a.message) {
+      await query(`UPDATE alerts SET message=$2, detail=$3::jsonb WHERE id=$1`,
+        [d.id, a.message, a.detail ? JSON.stringify(a.detail) : null]).catch(() => {});
+    }
+    return false;
+  }
 
   await query(
     `INSERT INTO alerts (snapshot_ts, severity, kind, token, protocol_node_id, message, detail, source)
@@ -300,6 +332,88 @@ export async function insertAlert(a: {
 
   // 채널 발송(D#9) — env 설정된 채널로만, fire-and-forget(메인 파이프라인 비차단). info 는 notify 내부에서 skip.
   void dispatchAlert({ severity: a.severity, kind: a.kind, token: a.token, message: a.message, source: a.source ?? "builtin-v1" });
+  return true;
+}
+
+// 알림 활성키(kind|token|protocol) Set — 전체스캔 디텍터가 "이미 활성이면 재삽입 skip"용. source 로 스코프.
+export async function loadActiveAlertKeys(kinds: string[], source: string): Promise<Set<string>> {
+  const r = await query<{ kind: string; token: string; p: string }>(
+    `SELECT kind, token, coalesce(protocol_node_id,'') p FROM alerts
+     WHERE kind = ANY($1::text[]) AND source = $2 AND acknowledged IS NOT TRUE AND resolved_at IS NULL`,
+    [kinds, source],
+  ).catch(() => ({ rows: [] as { kind: string; token: string; p: string }[] }));
+  return new Set(r.rows.map((x) => `${x.kind}|${x.token}|${x.p}`));
+}
+
+// 상태형 디텍터용 — 활성 키 → {id, severity, message} 맵. (loadActiveAlertKeys 의 변형: severity·message 재calibration 지원.)
+export async function loadActiveStateAlerts(kinds: string[], source: string): Promise<Map<string, { id: string; severity: Severity; message: string }>> {
+  const r = await query<{ id: string; kind: string; token: string; p: string; severity: Severity; message: string }>(
+    `SELECT id, kind, token, coalesce(protocol_node_id,'') p, severity, message FROM alerts
+     WHERE kind = ANY($1::text[]) AND source = $2 AND acknowledged IS NOT TRUE AND resolved_at IS NULL
+     ORDER BY created_at ASC`,
+    [kinds, source],
+  ).catch(() => ({ rows: [] as { id: string; kind: string; token: string; p: string; severity: Severity; message: string }[] }));
+  const m = new Map<string, { id: string; severity: Severity; message: string }>();
+  for (const x of r.rows) m.set(`${x.kind}|${x.token}|${x.p}`, { id: x.id, severity: x.severity, message: x.message });
+  return m;
+}
+
+const _sevRank = (s: string): number => (s === "critical" ? 3 : s === "warning" ? 2 : 1);
+
+/**
+ * 상태형 알림 재calibration — 조건은 지속(active)되는데 계산된 **severity 또는 message 가 바뀌면 기존 row 를
+ *   in-place 갱신**(severity 완화·악화 + 메시지 문구 변경 모두 반영). 악화(escalation)면 채널 재발송, 그 외(완화·
+ *   메시지만 변경)는 조용히(재페이지 churn 방지). in-place 라 created_at(온셋 시각) 보존.
+ *   (구버전 assert-once: active 면 무조건 skip → severity·문구 변화가 영영 반영 안 됨. 라벨/문구 리팩터가 이를 노출.)
+ */
+export async function updateStateAlert(
+  active: { id: string; severity: string; message: string },
+  a: { severity: string; kind: string; token: string; message: string; detail?: Record<string, unknown>; source?: string },
+): Promise<"unchanged" | "updated" | "escalated"> {
+  const sevChanged = active.severity !== a.severity;
+  const msgChanged = active.message !== a.message;
+  if (!sevChanged && !msgChanged) return "unchanged";
+  await query(
+    `UPDATE alerts SET severity=$2, message=$3, detail=$4::jsonb WHERE id=$1`,
+    [active.id, a.severity, a.message, a.detail ? JSON.stringify(a.detail) : null],
+  ).catch((e) => console.warn("[alerts] 상태알림 갱신 실패:", (e as Error).message));
+  const escalated = sevChanged && _sevRank(a.severity) > _sevRank(active.severity);
+  if (escalated) void dispatchAlert({ severity: a.severity, kind: a.kind, token: a.token, message: a.message, source: a.source ?? "builtin-v1" });
+  return escalated ? "escalated" : "updated";
+}
+
+// 상태형 알림 auto-resolve — 이번 스캔이 assert 한 (kind|token|protocol) 집합에 없는 active 알림(=조건 해소)을
+// resolved 처리. source 로 스코프해 다른 디텍터(diff/nonevm)의 동일 kind 를 건드리지 않음. 반환: resolved 건수.
+export async function resolveStaleAlerts(kinds: string[], assertedKeys: Set<string>, source: string): Promise<number> {
+  const r = await query<{ id: string; kind: string; token: string; p: string }>(
+    `SELECT id, kind, token, coalesce(protocol_node_id,'') p FROM alerts
+     WHERE kind = ANY($1::text[]) AND source = $2 AND acknowledged IS NOT TRUE AND resolved_at IS NULL`,
+    [kinds, source],
+  ).catch(() => ({ rows: [] as { id: string; kind: string; token: string; p: string }[] }));
+  const toResolve = r.rows.filter((row) => !assertedKeys.has(`${row.kind}|${row.token}|${row.p}`)).map((row) => row.id);
+  if (!toResolve.length) return 0;
+  await query(`UPDATE alerts SET resolved_at = now() WHERE id = ANY($1::bigint[])`, [toResolve]).catch(() => {});
+  return toResolve.length;
+}
+
+/**
+ * 이벤트형 알림 TTL 만료 — STATE 디텍터(resolveStaleAlerts 로 auto-resolve)는 제외하고, 이벤트형(자체 해소
+ *   로직 없음)을 severity 별 경과시간 초과 시 resolved 처리. 조건 종료 후에도 DB 에 영구 잔존하던 문제 해결
+ *   (FP 감사 2026-06: util_jump/liquidity_drop 등 종료된 이벤트가 active 로 남음). acknowledged 는 안 건드림.
+ *   cron 이 주기 호출. 기본 TTL: critical 72h / warning 48h / info 24h(프론트 24h fade 와 정렬).
+ */
+export async function resolveExpiredEvents(
+  ttlHours: { critical: number; warning: number; info: number } = { critical: 72, warning: 48, info: 24 },
+): Promise<number> {
+  const r = await query(
+    `UPDATE alerts SET resolved_at = now()
+     WHERE resolved_at IS NULL AND acknowledged IS NOT TRUE
+       AND source <> ALL($1::text[])
+       AND created_at < now() - make_interval(hours =>
+            (CASE severity WHEN 'critical' THEN $2::int WHEN 'warning' THEN $3::int ELSE $4::int END))`,
+    [STATE_SOURCES as readonly string[], ttlHours.critical, ttlHours.warning, ttlHours.info],
+  ).catch((e) => { console.warn("[alerts] resolveExpiredEvents 실패:", (e as Error).message); return { rowCount: 0 }; });
+  return r.rowCount ?? 0;
 }
 
 /**

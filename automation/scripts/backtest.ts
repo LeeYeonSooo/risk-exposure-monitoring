@@ -18,14 +18,18 @@
  * Usage: npm run backtest  [-- --verbose]
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
 import { cooldownSecondsFor, depegSeverity, RECOMMENDED_THRESHOLDS as T, severityForValue, type Severity } from "@/config/alert-thresholds";
 import { reconcile, type LedgerRow } from "@/snapshot/mint-burn-recon";
 import { evaluateBacking } from "@/snapshot/supply-backing";
 
-const EVENTS_DIR = resolve(import.meta.dirname ?? ".", "..", "backtest", "events");
+// import.meta.dirname 은 Node 20.11+ 전용 — Node 18 에선 undefined 라 "." (cwd) 폴백 시 경로가 한 단계 어긋난다.
+//   fileURLToPath(import.meta.url) 로 스크립트 위치를 robust 하게 해석(표준 ESM __dirname 패턴).
+const _here = dirname(fileURLToPath(import.meta.url));
+const EVENTS_DIR = resolve(_here, "..", "backtest", "events");
 const VERBOSE = process.argv.includes("--verbose");
 
 // 라벨 severity 스케일(INFO<WARN<HIGH<CRITICAL) ↔ 우리 3-tier(info<warning<critical). HIGH 는 critical 이 충족.

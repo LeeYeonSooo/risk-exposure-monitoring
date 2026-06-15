@@ -109,6 +109,26 @@ export interface FundingVault {
   allocationUsd: number;
 }
 
+/**
+ * 개별 포지션 청산위험 — 마켓의 최대 차입자(들) 중 청산임계에 가장 근접한 단일 포지션.
+ * near_liquidation 을 **집계 LTV** 가 아니라 **포지션 단위**로 평가하기 위함. 집계는 양방향으로 틀린다:
+ *  · FN — 큰 안전 포지션(고래)이 Σ담보를 키워 집계 LTV 를 끌어내려 옆의 청산임박 포지션을 가림.
+ *  · FP — 집계만 높고 실제 청산 위험 포지션은 거의 없음.
+ * 따라서 "청산임계 근접 + 충분히 큰" 개별 포지션이 있을 때만 발화한다. (Morpho 한정 — 포지션 API 가 있는 유일한 소스.)
+ */
+export interface RiskiestPosition {
+  /** 차입자 주소 */
+  user: string;
+  /** 이 포지션 차입 USD (규모 게이트용) */
+  borrowUsd: number;
+  /** 이 포지션 담보 USD */
+  collateralUsd: number;
+  /** Morpho healthFactor = (담보$×LLTV)/차입$ — 1 에 가까울수록 청산 임박, <1 이면 청산 가능 */
+  healthFactor: number;
+  /** 담보 가격이 이만큼 더 빠지면 이 포지션이 청산 (= max(0, 1 − 1/HF)) */
+  dropToLiquidation: number;
+}
+
 export interface MarketEntry {
   loanAsset?: string;
   collateralAsset?: string;
@@ -123,6 +143,8 @@ export interface MarketEntry {
   /** 부실채권 임계용 — 이 마켓의 담보 예치 USD / 차입 USD. aggLTV = borrowUsd/collateralUsd. */
   collateralUsd?: number | null;
   borrowUsd?: number | null;
+  /** 개별 포지션 청산위험 대표 — 이 마켓 최대 차입자 중 청산임계 최근접(near_liquidation 포지션 단위 평가용, Morpho). */
+  riskiestPosition?: RiskiestPosition | null;
   vaultFunded: boolean;
   fundingVaults: FundingVault[] | null;
   vaultFundedShareOfSupply: number | null;

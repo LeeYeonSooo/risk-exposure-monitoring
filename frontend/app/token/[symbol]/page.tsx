@@ -10,7 +10,6 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { chainOptions } from "@/lib/chains-ui";
 import { FlowMapBoard } from "@/components/flowmap/FlowMapBoard";
 import { GraphCanvas } from "@/components/graph/GraphCanvas";
-import { LeverageLoopGraph } from "@/components/looping/LeverageLoopGraph";
 import { TokenDossier, type DossierData } from "@/components/graph/TokenDossier";
 import { ADDR_EXPLORER, PRow, TokenSpecRows, pct1, sevDots, shortAddr, useNodeAlertCounts } from "@/components/panel/spec";
 import { SAFE_NODE_STATE, formatUsd, type GraphEdge, type GraphNode, type NodeTickState } from "@/lib/api";
@@ -31,8 +30,8 @@ export default function TokenPage() {
   // 탭 → 직교 컨트롤(깊이·형태). 스코프(체인내부/체인간)는 하나로 합침 — 여러 체인이면 자동으로
   // 컴팩트+브릿지(매크로), 한 체인만 보면 풀 디테일(마이크로). 멘탈모델 1개.
   const [depth, setDepth] = useState<"protocol" | "market" | "curator">("market"); // 기본은 체인→프로토콜→마켓 분포.
-  // 보기: 관계맵(정적 구조) / 실시간 상황판(이벤트 기반 — 시장 전체, 페이지 토큰 강조) / 레버리지 루프(Morpho 포지션)
-  const [view, setView] = useState<"map" | "live" | "lev">("map");
+  // 보기: 관계맵(정적 구조) / 실시간 상황판(이벤트 기반 — 시장 전체, 페이지 토큰 강조)
+  const [view, setView] = useState<"map" | "live">("map");
   const [panelOpen, setPanelOpen] = useState(true);             // 우측 상세 패널 토글 (관계맵 전용)
   const [hiddenChains, setHiddenChains] = useState<Set<string>>(new Set());        // 체크 해제된(숨긴) 체인
   const [dbNodes, setDbNodes] = useState<Map<string, GraphNode>>(new Map());
@@ -312,7 +311,6 @@ export default function TokenPage() {
         <ControlGroup label="보기">
           <Seg active={view === "map"} onClick={() => setView("map")}>관계맵</Seg>
           <Seg active={view === "live"} onClick={() => setView("live")}>실시간 상황판</Seg>
-          <Seg active={view === "lev"} onClick={() => setView("lev")}>레버리지 루프</Seg>
         </ControlGroup>
         {view === "map" && (
           <ControlGroup label="깊이">
@@ -341,9 +339,9 @@ export default function TokenPage() {
           })}
         </div>
         )}
-        {view !== "map" && (
+        {view === "live" && (
           <span className="text-[10px] text-[var(--color-text-muted)]">
-            {view === "live" ? "시장 전체 토큰↔프로토콜 흐름 — baseline 대비 이상치만 발화 (렌딩 8 + DEX 4, 온체인 이벤트)" : `${sym} 레버리지 루핑 — 담보 예치↔차입 (Morpho 포지션, 라이브)`}
+            시장 전체 토큰↔프로토콜 흐름 — baseline 대비 이상치만 발화 (렌딩 8 + DEX 4, 온체인 이벤트)
           </span>
         )}
         <Link href={`/flow?token=${encodeURIComponent(sym)}`}
@@ -359,12 +357,10 @@ export default function TokenPage() {
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        {/* 좌: 그래프 — 보기에 따라 관계맵 / 실시간 상황판(이벤트 기반) / 레버리지 루프 */}
+        {/* 좌: 그래프 — 보기에 따라 관계맵 / 실시간 상황판(이벤트 기반) */}
         <div className="relative h-[560px] min-h-[560px] flex-none lg:h-auto lg:min-h-0 lg:flex-1">
           {view === "live" ? (
             <FlowMapBoard sym={sym} />
-          ) : view === "lev" ? (
-            <LeverageLoopGraph sym={sym} />
           ) : breadthLoading ? (
             // 라이브 수집이 끝날 때까지 "부분 그래프"를 보여주지 않고 깔끔한 로딩만.
             <div className="flex h-full items-center justify-center">

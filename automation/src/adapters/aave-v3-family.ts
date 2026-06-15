@@ -83,6 +83,15 @@ const ERC20_ABI = [
   { inputs: [], name: "totalSupply", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
 ] as const;
 
+// IRM base variable borrow rate (RAY 1e27) — irm_base_rate_jump 입력.
+//   v3.1+ 는 singleton IRM 이라 reserve 인자를 받고(getBaseVariableBorrowRate(address)), 구버전 포크는 무인자.
+const IRM_ABI = [
+  { inputs: [{ name: "reserve", type: "address" }], name: "getBaseVariableBorrowRate", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
+] as const;
+const IRM_LEGACY_ABI = [
+  { inputs: [], name: "getBaseVariableBorrowRate", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
+] as const;
+
 const AAVE_ORACLE_ABI = [
   {
     inputs: [{ name: "asset", type: "address" }],
@@ -180,6 +189,23 @@ export function makeAaveV3FamilyAdapter(opts: AaveV3FamilyOpts): ProtocolAdapter
       const supplied = Number(formatUnits(aSupply ?? BigInt(0), decimals));
       const borrowed = Number(formatUnits(vSupply ?? BigInt(0), decimals));
 
+      // IRM 기준금리(base variable borrow rate) — RAY(1e27)→분수. ⚠️ FN 수정 2026-06: 종전엔 irm 주소만 읽고
+      //   baseRate 를 하드코딩 null 로 둬 diff.ts 의 irm_base_rate_jump 게이트(baseRate!=null)가 영구 false 였다.
+      //   실패 시 null 유지(무해 — 기존 동작). 대부분 0(기준금리 0, 기울기형 IRM)이지만 0(non-null)이라도 향후 변경 시 발화 가능.
+      let irmBaseRate: number | null = null;
+      if (irm && irm !== ZERO) {
+        // v3.1+(reserve 인자) 우선, 실패 시 구버전(무인자) 폴백. 둘 다 RAY(1e27)→분수.
+        const [rayV2, rayV1] = (await batch(
+          [
+            { address: irm, abi: IRM_ABI, functionName: "getBaseVariableBorrowRate", args: [token] },
+            { address: irm, abi: IRM_LEGACY_ABI, functionName: "getBaseVariableBorrowRate" },
+          ],
+          { allowFailure: true, chainId: ctx.chainId },
+        )) as [bigint | null, bigint | null];
+        const ray = rayV2 ?? rayV1;
+        if (ray != null) irmBaseRate = Number(ray) / 1e27; // RAY → 분수 (예: 1e25 → 0.01 = 1%)
+      }
+
       let oracleSourceAddress: Address | null = null;
       if (oracle) {
         try {
@@ -256,7 +282,7 @@ export function makeAaveV3FamilyAdapter(opts: AaveV3FamilyOpts): ProtocolAdapter
           liquidityUsd,
           isFrozen,
           eModeCategory: null,
-          irm: { address: irm ?? null, family: null, baseRate: null, kink: null },
+          irm: { address: irm ?? null, family: null, baseRate: irmBaseRate, kink: null },
         },
         dex: null,
         wrapper: null,

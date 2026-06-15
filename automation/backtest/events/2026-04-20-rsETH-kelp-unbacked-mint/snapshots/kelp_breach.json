@@ -1,0 +1,31 @@
+{
+  "meta": {
+    "token": "rsETH",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2026-04-20T12:00:00Z",
+    "_invariant": "BREACH: 116,500 rsETH minted unbacked via a compromised single-validator LayerZero DVN -> Sigma(remote rsETH supply) exceeds home-chain escrow backing by 116,500. ~107k ended as Aave V3/V4 collateral, ~$200M bad debt.",
+    "data_source": "Aave governance 'rsETH Incident Report (April 20, 2026)' (per data/kelp_dao.json). 116,500 unbacked / ~$200M documented. backing 700k / remote 816.5k are MODELED to reproduce the Sigma(remote)-backing = 116,500 breach; rsETH escrow not archive-measurable with an Ethereum-only key -> ASSERTED (same convention as Wormhole's Solana leg)."
+  },
+  "nodes": [
+    {
+      "node_id": "token:rsETH",
+      "type": "Token",
+      "address": "0xA1290d69c65A6Fe4DF752f95823fae25cB99e5A7",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "rsETH",
+        "decimals": 18,
+        "backing": 700000000000000000000000,
+        "remote_supply": {
+          "L2(asserted)": 816500000000000000000000
+        },
+        "circulating": "remote",
+        "market_cap_usd": 1500000000,
+        "_fidelity": "116,500 rsETH unbacked = documented incident figure. backing 700k / remote 816.5k MODELED to reproduce Sigma(remote)-backing = 116,500 breach. Escrow not archive-measured (Ethereum-only key) -> ASSERTED, like Wormhole's researcher-asserted Solana supply. The 116,500 gap (~$200M) dwarfs any plausible absolute-sizing uncertainty, so the signal fires regardless."
+      }
+    }
+  ],
+  "edges": []
+}

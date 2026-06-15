@@ -1,0 +1,31 @@
+{
+  "meta": {
+    "token": "rsETH",
+    "chain": "ethereum",
+    "chain_id": 1,
+    "snapshot_ts": "2026-04-19T12:00:00Z",
+    "_invariant": "HEALTHY pre-exploit: Sigma(remote rsETH supply) == home escrow backing (balanced, over-backed within tolerance). No unbacked mint yet.",
+    "data_source": "MODELED pre-exploit baseline (day before the 2026-04-20 incident): remote == backing. Control for FP-trap."
+  },
+  "nodes": [
+    {
+      "node_id": "token:rsETH",
+      "type": "Token",
+      "address": "0xA1290d69c65A6Fe4DF752f95823fae25cB99e5A7",
+      "chain": "ethereum",
+      "chain_id": 1,
+      "metadata": {
+        "symbol": "rsETH",
+        "decimals": 18,
+        "backing": 700000000000000000000000,
+        "remote_supply": {
+          "L2(asserted)": 700000000000000000000000
+        },
+        "circulating": "remote",
+        "market_cap_usd": 1500000000,
+        "_fidelity": "MODELED healthy baseline: remote == backing. Normal in-flight bridging is transiently OVER-backed (lock before mint), never under -> UNBACKED_SUPPLY must stay silent."
+      }
+    }
+  ],
+  "edges": []
+}

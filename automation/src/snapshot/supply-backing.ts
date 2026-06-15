@@ -1,5 +1,10 @@
 import { type Abi, type Address, getAddress, type PublicClient } from "viem";
 
+import {
+  LIDO_ARBITRUM_GATEWAY, LIDO_BASE_BRIDGE, WSTETH_ARBITRUM, WSTETH_BASE, WSTETH_MAINNET,
+} from "@/config/onchain-addresses";
+import { fmtToken } from "@/lib/fmt";
+
 /**
  * Detector A — Supply ↔ Backing invariant (alarm-totalsupply 의 핵심 detector 포팅).
  *
@@ -49,17 +54,6 @@ export interface BackingFinding {
   message: string;
 }
 
-/** 사람이 읽는 토큰 단위(소수점 2자리, 큰 수는 compact). */
-function fmtAmount(raw: bigint, decimals: number): string {
-  const d = BigInt(decimals);
-  const whole = raw / 10n ** d;
-  const n = Number(whole);
-  if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
-  if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`;
-  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
-  return n.toString();
-}
-
 /**
  * read_backing 포팅 — Σ lockReads(balanceOf/totalSupply). **하나라도 실패하면 null**
  * (backing 을 못 읽으면 무담보로 오판하지 않도록 — 알림 skip).
@@ -107,7 +101,7 @@ export function evaluateBacking(opts: {
 
   const overageBps = backing === 0n ? 0 : Number(((remoteSum - backing) * 10000n) / backing);
   const scope = circulating === "all" ? "Σall-chain supply" : "Σremote supply";
-  const fmt = (x: bigint) => fmtAmount(x, decimals);
+  const fmt = (x: bigint) => fmtToken(x, decimals);
   let message = `${scope} ${fmt(remoteSum)} > backing ${fmt(backing)} (초과 ${fmt(remoteSum - backing)}, ${overageBps}bps; 허용 ${tolBps}bps) — 무담보 공급 의심`;
   if (staleHome) message += " [홈 스냅샷이 원격보다 늦음 — finality skew 가능]";
 
@@ -136,14 +130,14 @@ export const BACKING_WATCHES: BackingWatch[] = [
     decimals: 18,
     homeChain: "ethereum",
     lockReads: [
-      { contract: "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0", method: "balanceOf", holder: "0x0F25c1DC2a9922304f2eac71DCa9B07E310e8E5a" }, // Arbitrum L1 게이트웨이(Lido)
-      { contract: "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0", method: "balanceOf", holder: "0x76943C0D61395d8F2edF9060e1533529cAe05dE6" }, // Optimism L1 브릿지(Lido)
-      { contract: "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0", method: "balanceOf", holder: "0x9de443AdC5A411E83F1878Ef24C3F52C61571e72" }, // Base L1 브릿지(Lido)
+      { contract: WSTETH_MAINNET, method: "balanceOf", holder: LIDO_ARBITRUM_GATEWAY }, // Arbitrum L1 게이트웨이(Lido)
+      { contract: WSTETH_MAINNET, method: "balanceOf", holder: "0x76943C0D61395d8F2edF9060e1533529cAe05dE6" }, // Optimism L1 브릿지(Lido)
+      { contract: WSTETH_MAINNET, method: "balanceOf", holder: LIDO_BASE_BRIDGE }, // Base L1 브릿지(Lido)
     ],
     remotes: [
-      { chain: "arbitrum", token: "0x5979D7b546E38E414F7E9822514be443A4800529" },
+      { chain: "arbitrum", token: WSTETH_ARBITRUM },
       { chain: "optimism", token: "0x1F32b1c2345538c0c6f582fCB022739c4A194Ebb" },
-      { chain: "base", token: "0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452" },
+      { chain: "base", token: WSTETH_BASE },
     ],
     circulating: "remotes",
     tolBps: 50,
