@@ -198,6 +198,12 @@ function entryMarketRows(entry: MEntry): RelationMarketRow[] {
     const collateralUsd = numberOrNull(p.collateralAssetsUsd);
     const supplyUsd = numberOrNull(p.supplyAssetsUsd);
     const borrowUsd = numberOrNull(p.borrowAssetsUsd);
+    if (protocol.includes("morpho")) {
+      rows.push({ label: "담보량", count: 1, amountUsd: collateralUsd ?? 0 });
+      rows.push({ label: "예치량", count: 1, amountUsd: supplyUsd ?? 0 });
+      rows.push({ label: "차입량", count: 1, amountUsd: borrowUsd ?? 0 });
+      return rows;
+    }
     if (collateralUsd != null && collateralUsd > 0) rows.push({ label: "담보량", count: 1, amountUsd: collateralUsd });
     if (supplyUsd != null && supplyUsd > 0) rows.push({ label: "예치량", count: 1, amountUsd: supplyUsd });
     if (borrowUsd != null && borrowUsd > 0) rows.push({ label: "차입량", count: 1, amountUsd: borrowUsd });
@@ -288,7 +294,7 @@ function marketMetrics(entry: MEntry): RelationDetailMetrics {
   const isDexPool = kind === "pool" && p.exposure === "multi";
   const hasTokenAmount = !isDexPool && entry.sizeUsd > 0;
   const weeklySwapUsd = numberOrNull(p.weeklySwapUsd);
-  const gaps = new Set(metricDataGaps(kind === "pool" ? "pool" : "market", hasTokenAmount));
+  const gaps = new Set(metricDataGaps(isDexPool ? "pool" : "market", hasTokenAmount));
   const collateralUsd = numberOrNull(p.collateralAssetsUsd);
   const borrowUsd = numberOrNull(p.borrowAssetsUsd);
   if (weeklySwapUsd != null) gaps.delete("weekly_swap");
@@ -587,6 +593,7 @@ export function applyConcentricLayout(opts: {
         sizeUsd: pExp,
         chain,
         venue: protoNode?.metadata.venue,
+        protocolClass: p.edge.attrs?.protocolClass ?? protoNode?.metadata.protocolClass ?? null,
         symbol: protoNode?.metadata.symbol,
         brandSlug: canonProto(p.otherId),
         diameterPx: protoShareDiameterPx(pExp, maxProtoExp, minProtoExp),

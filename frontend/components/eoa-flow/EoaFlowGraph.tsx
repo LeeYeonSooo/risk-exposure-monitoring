@@ -912,8 +912,7 @@ function DetailRow({ detail }: { detail: EoaFlowDetail }) {
 export function EoaFlowGraph({ nodes, edges }: { nodes: EoaFlowNode[]; edges: EoaFlowEdge[] }) {
   const allEntityNodes = useMemo(() => nodes.filter((node) => node.type !== "event" && node.data.kind !== "event").sort(nodeSort), [nodes]);
   const seedWallet = useMemo(() => allEntityNodes.find(isSeedWallet) ?? allEntityNodes.find(isWalletNode) ?? null, [allEntityNodes]);
-  const visibleNodes = useMemo(() => allEntityNodes.filter((node) => !isWalletNode(node) || node.id === seedWallet?.id), [allEntityNodes, seedWallet]);
-  const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((node) => node.id)), [visibleNodes]);
+  const candidateVisibleNodeIds = useMemo(() => new Set(allEntityNodes.filter((node) => !isWalletNode(node) || node.id === seedWallet?.id).map((node) => node.id)), [allEntityNodes, seedWallet]);
   const nodesById = useMemo(() => new Map(allEntityNodes.map((node) => [node.id, node] as const)), [allEntityNodes]);
   const visibleEdges = useMemo(() => edges.filter((edge) => {
     const source = nodesById.get(edge.source);
@@ -922,8 +921,18 @@ export function EoaFlowGraph({ nodes, edges }: { nodes: EoaFlowNode[]; edges: Eo
     if (isWalletNode(source) && isWalletNode(target)) return false;
     if (isWalletNode(source) && source.id !== seedWallet?.id) return false;
     if (isWalletNode(target) && target.id !== seedWallet?.id) return false;
-    return visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target);
-  }), [edges, nodesById, seedWallet, visibleNodeIds]);
+    return candidateVisibleNodeIds.has(edge.source) && candidateVisibleNodeIds.has(edge.target);
+  }), [candidateVisibleNodeIds, edges, nodesById, seedWallet]);
+  const visibleConnectedNodeIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const edge of visibleEdges) {
+      ids.add(edge.source);
+      ids.add(edge.target);
+    }
+    if (seedWallet) ids.add(seedWallet.id);
+    return ids;
+  }, [seedWallet, visibleEdges]);
+  const visibleNodes = useMemo(() => allEntityNodes.filter((node) => candidateVisibleNodeIds.has(node.id) && visibleConnectedNodeIds.has(node.id)), [allEntityNodes, candidateVisibleNodeIds, visibleConnectedNodeIds]);
   const edgesById = useMemo(() => new Map(visibleEdges.map((edge) => [edge.id, edge] as const)), [visibleEdges]);
   const [selected, setSelected] = useState<{ type: "node" | "edge"; id: string } | null>(null);
   const selectedNode = selected?.type === "node" ? nodesById.get(selected.id) ?? null : null;

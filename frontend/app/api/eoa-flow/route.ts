@@ -13,6 +13,8 @@ const DEFAULT_FLOW_DIR = "/Users/link/defi-dagggg/graphs/frontend";
 const NAME_RE = /^[a-zA-Z0-9._:-]+$/;
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 
+type EnrichmentResult<T> = { value: T | null; ok: boolean; error?: string };
+
 function flowApiBase(): string {
   return (process.env.EOA_FLOW_API_BASE ?? process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_EOA_API).replace(/\/+$/, "");
 }
@@ -103,6 +105,80 @@ async function fetchUpstreamPayload(name: string | null, address: string | null,
   }
 }
 
+function seedAddress(payload: EoaFlowPayload, requested: string | null): string | null {
+  if (requested && ADDRESS_RE.test(requested)) return requested.toLowerCase();
+  const seed = payload.nodes.find((node) =>
+    (node.data.kind === "eoa" || node.data.kind === "safe" || node.type === "eoa") &&
+    ADDRESS_RE.test(node.data.address ?? "") &&
+    (node.data.discovered_by === "seed" || (node.data.dfs_depth ?? 0) === 0),
+  ) ?? payload.nodes.find((node) =>
+    (node.data.kind === "eoa" || node.data.kind === "safe" || node.type === "eoa") &&
+    ADDRESS_RE.test(node.data.address ?? ""),
+  );
+  return seed?.data.address?.toLowerCase() ?? null;
+}
+
+async function fetchEnrichment<T>(url: URL, timeoutMs: number): Promise<EnrichmentResult<T>> {
+  try {
+    const res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(timeoutMs) });
+    if (!res.ok) return { value: null, ok: false, error: `HTTP ${res.status}` };
+    return { value: (await res.json()) as T, ok: true };
+  } catch (error) {
+    return { value: null, ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+function disabledEnrichment<T>(): EnrichmentResult<T> {
+  return { value: null, ok: true };
+}
+
+async function enrichPayload(payload: EoaFlowPayload, reqUrl: URL, address: string | null): Promise<EoaFlowPayload> {
+  const includePortfolio = reqUrl.searchParams.get("includePortfolio") !== "false";
+  const includeBorrowerAnalysis = reqUrl.searchParams.get("includeBorrowerAnalysis") !== "false";
+  const seed = seedAddress(payload, address);
+  const portfolioUrl = seed && includePortfolio ? new URL("/api/wallet-portfolio", reqUrl.origin) : null;
+  if (portfolioUrl && seed) {
+    portfolioUrl.searchParams.set("address", seed);
+    portfolioUrl.searchParams.set("chain", "ethereum");
+    portfolioUrl.searchParams.set("includeFlow", "false");
+    portfolioUrl.searchParams.set("minUsd", reqUrl.searchParams.get("portfolioMinUsd") ?? "1");
+    portfolioUrl.searchParams.set("maxTokens", reqUrl.searchParams.get("portfolioMaxTokens") ?? "220");
+  }
+
+  const morphoParam = reqUrl.searchParams.get("market") ?? reqUrl.searchParams.get("marketKey") ?? reqUrl.searchParams.get("markets");
+  const symbolParam = reqUrl.searchParams.get("symbol");
+  const wantsMorphoAnalysis = includeBorrowerAnalysis && (!!morphoParam || !!symbolParam);
+  const morphoUrl = wantsMorphoAnalysis ? new URL("/api/morpho-borrower-analysis", reqUrl.origin) : null;
+  if (morphoUrl) {
+    for (const key of ["market", "marketKey", "markets", "symbol", "borrower", "limit", "marketLimit", "minUsd", "outflowOffset", "includePortfolio", "includeOutflows"]) {
+      const value = reqUrl.searchParams.get(key);
+      if (value) morphoUrl.searchParams.set(key, value);
+    }
+  }
+
+  const [portfolio, morpho] = await Promise.all([
+    portfolioUrl ? fetchEnrichment<unknown>(portfolioUrl, 35_000) : Promise.resolve(disabledEnrichment<unknown>()),
+    morphoUrl ? fetchEnrichment<unknown>(morphoUrl, 60_000) : Promise.resolve(disabledEnrichment<unknown>()),
+  ]);
+
+  if (!portfolio.value && !morpho.value) {
+    if (portfolio.ok && morpho.ok) return payload;
+  }
+
+  return {
+    ...payload,
+    ...(portfolio.value ? { pseudoDebank: portfolio.value } : {}),
+    ...(morpho.value ? { morphoBorrowerAnalysis: morpho.value } : {}),
+    metadata: {
+      ...payload.metadata,
+      enrichment: {
+        pseudoDebank: portfolioUrl ? { ok: portfolio.ok, error: portfolio.error ?? null, seed } : { ok: false, error: "disabled_or_no_seed", seed },
+        morphoBorrowerAnalysis: morphoUrl ? { ok: morpho.ok, error: morpho.error ?? null } : { ok: false, error: "not_requested" },
+      },
+    },
+  };
+}
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const name = url.searchParams.get("name");
@@ -113,10 +189,10 @@ export async function GET(req: Request) {
   if (address && !ADDRESS_RE.test(address)) return NextResponse.json(emptyPayload("invalid ethereum address"), { status: 400 });
 
   const upstream = await fetchUpstreamPayload(name, address, depth);
-  if (upstream) return NextResponse.json(upstream);
+  if (upstream) return NextResponse.json(await enrichPayload(upstream, url, address));
 
   const local = await readLocalPayload(name, address, depth);
-  if (local) return NextResponse.json(local);
+  if (local) return NextResponse.json(await enrichPayload(local, url, address));
 
   return NextResponse.json(emptyPayload("no eoa-flow graph found"), { status: 404 });
 }

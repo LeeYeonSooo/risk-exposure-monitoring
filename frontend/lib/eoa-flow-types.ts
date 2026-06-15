@@ -76,6 +76,7 @@ export type EoaFlowMetadata = {
   important_only?: boolean;
   generated_at_utc?: string;
   discovery?: unknown;
+  enrichment?: unknown;
   dfs?: {
     seed_addresses?: string[];
     depth?: number;
@@ -91,6 +92,8 @@ export type EoaFlowPayload = {
   edges: EoaFlowEdge[];
   events?: unknown[];
   metadata?: EoaFlowMetadata;
+  pseudoDebank?: unknown;
+  morphoBorrowerAnalysis?: unknown;
 };
 
 export type EoaFlowItem = {

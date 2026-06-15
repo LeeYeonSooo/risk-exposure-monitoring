@@ -118,6 +118,8 @@ export interface NodeMetadata {
   pegTargetTokenId?: string | null;
   /** pool-owning protocol for a lending-market node (e.g. "Morpho Blue", "Aave V3", "Spark") */
   venue?: string | null;
+  /** broad protocol class used by relation detail panels, e.g. lending, dex, wrapper */
+  protocolClass?: string | null;
   /** standardized node role */
   role?: string | null;
   /** provenance label */

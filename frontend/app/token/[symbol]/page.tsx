@@ -12,7 +12,7 @@ import { BridgeView } from "@/components/bridge/BridgeView";
 import { GraphCanvas } from "@/components/graph/GraphCanvas";
 import { TokenDossier, type DossierData } from "@/components/graph/TokenDossier";
 import { ADDR_EXPLORER, PRow, TokenSpecRows, pct1, sevDots, shortAddr, useNodeAlertCounts } from "@/components/panel/spec";
-import { SAFE_NODE_STATE, formatUsd, type GraphEdge, type GraphNode, type LstFlowData, type NodeTickState, type RelationDetailMetrics } from "@/lib/api";
+import { SAFE_NODE_STATE, formatUsd, type GraphEdge, type GraphNode, type LstFlowData, type NodeTickState, type RelationDetailMetrics, type RelationMarketRow } from "@/lib/api";
 import { normalizeToBoost, pageRank, usdLogWeight } from "@/lib/centrality";
 import { applyConcentricLayout, type PoolLike, type MorphoMkt, type EulerVault } from "@/lib/concentric-layout";
 import { overlayLego, type LegoApiEdge, type LegoApiNode } from "@/lib/lego-overlay";
@@ -615,6 +615,131 @@ function CounterpartyList({ label, rows, missingValue, chain, badge }: {
     </div>
   );
 }
+
+type MorphoBorrowerRisk = {
+  address?: string | null;
+  marketPosition?: {
+    borrowUsd?: number | null;
+    collateralUsd?: number | null;
+  };
+  riskInputs?: {
+    liquidation?: {
+      ltv?: number | null;
+      lltv?: number | null;
+      liquidationBufferPct?: number | null;
+    };
+    liquidity?: {
+      availableLiquidToDebt?: number | null;
+      highQualityLiquidToDebt?: number | null;
+    };
+  };
+  externalOutflows?: {
+    totals?: {
+      knownCexBridgeUsd30d?: number | null;
+      largeUnclassifiedUsd30d?: number | null;
+    };
+  } | null;
+  riskBand?: string | null;
+};
+
+type MorphoBorrowerAnalysis = {
+  markets?: Array<{
+    marketKey?: string;
+    marketLabel?: string;
+    borrowers?: MorphoBorrowerRisk[];
+  }>;
+  dataGaps?: string[];
+};
+
+function pctMaybe(value: number | null | undefined): string {
+  return typeof value === "number" && Number.isFinite(value) ? pct1(value) : "—";
+}
+
+function MorphoBorrowerRiskPanel({ marketKey, chain }: { marketKey: string | null; chain: string }) {
+  const [data, setData] = useState<MorphoBorrowerAnalysis | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!marketKey || chain !== "ethereum") return;
+    const ctrl = new AbortController();
+    setLoading(true);
+    setError(null);
+    setData(null);
+    const params = new URLSearchParams({
+      market: marketKey,
+      limit: "5",
+      includePortfolio: "true",
+      includeOutflows: "true",
+      outflowOffset: "500",
+    });
+    fetch(`/api/morpho-borrower-analysis?${params.toString()}`, { cache: "no-store", signal: ctrl.signal })
+      .then((res) => res.ok ? res.json() : Promise.reject(new Error(`/api/morpho-borrower-analysis -> ${res.status}`)))
+      .then((json: MorphoBorrowerAnalysis) => setData(json))
+      .catch((err: Error) => {
+        if (err.name !== "AbortError") setError(err.message);
+      })
+      .finally(() => {
+        if (!ctrl.signal.aborted) setLoading(false);
+      });
+    return () => ctrl.abort();
+  }, [chain, marketKey]);
+
+  if (!marketKey || chain !== "ethereum") return null;
+  const market = data?.markets?.[0] ?? null;
+  const borrowers = market?.borrowers ?? [];
+
+  return (
+    <div className="mt-2 rounded-md border border-[var(--color-border-subtle)] bg-[var(--color-surface-raised)] px-2.5 py-2">
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <span className="text-[11px] font-semibold text-[var(--color-text-primary)]">차입자 유동성 체크</span>
+        <span className="font-mono text-[10px] text-[var(--color-text-muted)]">score pending</span>
+      </div>
+      {loading && <div className="font-mono text-[10px] text-[var(--color-text-muted)]">pseudo-DeBank 분석 중...</div>}
+      {error && <div className="font-mono text-[10px] text-[var(--color-danger)]">{error}</div>}
+      {!loading && !error && borrowers.length === 0 && <div className="font-mono text-[10px] text-[var(--color-text-muted)]">분석 가능한 차입자 없음</div>}
+      {borrowers.length > 0 && (
+        <div className="space-y-1.5">
+          {borrowers.slice(0, 5).map((b, idx) => {
+            const address = b.address && /^0x[0-9a-fA-F]{40}$/.test(b.address) ? b.address : null;
+            const liq = b.riskInputs?.liquidity?.availableLiquidToDebt ?? b.riskInputs?.liquidity?.highQualityLiquidToDebt ?? null;
+            const cexBridge = b.externalOutflows?.totals?.knownCexBridgeUsd30d ?? null;
+            const unclassified = b.externalOutflows?.totals?.largeUnclassifiedUsd30d ?? null;
+            return (
+              <div key={address ?? `${marketKey}:${idx}`} className="rounded border border-[var(--color-border-subtle)] bg-[var(--color-bg)] px-2 py-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  {address ? (
+                    <Link
+                      href={`/eoa-flow?address=${address}&depth=1&market=${marketKey}&limit=5`}
+                      className="min-w-0 truncate font-mono text-[11px] text-[var(--color-accent)] hover:underline"
+                    >
+                      {shortAddr(address)}
+                    </Link>
+                  ) : (
+                    <span className="min-w-0 truncate font-mono text-[11px] text-[var(--color-text-muted)]">unknown</span>
+                  )}
+                  <span className="shrink-0 font-mono text-[10px] text-[var(--color-text-primary)]">debt {formatUsd(b.marketPosition?.borrowUsd)}</span>
+                </div>
+                <div className="mt-1 grid grid-cols-2 gap-x-2 gap-y-0.5 font-mono text-[10px] text-[var(--color-text-secondary)]">
+                  <span>LTV {pctMaybe(b.riskInputs?.liquidation?.ltv)} / {pctMaybe(b.riskInputs?.liquidation?.lltv)}</span>
+                  <span>buf {pctMaybe(b.riskInputs?.liquidation?.liquidationBufferPct)}</span>
+                  <span>liq/debt {pctMaybe(liq)}</span>
+                  <span>CEX+bridge {formatUsd(cexBridge)}</span>
+                  {unclassified != null && unclassified > 0 && <span className="col-span-2 text-[var(--color-text-muted)]">대형 미분류 30d {formatUsd(unclassified)}</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {!!data?.dataGaps?.length && (
+        <div className="mt-1 truncate font-mono text-[9px] text-[var(--color-text-muted)]" title={data.dataGaps.join(", ")}>
+          gap · {data.dataGaps[0]}
+        </div>
+      )}
+    </div>
+  );
+}
 function tokenList(v: unknown): string | null {
   if (!Array.isArray(v) || !v.length) return null;
   return v.slice(0, 3).map((x) => typeof x === "string" && /^0x[0-9a-fA-F]{40}$/.test(x) ? shortAddr(x) : String(x)).join(" · ");
@@ -641,12 +766,16 @@ function MetricRows({ metrics, showDex = false, showTopBorrowers = true, chain =
       : metrics.weeklySwapUsd != null ? formatUsd(metrics.weeklySwapUsd) : null
     : missing(metrics, "weekly_swap");
   const marketRows = metrics.marketRows?.filter((r) => r.count > 0) ?? [];
+  const marketRowValue = (r: RelationMarketRow) => {
+    if (r.label.endsWith("량")) return r.amountUsd != null ? formatUsd(r.amountUsd) : "미수집";
+    return `${r.count}개${r.amountUsd != null ? ` · ${formatUsd(r.amountUsd)}` : ""}`;
+  };
   return (
     <>
       <PRow k="토큰 예치" v={tokenAmount} badge={metrics.tokenAmount == null && tokenAmount ? "estimated" : undefined} />
       <PRow k="TVL" v={metrics.tvlUsd != null ? formatUsd(metrics.tvlUsd) : null} />
       {marketRows.map((r) => (
-        <PRow key={r.label} k={r.label} v={`${r.count}개${r.amountUsd != null ? ` · ${formatUsd(r.amountUsd)}` : ""}`} />
+        <PRow key={r.label} k={r.label} v={marketRowValue(r)} />
       ))}
       <PRow k="LTV / LLTV" v={ltv} warn={(metrics.lltv ?? 0) >= 0.945 || (metrics.ltv ?? 0) >= 0.9} />
       <PRow k="이용률" v={metrics.utilization != null ? pct1(metrics.utilization) : null} warn={(metrics.utilization ?? 0) >= 0.95} />
@@ -683,7 +812,12 @@ function PickDetail({ d, onClose }: { d: Record<string, unknown>; onClose: () =>
   const head = kind === "token" ? "토큰" : kind === "vault" ? "볼트 (큐레이터 운용)" : kind === "bridge" ? "브릿지" : kind === "protocol" ? "프로토콜" : kind === "derivative" ? "파생토큰 (머니레고)" : kind === "pool" ? "풀/마켓" : "마켓";
   const title = kind === "token" ? String(d.symbol) : kind === "vault" ? String(d.curator ?? d.vault ?? "vault") : String(d.label ?? d.market ?? d.protocol ?? "");
   const metrics = (d.relationMetrics as RelationDetailMetrics | null | undefined) ?? null;
-  const showDexMetrics = !!metrics && ((metrics.dexLiquidityUsd ?? 0) > 0 || !!metrics.dataGaps?.includes("weekly_swap"));
+  const isDexDetail = kind === "pool"
+    ? d.exposure === "multi"
+    : kind === "protocol"
+      ? String(d.protocolClass ?? d.category ?? "").toLowerCase().includes("dex")
+      : false;
+  const showDexMetrics = !!metrics && isDexDetail && ((metrics.dexLiquidityUsd ?? 0) > 0 || !!metrics.dataGaps?.includes("weekly_swap"));
 
   let body: React.ReactNode = null;
   if (kind === "token") {
@@ -765,9 +899,11 @@ function PickDetail({ d, onClose }: { d: Record<string, unknown>; onClose: () =>
     const curators = [...new Set(fv.map((v) => v.curator ?? v.vault).filter(Boolean))] as string[];
     const oracleAddr = d.oracleAddress != null ? String(d.oracleAddress) : null;
     const marketSizeUsd = Number(d.marketSizeUsd ?? d.sizeUsd ?? metrics?.tvlUsd ?? metrics?.tokenAmountUsd ?? 0);
+    const marketKey = typeof d.marketKey === "string" ? d.marketKey : null;
     body = (
       <>
         <MetricRows metrics={metrics} chain={chain} />
+        <MorphoBorrowerRiskPanel marketKey={marketKey} chain={chain} />
         <PRow k="페어" v={d.collateralAsset != null || d.loanAsset != null ? `${String(d.collateralAsset ?? "?")} / ${String(d.loanAsset ?? "?")}` : String(d.market ?? "")} />
         <PRow k="LLTV / 여유" v={cushion != null ? `${pct1(lltv)} · ${cushion.toFixed(1)}%p` : lltv ? pct1(lltv) : null}
           warn={lltv >= 0.945 || (cushion != null && cushion <= 8)} badge={agg != null ? "verified" : undefined} />

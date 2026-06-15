@@ -25,7 +25,13 @@ const CHAIN_MAP: Record<string, string> = {
 
 // 검증된 정식주소 오버라이드 — DeFiLlama 풀 메타로 주소를 못 얻는 핵심 배포분만
 // (해당 체인 RPC totalSupply 직독으로 검증된 주소만 등재). 3체인 스코프에선 현재 비어 있음.
-const ADDR_OVERRIDES: Record<string, Record<string, string>> = {};
+const ADDR_OVERRIDES: Record<string, Record<string, string>> = {
+  WEETH: {
+    ethereum: "0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee",
+    base: "0x04c0599ae5a44757c0af6f9ec3b93da8976c150a",
+    arbitrum: "0x35751007a407ca6fefffE80b3cB397736D2cf4dbe",
+  },
+};
 
 const CHAIN_TVL_MIN = 250_000;   // 체인 단위 dust 컷 (낮춤 — 더 많은 체인)
 const PROTO_TVL_MIN = 20_000;    // 프로토콜 단위 dust 컷 (낮춤)
@@ -71,7 +77,7 @@ const morphoChainKey = (id?: number, net?: string) =>
   (id != null && CHAINID_KEY[id]) || (net && NAME_KEY[net]) || null;
 // (sameFamily 제거 — ouroboros 신호 전면 제외)
 
-type MItem = { lltv?: string; loanAsset?: { symbol?: string }; collateralAsset?: { symbol?: string }; state?: { supplyAssetsUsd?: number; collateralAssetsUsd?: number; borrowAssetsUsd?: number; utilization?: number }; chain?: { id?: number; network?: string }; supplyingVaults?: { name?: string }[] };
+type MItem = { marketId?: string; lltv?: string; loanAsset?: { symbol?: string }; collateralAsset?: { symbol?: string }; state?: { supplyAssetsUsd?: number; collateralAssetsUsd?: number; borrowAssetsUsd?: number; utilization?: number }; chain?: { id?: number; network?: string }; supplyingVaults?: { name?: string }[] };
 async function morphoQuery(filter: string, addrs: string[], revalidateS: number): Promise<MItem[]> {
   const query = `{ markets(first: 300, orderBy: SupplyAssetsUsd, orderDirection: Desc, where: { ${filter}: ${JSON.stringify(addrs)} }) { items { marketId lltv loanAsset { symbol } collateralAsset { symbol } state { supplyAssetsUsd collateralAssetsUsd borrowAssetsUsd utilization } chain { id network } supplyingVaults { name } } } }`;
   try {
@@ -100,7 +106,7 @@ async function fetchMorphoMarkets(addrs: string[], revalidateS: number): Promise
     const size = role === "collateral" ? collateralAssetsUsd : supplyAssetsUsd;
     if (!chain || size <= 0) return;
     (out[chain] ??= []).push({
-      marketKey: (m as MItem & { marketId?: string }).marketId ?? `${coll}/${loan}/${m.lltv ?? ""}`,
+      marketKey: m.marketId ?? `${coll}/${loan}/${m.lltv ?? ""}`,
       loan, collateral: coll, lltv: m.lltv ? Number(m.lltv) / 1e18 : null,
       supplyUsd: size, supplyAssetsUsd, collateralAssetsUsd, borrowAssetsUsd,
       utilization: m.state?.utilization ?? null, ouroboros: false, role,
@@ -111,7 +117,7 @@ async function fetchMorphoMarkets(addrs: string[], revalidateS: number): Promise
   for (const m of asLoan) push(m, "supply");
   for (const k of Object.keys(out)) { // 같은 마켓 양쪽 매칭 dedupe + 규모순
     const seen = new Set<string>();
-    out[k] = out[k].filter((m) => { const key = `${m.collateral}/${m.loan}/${m.lltv}`; if (seen.has(key)) return false; seen.add(key); return true; }).sort((a, b) => b.supplyUsd - a.supplyUsd);
+    out[k] = out[k].filter((m) => { const key = m.marketKey || `${m.collateral}/${m.loan}/${m.lltv}`; if (seen.has(key)) return false; seen.add(key); return true; }).sort((a, b) => b.supplyUsd - a.supplyUsd);
   }
   return out;
 }
@@ -622,7 +628,7 @@ async function fetchMorphoRelationDetails(marketsByChain: Record<string, MorphoM
     if (!chainId || !markets.length) return;
     const dep = new Map<string, DetailCounterparty>();
     const bor = new Map<string, DetailCounterparty>();
-    const topMarkets = markets.slice(0, 12);
+    const topMarkets = markets.slice(0, 50);
     const depositorDenomUsd = topMarkets.reduce((s, m) => s + (m.supplyUsd || 0), 0);
     await Promise.all(topMarkets.map(async (m) => {
       const marketDep = new Map<string, DetailCounterparty>();
@@ -665,7 +671,7 @@ async function fetchMorphoRelationDetails(marketsByChain: Record<string, MorphoM
           { label: "담보량", count: 1, amountUsd: m.collateralAssetsUsd },
           { label: "예치량", count: 1, amountUsd: m.supplyAssetsUsd },
           { label: "차입량", count: 1, amountUsd: m.borrowAssetsUsd },
-        ].filter((r) => (r.amountUsd ?? 0) > 0),
+        ],
         dataGaps: gaps,
       };
     }));
@@ -711,6 +717,7 @@ export async function GET(
   for (const p of singles) {
     const chain = CHAIN_MAP[p.chain ?? ""]; if (!chain) continue;
     const addr = p.underlyingTokens![0]!;
+    if (norm(addr) === ZERO_ADDR) continue;
     if (!canonByChain.has(chain)) canonByChain.set(chain, new Set());
     canonByChain.get(chain)!.add(norm(addr));
     if (!tokenAddrByChain[chain]) tokenAddrByChain[chain] = addr; // TVL 내림차순 정렬 → 첫 주소 = 최대 풀의 주소
@@ -723,13 +730,14 @@ export async function GET(
   for (const p of oneUnderlying) {
     const chain = CHAIN_MAP[p.chain ?? ""]; if (!chain || tokenAddrByChain[chain]) continue;
     const addr = p.underlyingTokens![0]!;
+    if (norm(addr) === ZERO_ADDR) continue;
     if (!canonByChain.has(chain)) canonByChain.set(chain, new Set());
     canonByChain.get(chain)!.add(norm(addr));
     tokenAddrByChain[chain] = addr;
   }
   // 3차: 검증된 오버라이드 — 풀 메타로 끝내 못 얻은 핵심 배포분만 채움 (USDT@tron 등).
   for (const [chain, addr] of Object.entries(ADDR_OVERRIDES[want] ?? {})) {
-    if (tokenAddrByChain[chain]) continue;
+    if (tokenAddrByChain[chain] && norm(tokenAddrByChain[chain]) !== ZERO_ADDR) continue;
     tokenAddrByChain[chain] = addr;
     if (!canonByChain.has(chain)) canonByChain.set(chain, new Set());
     canonByChain.get(chain)!.add(norm(addr));
