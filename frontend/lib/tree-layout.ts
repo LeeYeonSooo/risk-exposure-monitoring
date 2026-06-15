@@ -75,14 +75,45 @@ export function applyTreeLayout(topology: TopologyResponse, hiddenChains: Set<st
     const d = depthOf(p, seen) + 1; chainDepth.set(id, d); return d;
   };
   for (const id of backedParent.keys()) depthOf(id);
-  // 레벨 — 체인 노드는 토큰부터의 홉수, 그 외는 종류 레벨.
-  const lvl = (id: string): number => chainDepth.get(id) ?? levelOf(byId.get(id)!);
+
+  // 생산자 부모 — issues/lp_of/staked_in 으로 이 노드를 "만든/구성한" 비토큰 소스. 종류 레벨상 더 상위 부모가
+  //   루트 토큰뿐(또는 없음)이라 토큰 밑으로 떠다니는 파생을 그 생산자 아래로 끌어내린다:
+  //   Convex 영수증(풀이 issues, 풀=레벨3) → 풀 아래 / Pendle LP(PT 가 lp_of, PT=레벨2) → PT 아래. (프로토콜에 잘 붙은 건 안 건드림.)
+  const PRODUCER_REL = new Set(["issues", "lp_of", "staked_in"]);
+  const isRootToken = (id: string) => /^c:[^:]+:token$/.test(id) || byId.get(id)?.type === "Token";
+  const inRel = new Map<string, { src: string; rel: string }[]>();
+  for (const e of topology.edges) {
+    if (!idSet.has(e.source) || !idSet.has(e.target) || e.source === e.target) continue;
+    (inRel.get(e.target) ?? inRel.set(e.target, []).get(e.target)!).push({ src: e.source, rel: String(e.type ?? "") });
+  }
+  const producerParent = new Map<string, string>();
+  for (const n of nodes) {
+    const lv = levelOf(n);
+    if (lv === 0 || backedParent.has(n.id)) continue;
+    const ins = inRel.get(n.id) ?? [];
+    const higher = ins.filter((s) => byId.has(s.src) && levelOf(byId.get(s.src)!) < lv).sort((a, b) => levelOf(byId.get(b.src)!) - levelOf(byId.get(a.src)!));
+    if (higher.length && !isRootToken(higher[0].src)) continue; // 이미 프로토콜 등 더 상위에 잘 붙음
+    const prod = ins.filter((s) => PRODUCER_REL.has(s.rel) && byId.has(s.src) && !isRootToken(s.src) && s.src !== n.id)
+      .sort((a, b) => levelOf(byId.get(b.src)!) - levelOf(byId.get(a.src)!))[0]?.src;
+    if (prod) producerParent.set(n.id, prod);
+  }
+
+  // 레벨 — 체인 노드는 토큰부터 홉수, 생산자 부모 노드는 생산자보다 한 단계 깊게, 그 외는 종류 레벨.
+  const lvlCache = new Map<string, number>();
+  const lvl = (id: string, seen = new Set<string>()): number => {
+    const c = lvlCache.get(id); if (c != null) return c;
+    if (chainDepth.has(id)) { const v = chainDepth.get(id)!; lvlCache.set(id, v); return v; }
+    const pp = producerParent.get(id);
+    if (pp && !seen.has(id)) { seen.add(id); const v = lvl(pp, seen) + 1; lvlCache.set(id, v); return v; }
+    const v = levelOf(byId.get(id)!); lvlCache.set(id, v); return v;
+  };
 
   // 부모 = in-edge source 중 레벨이 더 낮은(상위) 것 중 가장 가까운(레벨 큰) 노드. 없으면 같은 체인 토큰.
   //   파생(2)의 in-edge: 토큰(0, issues)·프로토콜(1, issues) → 가장 가까운 상위 = 프로토콜(1). 파생이 프로토콜 아래로.
   //   마켓(3): 파생(2, collateral_at)·프로토콜(1) → 파생(2). 볼트(4): 마켓(3). 프로토콜(1): 토큰(0).
   const parentOf = (id: string): string | null => {
     if (backedParent.has(id)) return backedParent.get(id)!; // 체인은 직전 노드가 부모(레벨 무관 — 곧은 분기)
+    if (producerParent.has(id)) return producerParent.get(id)!; // 생산자(풀·PT 등) 아래로
     const n = byId.get(id)!; const lv = lvl(id);
     if (lv === 0) return null;
     const srcs = (inEdges.get(id) ?? []).filter((s) => byId.has(s) && lvl(s) < lv);

@@ -47,9 +47,18 @@ const DERIV_ROLE_META: Record<string, { code: string; desc: string }> = {
   pt: { code: "PT", desc: "원금 토큰" },
   yt: { code: "YT", desc: "수익 토큰" },
   lp: { code: "LP", desc: "유동성 풀 토큰" },
-  receipt: { code: "aT", desc: "예치 영수증" },
+  receipt: { code: "RC", desc: "예치 영수증" },
   wrapper: { code: "볼트", desc: "볼트 쉐어" }, // MetaMorpho 류 ERC-4626 큐레이터 볼트 쉐어
 };
+
+// 예치 영수증(receipt)은 발행 프로토콜마다 다른 토큰 — 배지를 프로토콜별로. "aT"(aToken)는 Aave 전용이라
+//   Convex 영수증(cvxLP)에 붙으면 오해를 준다(사용자 2026-06-15). venue=프로토콜 슬러그로 구분.
+function receiptBadge(venue: string): { code: string; desc: string } {
+  const v = venue.toLowerCase();
+  if (v.includes("aave") || v.includes("spark")) return { code: "aT", desc: "aToken · Aave 예치 영수증" };
+  if (v.includes("convex")) return { code: "cvx", desc: "Convex 예치 영수증(cvxLP)" };
+  return { code: "RC", desc: "예치 영수증" };
+}
 
 const RISK_CLASS = {
   safe: "node-healthy",
@@ -253,7 +262,9 @@ function RiskNodeComponent({ data, selected }: NodeProps<RiskNodeType>) {
     // 브릿지 래핑본(USDC.e 등)은 같은 wrapper 역할이지만 볼트 쉐어가 아님 — venue=bridge 면 별도 표기.
     const rm = (role === "wrapper" && node.metadata.venue === "bridge")
       ? { code: "랩", desc: "브릿지 래핑본" }
-      : DERIV_ROLE_META[role] ?? { code: "·", desc: "파생" };
+      : role === "receipt"
+        ? receiptBadge(String(node.metadata.venue ?? ""))
+        : DERIV_ROLE_META[role] ?? { code: "·", desc: "파생" };
     const accent = TYPE_META.DerivativeToken.accent;
     const usd = typeof sizeUsd === "number" && sizeUsd > 0 ? formatUsd(sizeUsd) : null;
     const isTerminal = node.metadata.terminal === true;

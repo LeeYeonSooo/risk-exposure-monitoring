@@ -11,56 +11,68 @@
  */
 import process from "node:process";
 
+import { toFunctionSelector } from "viem";
+
 import { oracleTypeForCollateral } from "@/config/alert-thresholds";
 import { closePool, query } from "@/db/client";
 import { ACCEPTOR_ADAPTERS } from "@/lego/acceptors";
 import { aaveATokenFor, convexLpMap, curveLpsFor, metamorphoVaultsFor, pendleMarketsFor } from "@/lego/discover";
-import { symbolsOf } from "@/lego/onchain";
+import { ethCall, decodeAddressWord, symbolsOf } from "@/lego/onchain";
 import { CHAIN_IDS, computeTerminalMark, derivNodeId, marketNodeId, type LegoEdge, type LegoNode } from "@/lego/types";
 import { introspectOracle } from "@/oracle/introspect";
 
 const CHAINS = ["ethereum", "base", "arbitrum"];
 
-// 언더라잉/배킹 체인 레지스트리 — "토큰이 무엇으로 구성되는가"를 언더라잉 토큰→기반자산→리스테이킹 venue 까지 단계로 푼다.
-//   (심볼 lowercase 키, 순서 = 즉시 언더라잉 → … → 기반 → venue. 모두 단일 노드 + backed_by 엣지로 체인.)
-//   weETH→eETH→ETH→EigenLayer: 주소·관계 온체인 검증(weETH.eETH()=eETH rate 1.097, eETH←1.84M ETH ether.fi).
-//   EigenLayer 멤버십은 정설 LRT(온체인 토큰 프로브 불가: stakerStrategyListLength(LRT)=0 — 리스테이킹은 프로토콜별
-//     NodeDelegator/EigenPod 가 함, 연구 검증). sUSDe→USDe 는 sUSDe.asset()==USDe 온체인 검증.
-//   ★가치★: 궁극 기반(ETH)·venue(EigenLayer) node id 가 체인 공유라 형제 토큰(weETH·rsETH·ezETH)이 같은 ETH·EigenLayer
-//     노드를 공유 → 상류 공동위험이 한 노드로 모인다. venue 가 블랙박스로 끝나지 않고 언더라잉 토큰까지 연결된다.
-interface ChainStep { symbol: string; address?: string; brandSlug: string; kind: "underlying" | "base" | "venue"; venueSlug?: string }
-const UNDERLYING_CHAIN: Record<string, ChainStep[]> = {
-  weeth: [
-    { symbol: "eETH", address: "0x35fa164735182de50811e8e2e824cfb9b6118ac2", brandSlug: "etherfi", kind: "underlying" },
-    { symbol: "ETH", brandSlug: "ethereum", kind: "base" },
-    { symbol: "EigenLayer", brandSlug: "eigenlayer", kind: "venue", venueSlug: "eigenlayer" },
-  ],
-  ezeth: [{ symbol: "ETH", brandSlug: "ethereum", kind: "base" }, { symbol: "EigenLayer", brandSlug: "eigenlayer", kind: "venue", venueSlug: "eigenlayer" }],
-  rseth: [{ symbol: "ETH", brandSlug: "ethereum", kind: "base" }, { symbol: "EigenLayer", brandSlug: "eigenlayer", kind: "venue", venueSlug: "eigenlayer" }],
-  rsweth: [{ symbol: "ETH", brandSlug: "ethereum", kind: "base" }, { symbol: "EigenLayer", brandSlug: "eigenlayer", kind: "venue", venueSlug: "eigenlayer" }],
-  pufeth: [{ symbol: "ETH", brandSlug: "ethereum", kind: "base" }, { symbol: "EigenLayer", brandSlug: "eigenlayer", kind: "venue", venueSlug: "eigenlayer" }],
-  susde: [
-    { symbol: "USDe", address: "0x4c9edd5852cd905f086c759e8383e09bff1e68b3", brandSlug: "ethena", kind: "underlying" },
-    { symbol: "Ethena", brandSlug: "ethena", kind: "venue", venueSlug: "ethena" },
-  ],
-  usde: [{ symbol: "Ethena", brandSlug: "ethena", kind: "venue", venueSlug: "ethena" }],
-};
-// 배킹 프로토콜 TVL(노드 크기) — DeFiLlama /protocol/{slug} currentChainTvls 합(차입/스테이킹 파생 제외). 슬러그별 캐시.
-const _backingTvl = new Map<string, number | null>();
-async function backingTvlUsd(slug: string): Promise<number | null> {
-  if (_backingTvl.has(slug)) return _backingTvl.get(slug)!;
-  let v: number | null = null;
-  try {
-    const r = await fetch(`https://api.llama.fi/protocol/${slug}`);
-    if (r.ok) {
-      const j = (await r.json()) as { currentChainTvls?: Record<string, number> };
-      const t = j.currentChainTvls ?? {};
-      const sum = Object.entries(t).filter(([k]) => !/-(borrowed|staking|pool2|vesting)/i.test(k)).reduce((s, [, n]) => s + (typeof n === "number" ? n : 0), 0);
-      v = sum > 0 ? sum : null;
-    }
-  } catch { v = null; }
-  _backingTvl.set(slug, v);
-  return v;
+// 언더라잉 자동 감지 — "토큰이 무엇으로 구성되는가"를 온체인으로 잡는다(정적 레지스트리 없이 어떤 토큰이든).
+//   래퍼/영수증/볼트쉐어가 노출하는 표준 메서드를 순차 시도해 즉시 언더라잉 주소를 읽고, 재귀로 끝까지 푼다(2026-06-15):
+//     asset()(ERC4626 볼트·sUSDe) · UNDERLYING_ASSET_ADDRESS()(Aave aToken) · underlying()(Compound cToken·래퍼)
+//     · stETH()(wstETH) · eETH()(weETH). 베이스 자산(WETH·USDC…)은 메서드가 없어 자연히 종착(오탐 없음, 8토큰 검증).
+//   ETH 스테이킹/리스테이킹 영수증(stETH·eETH·rETH·ezETH…)은 온체인 '언더라잉=ETH' 참조가 없으므로(ETH는 네이티브)
+//     종착 심볼로 ETH 기반을 부착한다. 궁극 기반(ETH) node id 체인 공유 → 형제 토큰이 같은 ETH 노드로 모임.
+interface ChainStep { symbol: string; address?: string; brandSlug?: string; kind: "underlying" | "base" }
+const UNDER_SELECTORS: `0x${string}`[] = [
+  toFunctionSelector("function asset() view returns (address)"),
+  toFunctionSelector("function UNDERLYING_ASSET_ADDRESS() view returns (address)"),
+  toFunctionSelector("function underlying() view returns (address)"),
+  toFunctionSelector("function stETH() view returns (address)"),
+  toFunctionSelector("function eETH() view returns (address)"),
+];
+// 종착이 이 심볼(lowercase)이면 ETH 로 바닥나는 스테이킹/리스테이킹 영수증 → 기반 ETH 부착.
+const ETH_STAKING_SYMS = new Set(["steth", "wsteth", "eeth", "weeth", "reth", "cbeth", "meth", "ethx", "sfrxeth", "oseth", "oeth", "ankreth", "sweth", "wbeth", "lseth", "ageth", "ezeth", "rseth", "rsweth", "pufeth", "unieth"]);
+function brandSlugForSym(sym: string): string | undefined {
+  const s = sym.toLowerCase();
+  if (s === "eth" || s === "weth") return "ethereum";
+  if (s.includes("steth")) return "lido";
+  if (s.includes("eeth") || s === "weeth") return "etherfi";
+  if (s === "reth") return "rocketpool";
+  if (s === "cbeth") return "coinbase";
+  if (s === "usde" || s === "susde") return "ethena";
+  return undefined;
+}
+/** 토큰의 즉시 언더라잉 주소 1개(표준 메서드 배터리). 없으면 null(=종착). */
+async function detectUnderlying(addr: string, chain: string): Promise<string | null> {
+  for (const sel of UNDER_SELECTORS) {
+    const u = decodeAddressWord(await ethCall(chain, addr, sel));
+    if (u && /^0x[0-9a-f]{40}$/.test(u) && u !== addr.toLowerCase()) return u;
+  }
+  return null;
+}
+/** 토큰의 언더라잉 체인(즉시 언더라잉→…→기반). 재귀로 끝까지(깊이 4·사이클 가드), 스테이킹 영수증이면 ETH 기반 부착. */
+async function underlyingChainFor(tokenAddr: string, chain: string, viewedSym: string): Promise<ChainStep[]> {
+  if (!/^0x[0-9a-f]{40}$/i.test(tokenAddr)) return [];
+  const addrs: string[] = [];
+  let cur = tokenAddr.toLowerCase();
+  const seen = new Set([cur]);
+  for (let d = 0; d < 4; d++) {
+    const u = await detectUnderlying(cur, chain).catch(() => null);
+    if (!u || seen.has(u)) break;
+    seen.add(u); addrs.push(u); cur = u;
+  }
+  const syms = addrs.length ? await symbolsOf(chain, addrs) : new Map<string, string | null>();
+  const steps: ChainStep[] = addrs.map((a) => { const sym = syms.get(a) || "?"; return { symbol: sym, address: a, brandSlug: brandSlugForSym(sym), kind: "underlying" as const }; });
+  const terminusSym = (steps.length ? steps[steps.length - 1].symbol : viewedSym).toLowerCase();
+  if (ETH_STAKING_SYMS.has(terminusSym)) steps.push({ symbol: "ETH", brandSlug: "ethereum", kind: "base" });
+  return steps;
 }
 
 interface TokenRow { node_id: string; address: string; chain: string; label: string }
@@ -342,27 +354,24 @@ async function buildFor(t: TokenRow): Promise<{ nodes: LegoNode[]; edges: LegoEd
     }
   }
 
-  // ⑥''' 언더라잉/배킹 체인 — "토큰이 무엇으로 구성되는가"를 언더라잉 토큰→기반→venue 단일노드 체인으로(backed_by).
-  //   weETH→eETH→ETH→EigenLayer. 프로토콜 껍데기 안 만든다(중복 방지) — 프론트 backed_by 블록이 단일노드 체인으로 렌더.
-  //   기반(ETH)·venue(EigenLayer) id 체인 공유 → 형제 토큰이 같은 노드로 모임. venue tvl=DeFiLlama.
+  // ⑥''' 언더라잉 체인 — "토큰이 무엇으로 구성되는가"를 온체인 자동 감지로 단일노드 체인(backed_by)으로 푼다.
+  //   어떤 토큰이든 표준 메서드(asset/UNDERLYING_ASSET_ADDRESS/underlying/stETH/eETH)로 언더라잉을 잡는다 → 정적 등록 불필요.
+  //   weETH→eETH→ETH, wstETH→stETH→ETH, sUSDe→USDe, aToken→리저브.
+  //   ★node id 는 토큰-스코프(legochain:{viewed}.{sym})★ — 여러 토큰이 같은 ETH/stETH id 를 공유하면 per-token persist
+  //     DELETE(dst IN parent_token=$1)가 서로의 체인 엣지를 교차 삭제하므로(검증된 버그), 토큰별로 분리한다.
   {
-    const sym = viewedSymbolOf(tokenId).toLowerCase();
-    const steps = UNDERLYING_CHAIN[sym];
-    if (steps?.length) {
+    const steps = await underlyingChainFor(t.address, chain, viewedSymbolOf(tokenId));
+    if (steps.length) {
+      const vsym = viewedSymbolOf(tokenId).toLowerCase();
       let prevId = tokenId;
       for (const s of steps) {
-        const id = s.kind === "venue" ? marketNodeId(s.venueSlug!, "backing", chain) : `legochain:${s.symbol.toLowerCase()}@${chain}`;
-        let meta: Record<string, unknown>;
-        if (s.kind === "venue") {
-          const tvl = await backingTvlUsd(s.venueSlug!);
-          meta = { kind: "backing", venue: s.symbol, brandSlug: s.brandSlug, upstreamBacking: true, sizeUsd: tvl, category: `${s.symbol} · 상류 배킹(공유 기반)` };
-        } else if (s.kind === "base") {
-          meta = { kind: "underlying", baseAsset: true, brandSlug: s.brandSlug, symbol: s.symbol, category: `${s.symbol} · 기반 자산(궁극 언더라잉)` };
-        } else {
-          meta = { kind: "underlying", brandSlug: s.brandSlug, address: s.address, symbol: s.symbol, category: `${s.symbol} · 언더라잉 토큰` };
-        }
-        addMarket(id, s.brandSlug, s.symbol, meta);
-        addEdge(prevId, id, "backed_by", null, { source: "underlying-registry", symbol: s.symbol, stepKind: s.kind, ...(s.address ? { address: s.address } : {}) });
+        const key = s.symbol && s.symbol !== "?" ? s.symbol.toLowerCase() : (s.address?.slice(2, 10) ?? "x");
+        const id = `legochain:${vsym}.${key}@${chain}`;
+        const meta: Record<string, unknown> = s.kind === "base"
+          ? { kind: "underlying", baseAsset: true, brandSlug: s.brandSlug, symbol: s.symbol, address: s.address, category: `${s.symbol} · 기반 자산(궁극 언더라잉)` }
+          : { kind: "underlying", brandSlug: s.brandSlug, address: s.address, symbol: s.symbol, category: `${s.symbol} · 언더라잉 토큰` };
+        addMarket(id, s.brandSlug ?? s.symbol.toLowerCase(), s.symbol, meta);
+        addEdge(prevId, id, "backed_by", null, { source: "underlying-onchain", symbol: s.symbol, ...(s.address ? { address: s.address } : {}) });
         prevId = id;
       }
     }
