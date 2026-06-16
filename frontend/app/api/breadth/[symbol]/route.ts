@@ -37,6 +37,9 @@ const CHAIN_TVL_MIN = 250_000;   // 체인 단위 dust 컷 (낮춤 — 더 많�
 const PROTO_TVL_MIN = 20_000;    // 프로토콜 단위 dust 컷 (낮춤)
 const MAX_CHAINS = 12;           // 상위 체인 (늘림)
 const POOLS_PER_PROTO = 12;      // 프로토콜당 마켓/풀 상한 (늘림 — 단일체인 뷰에서 깊게)
+const TOP_COUNTERPARTY_MIN = 10;
+const TOP_COUNTERPARTY_MAX = 25;
+const TOP_COUNTERPARTY_TARGET_SHARE = 0.9;
 
 interface Pool {
   chain?: string; project?: string; symbol?: string; tvlUsd?: number;
@@ -415,7 +418,7 @@ select p.address,
 from positive p
 cross join totals t
 order by p.balance desc
-limit 5`;
+limit ${TOP_COUNTERPARTY_MAX}`;
   const exec = await fetchDuneJson<DuneExecutionResp>("/sql/execute", {
     method: "POST",
     body: JSON.stringify({ sql, performance: "small" }),
@@ -434,7 +437,7 @@ limit 5`;
     await cancelDuneExecution(executionId);
     return [];
   }
-  const result = await fetchDuneJson<DuneRowsResp>(`/execution/${executionId}/results?limit=10`);
+  const result = await fetchDuneJson<DuneRowsResp>(`/execution/${executionId}/results?limit=${TOP_COUNTERPARTY_MAX}`);
   const rows: DetailCounterparty[] = (result?.result?.rows ?? [])
     .map((h) => {
       const address = (h.address ?? "").toLowerCase();
@@ -443,7 +446,7 @@ limit 5`;
       return { address, amount, amountUsd: amount * price, sharePct: Number.isFinite(sharePct) && sharePct > 0 ? sharePct : null, source };
     })
     .filter((h) => /^0x[0-9a-f]{40}$/.test(h.address) && (h.amountUsd ?? 0) > 0);
-  const classified = await Promise.all(rows.map(async (h) => ({ ...h, kind: await classifyAddress(chain, h.address, revalidateS) })));
+  const classified = topCounterpartyRows(new Map(await Promise.all(rows.map(async (h) => [h.address, { ...h, kind: await classifyAddress(chain, h.address, revalidateS) }] as const))));
   duneHolderCache.set(cacheKey, { ts: Date.now(), rows: classified });
   return classified;
 }
@@ -493,7 +496,7 @@ from net
 cross join totals
 where balance > 0
 order by balance desc
-limit 5`;
+limit ${TOP_COUNTERPARTY_MAX}`;
   const exec = await fetchDuneJson<DuneExecutionResp>("/sql/execute", {
     method: "POST",
     body: JSON.stringify({ sql, performance: "small" }),
@@ -512,7 +515,7 @@ limit 5`;
     await cancelDuneExecution(executionId);
     return [];
   }
-  const result = await fetchDuneJson<DuneRowsResp>(`/execution/${executionId}/results?limit=10`);
+  const result = await fetchDuneJson<DuneRowsResp>(`/execution/${executionId}/results?limit=${TOP_COUNTERPARTY_MAX}`);
   const rows: DetailCounterparty[] = (result?.result?.rows ?? [])
     .map((h) => {
       const address = (h.address ?? "").toLowerCase();
@@ -521,7 +524,7 @@ limit 5`;
       return { address, amount, amountUsd: amount * price, sharePct: Number.isFinite(sharePct) && sharePct > 0 ? sharePct : null, source: "compound-v3:collateralEvents:dune" };
     })
     .filter((h) => /^0x[0-9a-f]{40}$/.test(h.address) && (h.amountUsd ?? 0) > 0);
-  const classified = await Promise.all(rows.map(async (h) => ({ ...h, kind: await classifyAddress(chain, h.address, revalidateS) })));
+  const classified = topCounterpartyRows(new Map(await Promise.all(rows.map(async (h) => [h.address, { ...h, kind: await classifyAddress(chain, h.address, revalidateS) }] as const))));
   duneHolderCache.set(cacheKey, { ts: Date.now(), rows: classified });
   return classified;
 }
@@ -539,8 +542,28 @@ function mergeCounterparties(into: Map<string, DetailCounterparty>, rows: Detail
   }
 }
 
-function topCounterpartyRows(map: Map<string, DetailCounterparty>): DetailCounterparty[] {
-  return [...map.values()].sort((a, b) => (b.amountUsd ?? 0) - (a.amountUsd ?? 0)).slice(0, 5);
+function topCounterpartyRows(map: Map<string, DetailCounterparty>, denominatorUsd?: number | null): DetailCounterparty[] {
+  const sorted = [...map.values()].sort((a, b) => (b.amountUsd ?? 0) - (a.amountUsd ?? 0)).slice(0, TOP_COUNTERPARTY_MAX);
+  const out: DetailCounterparty[] = [];
+  let cumulative = 0;
+  let hasShare = false;
+  for (const row of sorted) {
+    const amountUsd = row.amountUsd ?? 0;
+    const sharePct = denominatorUsd != null && denominatorUsd > 0 && amountUsd > 0
+      ? amountUsd / denominatorUsd
+      : row.sharePct ?? null;
+    if (sharePct != null && Number.isFinite(sharePct)) {
+      cumulative += sharePct;
+      hasShare = true;
+    }
+    out.push({ ...row, sharePct, cumulativeSharePct: hasShare ? cumulative : null });
+    if (out.length >= TOP_COUNTERPARTY_MIN && hasShare && cumulative >= TOP_COUNTERPARTY_TARGET_SHARE) break;
+  }
+  return out;
+}
+
+async function classifyCounterpartyRows(chain: string, rows: DetailCounterparty[], revalidateS: number): Promise<DetailCounterparty[]> {
+  return Promise.all(rows.map(async (r) => ({ ...r, kind: r.kind ?? await classifyAddress(chain, r.address, revalidateS) })));
 }
 
 async function fetchAaveLikeDetails(
@@ -612,7 +635,7 @@ interface MorphoPosition {
   state?: { collateralUsd?: number | null; supplyAssetsUsd?: number | null; borrowAssetsUsd?: number | null };
 }
 async function morphoPositions(chainId: number, market: string, order: "Collateral" | "SupplyShares" | "BorrowShares", revalidateS: number): Promise<MorphoPosition[]> {
-  const query = `query P($chainId:Int!, $market:String!, $order:MarketPositionOrderBy!) { marketPositions(first:5, where:{chainId_in:[$chainId], marketUniqueKey_in:[$market]}, orderBy:$order, orderDirection:Desc) { items { user { address } state { collateralUsd supplyAssetsUsd borrowAssetsUsd } } } }`;
+  const query = `query P($chainId:Int!, $market:String!, $order:MarketPositionOrderBy!) { marketPositions(first:${TOP_COUNTERPARTY_MAX}, where:{chainId_in:[$chainId], marketUniqueKey_in:[$market]}, orderBy:$order, orderDirection:Desc) { items { user { address } state { collateralUsd supplyAssetsUsd borrowAssetsUsd } } } }`;
   try {
     const r = await fetch("https://blue-api.morpho.org/graphql", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query, variables: { chainId, market, order } }), next: { revalidate: revalidateS } });
     if (!r.ok) return [];
@@ -653,15 +676,18 @@ async function fetchMorphoRelationDetails(marketsByChain: Record<string, MorphoM
       mergeCounterparties(marketDep, mappedDepositors);
       mergeCounterparties(marketBor, mappedBorrowers);
       const [marketTopDepositors, marketTopBorrowers] = await Promise.all([
-        Promise.all(topCounterpartyRows(marketDep).map(async (r) => ({ ...r, sharePct: m.supplyUsd > 0 && (r.amountUsd ?? 0) > 0 ? (r.amountUsd ?? 0) / m.supplyUsd : null, kind: await classifyAddress(chain, r.address, revalidateS) }))),
-        Promise.all(topCounterpartyRows(marketBor).map(async (r) => ({ ...r, sharePct: m.borrowAssetsUsd > 0 && (r.amountUsd ?? 0) > 0 ? (r.amountUsd ?? 0) / m.borrowAssetsUsd : null, kind: await classifyAddress(chain, r.address, revalidateS) }))),
+        classifyCounterpartyRows(chain, topCounterpartyRows(marketDep, m.supplyUsd), revalidateS),
+        classifyCounterpartyRows(chain, topCounterpartyRows(marketBor, m.borrowAssetsUsd), revalidateS),
       ]);
+      const availableLiquidityUsd = Math.max(0, (m.supplyAssetsUsd ?? 0) - (m.borrowAssetsUsd ?? 0));
       const gaps: string[] = [];
       if (!marketTopDepositors.length) gaps.push("top_depositors");
       if (!marketTopBorrowers.length) gaps.push("top_borrowers");
       out[`${chain}|morpho-blue|${m.marketKey}`] = {
         tokenAmountUsd: m.supplyUsd,
         tvlUsd: m.supplyUsd,
+        availableLiquidityUsd,
+        availableLiquidityPct: m.supplyAssetsUsd > 0 ? availableLiquidityUsd / m.supplyAssetsUsd : null,
         ltv: m.collateralAssetsUsd > 0 && m.borrowAssetsUsd > 0 ? m.borrowAssetsUsd / m.collateralAssetsUsd : null,
         lltv: m.lltv,
         utilization: m.utilization,
@@ -676,8 +702,8 @@ async function fetchMorphoRelationDetails(marketsByChain: Record<string, MorphoM
       };
     }));
     const [topDepositors, topBorrowers] = await Promise.all([
-      Promise.all(topCounterpartyRows(dep).map(async (r) => ({ ...r, sharePct: depositorDenomUsd > 0 && (r.amountUsd ?? 0) > 0 ? (r.amountUsd ?? 0) / depositorDenomUsd : null, kind: await classifyAddress(chain, r.address, revalidateS) }))),
-      Promise.all(topCounterpartyRows(bor).map(async (r) => ({ ...r, kind: await classifyAddress(chain, r.address, revalidateS) }))),
+      classifyCounterpartyRows(chain, topCounterpartyRows(dep, depositorDenomUsd), revalidateS),
+      classifyCounterpartyRows(chain, topCounterpartyRows(bor), revalidateS),
     ]);
     if (topDepositors.length || topBorrowers.length) out[`${chain}|morpho-blue`] = { topDepositors, topBorrowers };
   }));

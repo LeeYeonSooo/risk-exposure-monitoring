@@ -24,6 +24,7 @@ export interface DetailCounterparty {
   amountUsd?: number | null;
   /** Share of the adapter's denominator, e.g. aToken/Comet total holder balance or market exposure. */
   sharePct?: number | null;
+  cumulativeSharePct?: number | null;
   source?: string | null;
 }
 
@@ -55,6 +56,8 @@ export interface RelationDetailMetrics {
   ltv?: number | null;
   lltv?: number | null;
   utilization?: number | null;
+  availableLiquidityUsd?: number | null;
+  availableLiquidityPct?: number | null;
   topDepositors?: DetailCounterparty[] | null;
   topBorrowers?: DetailCounterparty[] | null;
   /** Missing adapter-backed fields surfaced honestly in the panel. */

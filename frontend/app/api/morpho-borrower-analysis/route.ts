@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { formatUnits } from "viem";
+import { isKnownInfrastructureCategory, lookupKnownCounterparty, type KnownCounterpartyCategory } from "@/lib/known-counterparties";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -7,9 +8,15 @@ export const maxDuration = 60;
 
 const MORPHO_GQL = "https://blue-api.morpho.org/graphql";
 const ETHERSCAN_KEY = process.env.ETHERSCAN_API_KEY ?? "";
+const ALCHEMY_KEY = process.env.ALCHEMY_API_KEY ?? "";
+const RPC_URL = process.env.ETH_RPC
+  ?? process.env.ALCHEMY_URL
+  ?? process.env.RPC_URL
+  ?? (ALCHEMY_KEY ? `https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_KEY}` : "https://eth.llamarpc.com");
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 const MARKET_RE = /^0x[a-fA-F0-9]{64}$/;
 const CHAIN = { key: "ethereum", chainId: 1 };
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 type SourceStatus = {
   source: string;
@@ -129,11 +136,17 @@ type EtherscanTx = {
   value?: string;
 };
 
+type OutflowCategory = KnownCounterpartyCategory | "eoa" | "contract" | "unclassified";
+type OutflowConfidence = "curated_static" | "eth_getCode" | "unknown";
+type CounterpartyTag = { category: OutflowCategory; label: string; confidence: OutflowConfidence; clusterEligible: boolean; protocolLike: boolean };
+
 type OutflowRow = {
-  category: "cex" | "bridge" | "unclassified";
+  category: OutflowCategory;
   label: string;
   counterparty: string;
-  confidence: "curated_static" | "unknown";
+  confidence: OutflowConfidence;
+  clusterEligible: boolean;
+  protocolLike: boolean;
   tokenAddress: string | null;
   symbol: string;
   amount: number | null;
@@ -144,8 +157,10 @@ type OutflowRow = {
   source: string;
 };
 
+type RawOutflowRow = Omit<OutflowRow, "category" | "label" | "confidence" | "clusterEligible" | "protocolLike">;
+
 type OutflowSummary = {
-  category: "cex" | "bridge" | "unclassified";
+  category: OutflowCategory;
   label: string;
   counterparty: string;
   tokenAddress: string | null;
@@ -156,16 +171,6 @@ type OutflowSummary = {
   firstSeenUtc: string | null;
   lastSeenUtc: string | null;
   sampleTx: string | null;
-};
-
-const COUNTERPARTY_TAGS: Record<string, { category: "cex" | "bridge"; label: string }> = {
-  "0x28c6c06298d514db089934071355e5743bf21d60": { category: "cex", label: "Binance hot wallet" },
-  "0x21a31ee1afc51d94c2efccaa2092ad1028285549": { category: "cex", label: "Binance hot wallet" },
-  "0x71660c4005ba85c37ccec55d0c4493e66fe775d3": { category: "cex", label: "Coinbase hot wallet" },
-  "0xbeb5fc579115071764c7423a4f12edde41f106ed": { category: "bridge", label: "Optimism Portal" },
-  "0x49048044d57e1c92a77f79988d21fa8faf74e97e": { category: "bridge", label: "Base Portal" },
-  "0x4dbd4fc535ac27206064b68ffcf827b0a60bab3f": { category: "bridge", label: "Arbitrum Delayed Inbox" },
-  ["0x8315177aB297bA92A06054cE80a67Ed4DBd7ed3a".toLowerCase()]: { category: "bridge", label: "Arbitrum Bridge" },
 };
 
 const SUGGESTED_RISK_RULES = [
@@ -185,10 +190,10 @@ const SUGGESTED_RISK_RULES = [
   },
   {
     id: "externalized_liquidity",
-    input: "riskInputs.externalization.knownCexBridgeOutflowToDebt30d",
+    input: "riskInputs.externalization.knownInfraOutflowToDebt30d + walletOutflowToDebt30d",
     high: ">= 0.50",
     medium: ">= 0.20",
-    note: "Known CEX/bridge outflow is evidence that liquidity left the address graph, but label coverage is incomplete.",
+    note: "Known CEX/bridge/router/solver/protocol outflow plus transfers to other EOAs/contracts show liquidity moved away from the borrower address; this is an input, not proof of insolvency.",
   },
   {
     id: "market_exit_crowding",
@@ -407,13 +412,31 @@ async function fetchPrices(tokenAddresses: string[]): Promise<Map<string, number
       if (!res.ok) continue;
       const json = (await res.json()) as { coins?: Record<string, { price?: number }> };
       for (const [id, row] of Object.entries(json.coins ?? {})) {
-        if (typeof row.price === "number" && Number.isFinite(row.price)) out.set(id, row.price);
+        if (typeof row.price === "number" && Number.isFinite(row.price) && row.price > 0) out.set(id, row.price);
       }
     } catch {
       /* prices are optional */
     }
   }
   return out;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+let etherscanQueue: Promise<unknown> = Promise.resolve();
+let lastEtherscanRequestAt = 0;
+
+async function withEtherscanThrottle<T>(fn: () => Promise<T>): Promise<T> {
+  const run = etherscanQueue.then(async () => {
+    const elapsed = Date.now() - lastEtherscanRequestAt;
+    if (elapsed < 380) await sleep(380 - elapsed);
+    lastEtherscanRequestAt = Date.now();
+    return fn();
+  });
+  etherscanQueue = run.catch(() => undefined);
+  return run;
 }
 
 async function etherscanAccount<T>(address: string, action: "tokentx" | "txlist", offset: number): Promise<T[]> {
@@ -427,19 +450,74 @@ async function etherscanAccount<T>(address: string, action: "tokentx" | "txlist"
   api.searchParams.set("offset", String(offset));
   api.searchParams.set("sort", "desc");
   api.searchParams.set("apikey", ETHERSCAN_KEY);
-  const res = await fetch(api, { cache: "no-store", signal: AbortSignal.timeout(18_000) });
-  if (!res.ok) throw new Error(`Etherscan ${action} HTTP ${res.status}`);
-  const json = (await res.json()) as { status?: string; message?: string; result?: T[] | string };
-  if (Array.isArray(json.result)) return json.result;
-  if (json.status === "0") return [];
-  throw new Error(typeof json.result === "string" ? json.result : json.message ?? `Etherscan ${action} failed`);
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const json = await withEtherscanThrottle(async () => {
+      const res = await fetch(api, { cache: "no-store", signal: AbortSignal.timeout(18_000) });
+      if (!res.ok) throw new Error(`Etherscan ${action} HTTP ${res.status}`);
+      return (await res.json()) as { status?: string; message?: string; result?: T[] | string };
+    });
+    if (Array.isArray(json.result)) return json.result;
+    const detail = typeof json.result === "string" ? json.result : json.message ?? `Etherscan ${action} failed`;
+    if (/no transactions found/i.test(detail)) return [];
+    if (/rate limit|Max calls per sec|timeout|temporarily unavailable/i.test(detail) && attempt < 3) {
+      await sleep(850 * (attempt + 1));
+      continue;
+    }
+    throw new Error(detail);
+  }
+  return [];
 }
 
-function classifyCounterparty(to: string | null | undefined): { category: "cex" | "bridge" | "unclassified"; label: string; confidence: "curated_static" | "unknown" } {
+const codeCache = new Map<string, Promise<string | null>>();
+
+async function ethGetCode(address: string): Promise<string | null> {
+  const key = address.toLowerCase();
+  const cached = codeCache.get(key);
+  if (cached) return cached;
+  const promise = (async () => {
+    try {
+      const res = await fetch(RPC_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_getCode", params: [key, "latest"] }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(8_000),
+      });
+      if (!res.ok) return null;
+      const json = (await res.json()) as { result?: string };
+      return typeof json.result === "string" ? json.result : null;
+    } catch {
+      return null;
+    }
+  })();
+  codeCache.set(key, promise);
+  return promise;
+}
+
+async function classifyCounterparty(to: string | null | undefined): Promise<CounterpartyTag> {
   const key = to?.toLowerCase();
-  const tagged = key ? COUNTERPARTY_TAGS[key] : null;
-  if (tagged) return { ...tagged, confidence: "curated_static" };
-  return { category: "unclassified", label: "unclassified", confidence: "unknown" };
+  if (key === ZERO_ADDRESS) {
+    return { category: "protocol", label: "burn / zero address", confidence: "curated_static", clusterEligible: false, protocolLike: true };
+  }
+  const tagged = lookupKnownCounterparty(key);
+  if (tagged) {
+    return {
+      category: tagged.category,
+      label: tagged.label,
+      confidence: "curated_static",
+      clusterEligible: tagged.clusterEligible,
+      protocolLike: tagged.protocolLike,
+    };
+  }
+  if (!key || !ADDRESS_RE.test(key)) {
+    return { category: "unclassified", label: "unclassified", confidence: "unknown", clusterEligible: false, protocolLike: false };
+  }
+  const code = await ethGetCode(key);
+  if (code === "0x") return { category: "eoa", label: "EOA wallet", confidence: "eth_getCode", clusterEligible: true, protocolLike: false };
+  if (code && /^0x[0-9a-fA-F]+$/.test(code)) {
+    return { category: "contract", label: "contract / Safe-like", confidence: "eth_getCode", clusterEligible: true, protocolLike: false };
+  }
+  return { category: "unclassified", label: "unclassified", confidence: "unknown", clusterEligible: false, protocolLike: false };
 }
 
 function timestampIso(ts: number): string | null {
@@ -454,24 +532,22 @@ async function fetchExternalOutflows(address: string, offset: number) {
   const lower = address.toLowerCase();
   const tokenAddresses = [...new Set(tokenRows.map((row) => row.contractAddress?.toLowerCase()).filter((x): x is string => !!x && ADDRESS_RE.test(x)))];
   const prices = await fetchPrices(tokenAddresses);
-  const rows: OutflowRow[] = [];
+  const rawRows: RawOutflowRow[] = [];
 
   for (const row of tokenRows) {
     if (row.from?.toLowerCase() !== lower) continue;
     const to = row.to?.toLowerCase();
     if (!to || !ADDRESS_RE.test(to)) continue;
+    if (to === ZERO_ADDRESS) continue;
     const tokenAddress = row.contractAddress?.toLowerCase() ?? null;
     const decimals = row.tokenDecimal != null && /^\d+$/.test(row.tokenDecimal) ? Number(row.tokenDecimal) : 18;
     const amount = amountFromRaw(row.value ?? "0", decimals);
+    if (amount == null || amount <= 0) continue;
     const price = tokenAddress ? prices.get(`ethereum:${tokenAddress}`) ?? null : null;
     const valueUsd = amount != null && price != null ? amount * price : null;
-    const tag = classifyCounterparty(to);
     const timestamp = Number(row.timeStamp ?? 0);
-    rows.push({
-      category: tag.category,
-      label: tag.label,
+    rawRows.push({
       counterparty: to,
-      confidence: tag.confidence,
       tokenAddress,
       symbol: row.tokenSymbol || tokenAddress?.slice(0, 8) || "TOKEN",
       amount,
@@ -488,15 +564,12 @@ async function fetchExternalOutflows(address: string, offset: number) {
     if (row.from?.toLowerCase() !== lower) continue;
     const to = row.to?.toLowerCase();
     if (!to || !ADDRESS_RE.test(to)) continue;
+    if (to === ZERO_ADDRESS) continue;
     const amount = amountFromRaw(row.value ?? "0", 18);
     if (!amount || amount <= 0) continue;
-    const tag = classifyCounterparty(to);
     const timestamp = Number(row.timeStamp ?? 0);
-    rows.push({
-      category: tag.category,
-      label: tag.label,
+    rawRows.push({
       counterparty: to,
-      confidence: tag.confidence,
       tokenAddress: null,
       symbol: "ETH",
       amount,
@@ -508,6 +581,22 @@ async function fetchExternalOutflows(address: string, offset: number) {
     });
   }
 
+  const tags = new Map(await mapLimit([...new Set(rawRows.map((row) => row.counterparty))], 8, async (to) => {
+    const tag = await classifyCounterparty(to);
+    return [to, tag] as [string, CounterpartyTag];
+  }));
+  const rows: OutflowRow[] = rawRows.map((row) => {
+    const tag = tags.get(row.counterparty) ?? { category: "unclassified", label: "unclassified", confidence: "unknown", clusterEligible: false, protocolLike: false };
+    return {
+      ...row,
+      category: tag.category,
+      label: tag.label,
+      confidence: tag.confidence,
+      clusterEligible: tag.clusterEligible,
+      protocolLike: tag.protocolLike,
+    };
+  });
+
   return summarizeOutflows(rows);
 }
 
@@ -515,27 +604,51 @@ function summarizeOutflows(rows: OutflowRow[]) {
   const now = Date.now() / 1000;
   const recent30d = rows.filter((row) => row.timestamp >= now - 30 * 86400);
   const recent7d = rows.filter((row) => row.timestamp >= now - 7 * 86400);
-  const known = (set: OutflowRow[]) => set.filter((row) => row.category === "cex" || row.category === "bridge");
+  const cexBridge = (set: OutflowRow[]) => set.filter((row) => row.category === "cex" || row.category === "bridge");
+  const knownInfra = (set: OutflowRow[]) => set.filter((row) => isKnownInfrastructureCategory(row.category));
+  const wallet = (set: OutflowRow[]) => set.filter((row) => row.clusterEligible);
   const valueSum = (set: OutflowRow[]) => sum(set.map((row) => row.valueUsd)) ?? 0;
   const cex = summarizeGroups(rows.filter((row) => row.category === "cex")).slice(0, 8);
   const bridge = summarizeGroups(rows.filter((row) => row.category === "bridge")).slice(0, 8);
+  const router = summarizeGroups(rows.filter((row) => row.category === "router")).slice(0, 8);
+  const solver = summarizeGroups(rows.filter((row) => row.category === "solver")).slice(0, 8);
+  const protocol = summarizeGroups(rows.filter((row) => row.category === "protocol")).slice(0, 10);
+  const eoa = summarizeGroups(rows.filter((row) => row.category === "eoa")).slice(0, 10);
+  const contract = summarizeGroups(rows.filter((row) => row.category === "contract")).slice(0, 10);
   const unclassifiedLarge = summarizeGroups(rows.filter((row) => row.category === "unclassified" && (row.valueUsd ?? 0) >= 25_000)).slice(0, 12);
 
   return {
     totals: {
-      knownCexBridgeUsd7d: valueSum(known(recent7d)),
-      knownCexBridgeUsd30d: valueSum(known(recent30d)),
-      knownCexBridgeUsdAll: valueSum(known(rows)),
+      knownInfraUsd7d: valueSum(knownInfra(recent7d)),
+      knownInfraUsd30d: valueSum(knownInfra(recent30d)),
+      knownInfraUsdAll: valueSum(knownInfra(rows)),
+      knownCexBridgeUsd7d: valueSum(cexBridge(recent7d)),
+      knownCexBridgeUsd30d: valueSum(cexBridge(recent30d)),
+      knownCexBridgeUsdAll: valueSum(cexBridge(rows)),
       cexUsd30d: valueSum(recent30d.filter((row) => row.category === "cex")),
       bridgeUsd30d: valueSum(recent30d.filter((row) => row.category === "bridge")),
+      routerUsd30d: valueSum(recent30d.filter((row) => row.category === "router")),
+      solverUsd30d: valueSum(recent30d.filter((row) => row.category === "solver")),
+      protocolUsd30d: valueSum(recent30d.filter((row) => row.category === "protocol")),
+      walletUsd7d: valueSum(wallet(recent7d)),
+      walletUsd30d: valueSum(wallet(recent30d)),
+      walletUsdAll: valueSum(wallet(rows)),
+      eoaUsd30d: valueSum(recent30d.filter((row) => row.category === "eoa")),
+      contractUsd30d: valueSum(recent30d.filter((row) => row.category === "contract")),
       largeUnclassifiedUsd30d: valueSum(recent30d.filter((row) => row.category === "unclassified" && (row.valueUsd ?? 0) >= 25_000)),
     },
     cex,
     bridge,
+    router,
+    solver,
+    protocol,
+    eoa,
+    contract,
     unclassifiedLarge,
     dataGaps: [
-      "cex_bridge_labels_are_static_and_incomplete",
-      "internal_transfers_and_contract_call_semantics_not_decoded_here",
+      "known_counterparty_registry_is_static_and_incomplete",
+      "contract_or_safe_classification_uses_eth_getCode_not_owner_semantics",
+      "internal_contract_call_semantics_not_decoded_here",
     ],
   };
 }
@@ -628,7 +741,14 @@ function buildBorrowerAnalysis(
   const debtToLiquidationThreshold = pctRatio(borrowUsd, liquidationThresholdUsd);
   const liquidationBufferUsd = liquidationThresholdUsd != null ? liquidationThresholdUsd - borrowUsd : null;
   const liquidity = portfolioLiquidity(portfolio);
+  const knownInfraUsd30d = outflows?.totals.knownInfraUsd30d ?? 0;
   const knownCexBridgeUsd30d = outflows?.totals.knownCexBridgeUsd30d ?? 0;
+  const routerOutflowUsd30d = outflows?.totals.routerUsd30d ?? 0;
+  const solverOutflowUsd30d = outflows?.totals.solverUsd30d ?? 0;
+  const protocolOutflowUsd30d = outflows?.totals.protocolUsd30d ?? 0;
+  const walletOutflowUsd30d = outflows?.totals.walletUsd30d ?? 0;
+  const eoaOutflowUsd30d = outflows?.totals.eoaUsd30d ?? 0;
+  const contractOutflowUsd30d = outflows?.totals.contractUsd30d ?? 0;
   const largeUnclassifiedUsd30d = outflows?.totals.largeUnclassifiedUsd30d ?? 0;
   const borrowerShareOfMarketDebt = pctRatio(borrowUsd, market?.state?.borrowAssetsUsd ?? null);
 
@@ -687,9 +807,23 @@ function buildBorrowerAnalysis(
         totalNetWorthToDebt: pctRatio(portfolio?.totalUsd ?? null, borrowUsd),
       },
       externalization: {
+        knownInfraOutflowUsd30d: knownInfraUsd30d,
         knownCexBridgeOutflowUsd30d: knownCexBridgeUsd30d,
+        routerOutflowUsd30d,
+        solverOutflowUsd30d,
+        protocolOutflowUsd30d,
+        walletOutflowUsd30d,
+        eoaOutflowUsd30d,
+        contractOutflowUsd30d,
         largeUnclassifiedOutflowUsd30d: largeUnclassifiedUsd30d,
+        knownInfraOutflowToDebt30d: pctRatio(knownInfraUsd30d, borrowUsd),
         knownCexBridgeOutflowToDebt30d: pctRatio(knownCexBridgeUsd30d, borrowUsd),
+        routerOutflowToDebt30d: pctRatio(routerOutflowUsd30d, borrowUsd),
+        solverOutflowToDebt30d: pctRatio(solverOutflowUsd30d, borrowUsd),
+        protocolOutflowToDebt30d: pctRatio(protocolOutflowUsd30d, borrowUsd),
+        walletOutflowToDebt30d: pctRatio(walletOutflowUsd30d, borrowUsd),
+        eoaOutflowToDebt30d: pctRatio(eoaOutflowUsd30d, borrowUsd),
+        contractOutflowToDebt30d: pctRatio(contractOutflowUsd30d, borrowUsd),
         largeUnclassifiedOutflowToDebt30d: pctRatio(largeUnclassifiedUsd30d, borrowUsd),
       },
       market: {

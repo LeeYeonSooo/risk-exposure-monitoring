@@ -573,21 +573,45 @@ function eoaFlowHref(address: string, chain: string) {
   if (chain) params.set("chain", chain);
   return `/eoa-flow?${params.toString()}`;
 }
-function CounterpartyList({ label, rows, missingValue, chain, badge }: {
+function selectCounterparties(rows: RelationDetailMetrics["topDepositors"]) {
+  const valid = (rows ?? []).filter((r) => /^0x[0-9a-fA-F]{40}$/.test(r.address));
+  const out: typeof valid = [];
+  let cumulative = 0;
+  let hasShare = false;
+  for (const row of valid.slice(0, 25)) {
+    const share = typeof row.sharePct === "number" && Number.isFinite(row.sharePct) ? row.sharePct : null;
+    if (share != null) {
+      cumulative += share;
+      hasShare = true;
+    }
+    out.push(row);
+    const rowCumulative = row.cumulativeSharePct ?? (hasShare ? cumulative : null);
+    if (out.length >= 10 && rowCumulative != null && rowCumulative >= 0.9) break;
+  }
+  return out;
+}
+function CounterpartyList({ label, rows, missingValue, chain, badge, availableLiquidityUsd, showLiquidityCoverage = false }: {
   label: string;
   rows: RelationDetailMetrics["topDepositors"];
   missingValue?: string | null;
   chain: string;
   badge?: "verified" | "estimated";
+  availableLiquidityUsd?: number | null;
+  showLiquidityCoverage?: boolean;
 }) {
-  const visible = (rows ?? []).filter((r) => /^0x[0-9a-fA-F]{40}$/.test(r.address)).slice(0, 5);
+  const visible = selectCounterparties(rows);
+  const cumulativeShare = visible.length
+    ? visible[visible.length - 1]?.cumulativeSharePct ?? visible.reduce((s, r) => s + (r.sharePct ?? 0), 0)
+    : null;
   if (!visible.length && !missingValue) return null;
   return (
     <div className="py-1 text-[12px]">
       <div className="mb-1 flex items-center justify-between gap-3">
         <span className="shrink-0 text-[var(--color-text-muted)]">{label}</span>
         {visible.length ? (
-          <span className="text-[10px] text-[var(--color-text-muted)]">{visible.length}개</span>
+          <span className="text-[10px] text-[var(--color-text-muted)]">
+            {visible.length}개{cumulativeShare != null && cumulativeShare > 0 ? ` · 합 ${pct1(cumulativeShare)}` : ""}
+          </span>
         ) : (
           <span className="flex items-center gap-1 font-mono text-[var(--color-text-primary)]">
             {missingValue}
@@ -599,12 +623,18 @@ function CounterpartyList({ label, rows, missingValue, chain, badge }: {
         <div className="space-y-1 rounded-md border border-[var(--color-border-subtle)] bg-[var(--color-surface-raised)] px-2 py-1.5">
           {visible.map((r) => {
             const amount = r.amountUsd != null ? formatUsd(r.amountUsd) : r.amount != null ? compact(r.amount) : null;
+            const liquidityCoverage = showLiquidityCoverage && availableLiquidityUsd != null && r.amountUsd != null && r.amountUsd > 0
+              ? availableLiquidityUsd / r.amountUsd
+              : null;
             return (
               <div key={r.address} className="grid grid-cols-[minmax(76px,1fr)_auto] items-center gap-x-2 gap-y-0.5">
                 <Link href={eoaFlowHref(r.address, chain)} className="min-w-0 truncate font-mono text-[var(--color-accent)] hover:underline" title={`${chain}:${r.address}`}>
                   {r.label || shortAddr(r.address)}
                 </Link>
-                <span className="shrink-0 font-mono text-[var(--color-text-primary)]">{r.sharePct != null ? pct1(r.sharePct) : "비중 미상"}</span>
+                <span className="shrink-0 text-right font-mono text-[var(--color-text-primary)]">
+                  {r.sharePct != null ? pct1(r.sharePct) : "비중 미상"}
+                  {liquidityCoverage != null && <span className="ml-1 text-[10px] text-[var(--color-text-muted)]">가용/주소 {pct1(liquidityCoverage)}</span>}
+                </span>
                 <span className="truncate text-[10px] text-[var(--color-text-muted)]">{r.kind ?? "unknown"}</span>
                 {amount && <span className="truncate text-right font-mono text-[10px] text-[var(--color-text-secondary)]">{amount}</span>}
               </div>
@@ -632,10 +662,27 @@ type MorphoBorrowerRisk = {
       availableLiquidToDebt?: number | null;
       highQualityLiquidToDebt?: number | null;
     };
+    externalization?: {
+      knownInfraOutflowToDebt30d?: number | null;
+      knownCexBridgeOutflowToDebt30d?: number | null;
+      routerOutflowToDebt30d?: number | null;
+      solverOutflowToDebt30d?: number | null;
+      protocolOutflowToDebt30d?: number | null;
+      walletOutflowToDebt30d?: number | null;
+      eoaOutflowToDebt30d?: number | null;
+      contractOutflowToDebt30d?: number | null;
+    };
   };
   externalOutflows?: {
     totals?: {
+      knownInfraUsd30d?: number | null;
       knownCexBridgeUsd30d?: number | null;
+      routerUsd30d?: number | null;
+      solverUsd30d?: number | null;
+      protocolUsd30d?: number | null;
+      walletUsd30d?: number | null;
+      eoaUsd30d?: number | null;
+      contractUsd30d?: number | null;
       largeUnclassifiedUsd30d?: number | null;
     };
   } | null;
@@ -668,7 +715,7 @@ function MorphoBorrowerRiskPanel({ marketKey, chain }: { marketKey: string | nul
     setData(null);
     const params = new URLSearchParams({
       market: marketKey,
-      limit: "5",
+      limit: "10",
       includePortfolio: "true",
       includeOutflows: "true",
       outflowOffset: "500",
@@ -700,10 +747,13 @@ function MorphoBorrowerRiskPanel({ marketKey, chain }: { marketKey: string | nul
       {!loading && !error && borrowers.length === 0 && <div className="font-mono text-[10px] text-[var(--color-text-muted)]">분석 가능한 차입자 없음</div>}
       {borrowers.length > 0 && (
         <div className="space-y-1.5">
-          {borrowers.slice(0, 5).map((b, idx) => {
+          {borrowers.slice(0, 10).map((b, idx) => {
             const address = b.address && /^0x[0-9a-fA-F]{40}$/.test(b.address) ? b.address : null;
             const liq = b.riskInputs?.liquidity?.availableLiquidToDebt ?? b.riskInputs?.liquidity?.highQualityLiquidToDebt ?? null;
+            const infraOut = b.externalOutflows?.totals?.knownInfraUsd30d ?? null;
             const cexBridge = b.externalOutflows?.totals?.knownCexBridgeUsd30d ?? null;
+            const walletOut = b.externalOutflows?.totals?.walletUsd30d ?? null;
+            const walletOutToDebt = b.riskInputs?.externalization?.walletOutflowToDebt30d ?? null;
             const unclassified = b.externalOutflows?.totals?.largeUnclassifiedUsd30d ?? null;
             return (
               <div key={address ?? `${marketKey}:${idx}`} className="rounded border border-[var(--color-border-subtle)] bg-[var(--color-bg)] px-2 py-1.5">
@@ -724,7 +774,10 @@ function MorphoBorrowerRiskPanel({ marketKey, chain }: { marketKey: string | nul
                   <span>LTV {pctMaybe(b.riskInputs?.liquidation?.ltv)} / {pctMaybe(b.riskInputs?.liquidation?.lltv)}</span>
                   <span>buf {pctMaybe(b.riskInputs?.liquidation?.liquidationBufferPct)}</span>
                   <span>liq/debt {pctMaybe(liq)}</span>
+                  <span>infra out {formatUsd(infraOut)}</span>
                   <span>CEX+bridge {formatUsd(cexBridge)}</span>
+                  <span>EOA/Safe out {formatUsd(walletOut)}</span>
+                  <span>out/debt {pctMaybe(walletOutToDebt)}</span>
                   {unclassified != null && unclassified > 0 && <span className="col-span-2 text-[var(--color-text-muted)]">대형 미분류 30d {formatUsd(unclassified)}</span>}
                 </div>
               </div>
@@ -777,6 +830,13 @@ function MetricRows({ metrics, showDex = false, showTopBorrowers = true, chain =
       {marketRows.map((r) => (
         <PRow key={r.label} k={r.label} v={marketRowValue(r)} />
       ))}
+      <PRow
+        k="가용 유동성"
+        v={metrics.availableLiquidityUsd != null
+          ? `${formatUsd(metrics.availableLiquidityUsd)}${metrics.availableLiquidityPct != null ? ` · ${pct1(metrics.availableLiquidityPct)}` : ""}`
+          : null}
+        warn={(metrics.availableLiquidityPct ?? 1) <= 0.1}
+      />
       <PRow k="LTV / LLTV" v={ltv} warn={(metrics.lltv ?? 0) >= 0.945 || (metrics.ltv ?? 0) >= 0.9} />
       <PRow k="이용률" v={metrics.utilization != null ? pct1(metrics.utilization) : null} warn={(metrics.utilization ?? 0) >= 0.95} />
       {showDex && <PRow k="DEX 유동성" v={metrics.dexLiquidityUsd != null && metrics.dexLiquidityUsd > 0 ? formatUsd(metrics.dexLiquidityUsd) : null} />}
@@ -788,6 +848,8 @@ function MetricRows({ metrics, showDex = false, showTopBorrowers = true, chain =
           missingValue={missing(metrics, "top_depositors")}
           chain={chain}
           badge={!metrics.topDepositors?.length && missing(metrics, "top_depositors") ? "estimated" : undefined}
+          availableLiquidityUsd={metrics.availableLiquidityUsd}
+          showLiquidityCoverage={!showDex}
         />
       )}
       {showTopBorrowers && (

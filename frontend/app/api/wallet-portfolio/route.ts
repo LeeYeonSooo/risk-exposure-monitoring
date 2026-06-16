@@ -1,25 +1,60 @@
+import { createHash } from "node:crypto";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+
 import { NextResponse } from "next/server";
 import { formatUnits, toFunctionSelector } from "viem";
 
 import type { EoaFlowPayload } from "@/lib/eoa-flow-types";
+import { isKnownInfrastructureCategory, lookupKnownCounterparty, type KnownCounterpartyCategory } from "@/lib/known-counterparties";
 import { PROTOCOL_TOKENS } from "@/lib/protocol-tokens";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 const ALCHEMY_KEY = process.env.ALCHEMY_API_KEY ?? "";
 const ETHERSCAN_KEY = process.env.ETHERSCAN_API_KEY ?? "";
 const RPC_URL = process.env.ETH_RPC ?? process.env.ALCHEMY_URL ?? process.env.RPC_URL ?? (ALCHEMY_KEY ? `https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_KEY}` : "https://eth.llamarpc.com");
 const ALCHEMY_URL = process.env.ALCHEMY_URL ?? (ALCHEMY_KEY ? `https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_KEY}` : "");
+const FILE_CACHE_DIR = process.env.EOA_FLOW_CACHE_DIR ?? "/Users/link/defi-dagggg/feeder/cache/eoa_timeline";
 const MORPHO_GQL = "https://blue-api.morpho.org/graphql";
 const MORPHO_BLUE_SINGLETON = "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb";
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const SEL_ASSET = toFunctionSelector("function asset()");
 const SEL_CONVERT_TO_ASSETS = toFunctionSelector("function convertToAssets(uint256)");
 const SEL_MORPHO = toFunctionSelector("function MORPHO()");
 const SEL_UNDERLYING_ASSET = toFunctionSelector("function UNDERLYING_ASSET_ADDRESS()");
 const BALANCE_OF_SELECTOR = "0x70a08231";
+
+function cachePath(key: string): string {
+  return path.join(FILE_CACHE_DIR, `${createHash("sha256").update(key).digest("hex")}.json`);
+}
+
+async function fileCacheGet<T>(key: string): Promise<T | null> {
+  try {
+    return JSON.parse(await readFile(cachePath(key), "utf8")) as T;
+  } catch {
+    return null;
+  }
+}
+
+async function fileCachePut(key: string, value: unknown): Promise<void> {
+  try {
+    await mkdir(FILE_CACHE_DIR, { recursive: true });
+    await writeFile(cachePath(key), JSON.stringify(value), "utf8");
+  } catch {
+    /* cache is best effort */
+  }
+}
+
+function requestCacheKey(url: URL, address: string): string {
+  const params = new URLSearchParams(url.searchParams);
+  params.delete("force");
+  params.sort();
+  return `wallet-portfolio-response:v2:${address.toLowerCase()}:${params.toString()}`;
+}
 
 type Confidence = "high" | "medium" | "low";
 type PositionType = "lending" | "receipt_token" | "erc4626_vault" | "flow_hint" | "unknown";
@@ -39,6 +74,17 @@ type SourceStatus = {
   elapsedMs: number;
   detail?: unknown;
   error?: string;
+};
+
+type OutflowCategory = KnownCounterpartyCategory | "eoa" | "contract" | "unclassified";
+type OutflowConfidence = "curated_static" | "eth_getCode" | "unknown";
+
+type CounterpartyTag = {
+  category: OutflowCategory;
+  label: string;
+  confidence: OutflowConfidence;
+  clusterEligible: boolean;
+  protocolLike: boolean;
 };
 
 type TokenAmount = {
@@ -119,6 +165,53 @@ type FlowHint = {
   error?: string;
 };
 
+type OutflowSummaryRow = {
+  category: OutflowCategory;
+  label: string;
+  counterparty: string;
+  tokenAddress: string | null;
+  symbol: string;
+  amount: number | null;
+  valueUsd: number | null;
+  txCount: number;
+  firstSeenUtc: string | null;
+  lastSeenUtc: string | null;
+  sampleTx: string | null;
+};
+
+type ExternalOutflows = {
+  totals: {
+    knownInfraUsd7d: number;
+    knownInfraUsd30d: number;
+    knownInfraUsdAll: number;
+    knownCexBridgeUsd7d: number;
+    knownCexBridgeUsd30d: number;
+    knownCexBridgeUsdAll: number;
+    cexUsd30d: number;
+    bridgeUsd30d: number;
+    routerUsd30d: number;
+    solverUsd30d: number;
+    protocolUsd30d: number;
+    walletUsd7d: number;
+    walletUsd30d: number;
+    walletUsdAll: number;
+    eoaUsd30d: number;
+    contractUsd30d: number;
+    largeUnclassifiedUsd30d: number;
+  };
+  cex: OutflowSummaryRow[];
+  bridge: OutflowSummaryRow[];
+  router: OutflowSummaryRow[];
+  solver: OutflowSummaryRow[];
+  protocol: OutflowSummaryRow[];
+  eoa: OutflowSummaryRow[];
+  contract: OutflowSummaryRow[];
+  unclassifiedLarge: OutflowSummaryRow[];
+  scannedRows: number;
+  scanLimit: number;
+  dataGaps: string[];
+};
+
 type WalletPortfolioResponse = {
   address: string;
   chain: string;
@@ -129,6 +222,7 @@ type WalletPortfolioResponse = {
   protocolNetUsd: number | null;
   walletTokens: WalletToken[];
   protocols: WalletProtocol[];
+  externalOutflows: ExternalOutflows | null;
   flowHints: FlowHint;
   sources: SourceStatus[];
   dataGaps: string[];
@@ -153,11 +247,59 @@ type TokenBalanceScan = {
 };
 
 type EtherscanTokenTransfer = {
+  timeStamp?: string;
+  hash?: string;
+  from?: string;
+  to?: string;
+  value?: string;
   contractAddress?: string;
   tokenName?: string;
   tokenSymbol?: string;
   tokenDecimal?: string;
 };
+
+type EtherscanTx = {
+  timeStamp?: string;
+  hash?: string;
+  from?: string;
+  to?: string;
+  value?: string;
+};
+
+type AlchemyAssetTransfer = {
+  blockNum?: string;
+  hash?: string;
+  from?: string;
+  to?: string;
+  value?: number;
+  asset?: string;
+  category?: string;
+  metadata?: { blockTimestamp?: string };
+  rawContract?: {
+    value?: string;
+    address?: string | null;
+    decimal?: string | number | null;
+  };
+};
+
+type OutflowRow = {
+  category: OutflowCategory;
+  label: string;
+  counterparty: string;
+  confidence: OutflowConfidence;
+  clusterEligible: boolean;
+  protocolLike: boolean;
+  tokenAddress: string | null;
+  symbol: string;
+  amount: number | null;
+  valueUsd: number | null;
+  timestamp: number;
+  datetimeUtc: string | null;
+  txHash: string;
+  source: string;
+};
+
+type RawOutflowRow = Omit<OutflowRow, "category" | "label" | "confidence" | "clusterEligible" | "protocolLike">;
 
 type MorphoPositionItem = {
   user?: { address?: string | null };
@@ -229,6 +371,12 @@ function sumNullable(values: Array<number | null | undefined>): number | null {
   return seen ? total : null;
 }
 
+function safeLimit(raw: string | null, fallback: number, max: number): number {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(1, Math.min(max, Math.floor(n)));
+}
+
 function amountFromRaw(raw: string | number | bigint | null | undefined, decimals: number | null | undefined): number | null {
   if (raw == null) return null;
   try {
@@ -238,6 +386,86 @@ function amountFromRaw(raw: string | number | bigint | null | undefined, decimal
   } catch {
     return toFiniteNumber(raw);
   }
+}
+
+function parseAlchemyDecimal(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value) {
+    const parsed = value.startsWith("0x") ? Number.parseInt(value, 16) : Number.parseInt(value, 10);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 18;
+}
+
+function parseAlchemyTimestamp(value: string | null | undefined): number {
+  if (!value) return 0;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? Math.floor(parsed / 1000) : 0;
+}
+
+async function fetchAlchemyOutflowTransfers(wallet: string, limit: number): Promise<AlchemyAssetTransfer[]> {
+  if (!ALCHEMY_URL) throw new Error("missing ALCHEMY_API_KEY or ALCHEMY_URL");
+  const out: AlchemyAssetTransfer[] = [];
+  let pageKey: string | undefined;
+  while (out.length < limit) {
+    const maxCount = Math.min(1000, Math.max(1, limit - out.length));
+    const params: Record<string, unknown> = {
+      fromAddress: wallet.toLowerCase(),
+      category: ["external", "erc20"],
+      withMetadata: true,
+      excludeZeroValue: true,
+      order: "desc",
+      maxCount: `0x${maxCount.toString(16)}`,
+    };
+    if (pageKey) params.pageKey = pageKey;
+    const result = await alchemyCall<{ transfers?: AlchemyAssetTransfer[]; pageKey?: string }>("alchemy_getAssetTransfers", [params], 18_000);
+    out.push(...(result.transfers ?? []));
+    pageKey = result.pageKey;
+    if (!pageKey) break;
+  }
+  return out;
+}
+
+async function fetchExternalOutflowsAlchemy(address: string, scanLimit: number): Promise<RawOutflowRow[]> {
+  const transfers = await fetchAlchemyOutflowTransfers(address, scanLimit);
+  const tokenAddresses = [...new Set(transfers
+    .map((row) => row.rawContract?.address?.toLowerCase())
+    .filter((x): x is string => !!x && ADDRESS_RE.test(x)))];
+  const prices = await fetchPrices(tokenAddresses);
+  const ethPrice = prices.get("coingecko:ethereum") ?? null;
+  const lower = address.toLowerCase();
+  const rows: RawOutflowRow[] = [];
+
+  for (const row of transfers) {
+    if (row.from?.toLowerCase() !== lower) continue;
+    const to = row.to?.toLowerCase();
+    if (!to || !ADDRESS_RE.test(to) || to === ZERO_ADDRESS) continue;
+
+    const category = String(row.category ?? "").toLowerCase();
+    const rawContract = row.rawContract ?? {};
+    const isNative = category === "external";
+    const tokenAddress = isNative ? null : rawContract.address?.toLowerCase() ?? null;
+    if (!isNative && (!tokenAddress || !ADDRESS_RE.test(tokenAddress))) continue;
+    const decimals = isNative ? 18 : parseAlchemyDecimal(rawContract.decimal);
+    const amount = rawContract.value
+      ? amountFromRaw(rawContract.value, decimals)
+      : toFiniteNumber(row.value);
+    if (amount == null || amount <= 0) continue;
+    const price = isNative ? ethPrice : prices.get(`ethereum:${tokenAddress}`) ?? null;
+    const timestamp = parseAlchemyTimestamp(row.metadata?.blockTimestamp);
+    rows.push({
+      counterparty: to,
+      tokenAddress,
+      symbol: isNative ? "ETH" : row.asset || tokenAddress?.slice(0, 8) || "TOKEN",
+      amount,
+      valueUsd: price == null ? null : amount * price,
+      timestamp,
+      datetimeUtc: timestampIso(timestamp),
+      txHash: row.hash ?? "",
+      source: "alchemy_getAssetTransfers",
+    });
+  }
+  return rows;
 }
 
 function encodeUint256(value: string | number | bigint): string {
@@ -459,13 +687,271 @@ async function fetchPrices(tokenAddresses: string[]): Promise<Map<string, number
       if (!res.ok) continue;
       const json = (await res.json()) as { coins?: Record<string, { price?: number }> };
       for (const [id, row] of Object.entries(json.coins ?? {})) {
-        if (typeof row.price === "number" && Number.isFinite(row.price)) out.set(id, row.price);
+        if (typeof row.price === "number" && Number.isFinite(row.price) && row.price > 0) out.set(id, row.price);
       }
     } catch {
       /* price is optional */
     }
   }
   return out;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+let etherscanQueue: Promise<unknown> = Promise.resolve();
+let lastEtherscanRequestAt = 0;
+
+async function withEtherscanThrottle<T>(fn: () => Promise<T>): Promise<T> {
+  const run = etherscanQueue.then(async () => {
+    const elapsed = Date.now() - lastEtherscanRequestAt;
+    if (elapsed < 380) await sleep(380 - elapsed);
+    lastEtherscanRequestAt = Date.now();
+    return fn();
+  });
+  etherscanQueue = run.catch(() => undefined);
+  return run;
+}
+
+async function etherscanAccount<T>(address: string, action: "tokentx" | "txlist", offset: number): Promise<T[]> {
+  if (!ETHERSCAN_KEY) throw new Error("missing ETHERSCAN_API_KEY");
+  const api = new URL("https://api.etherscan.io/v2/api");
+  api.searchParams.set("chainid", "1");
+  api.searchParams.set("module", "account");
+  api.searchParams.set("action", action);
+  api.searchParams.set("address", address);
+  api.searchParams.set("page", "1");
+  api.searchParams.set("offset", String(offset));
+  api.searchParams.set("sort", "desc");
+  api.searchParams.set("apikey", ETHERSCAN_KEY);
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const json = await withEtherscanThrottle(async () => {
+      const res = await fetch(api, { cache: "no-store", signal: AbortSignal.timeout(18_000) });
+      if (!res.ok) throw new Error(`Etherscan ${action} HTTP ${res.status}`);
+      return (await res.json()) as { status?: string; message?: string; result?: T[] | string };
+    });
+    if (Array.isArray(json.result)) return json.result;
+    const detail = typeof json.result === "string" ? json.result : json.message ?? `Etherscan ${action} failed`;
+    if (/no transactions found/i.test(detail)) return [];
+    if (/rate limit|Max calls per sec|timeout|temporarily unavailable/i.test(detail) && attempt < 3) {
+      await sleep(850 * (attempt + 1));
+      continue;
+    }
+    throw new Error(detail);
+  }
+  return [];
+}
+
+const codeCache = new Map<string, Promise<string | null>>();
+
+async function ethGetCode(address: string): Promise<string | null> {
+  const key = address.toLowerCase();
+  const cached = codeCache.get(key);
+  if (cached) return cached;
+  const promise = (async () => {
+    const fileKey = `next:eth_getCode:${key}`;
+    const fileCached = await fileCacheGet<string | null>(fileKey);
+    if (fileCached != null) return fileCached;
+    const code = await rpcCall<string>("eth_getCode", [key, "latest"], 8_000).catch(() => null);
+    await fileCachePut(fileKey, code);
+    return code;
+  })();
+  codeCache.set(key, promise);
+  return promise;
+}
+
+async function classifyCounterparty(to: string | null | undefined): Promise<CounterpartyTag> {
+  const key = to?.toLowerCase();
+  if (key === ZERO_ADDRESS) {
+    return { category: "protocol", label: "burn / zero address", confidence: "curated_static", clusterEligible: false, protocolLike: true };
+  }
+  const tagged = lookupKnownCounterparty(key);
+  if (tagged) {
+    return {
+      category: tagged.category,
+      label: tagged.label,
+      confidence: "curated_static",
+      clusterEligible: tagged.clusterEligible,
+      protocolLike: tagged.protocolLike,
+    };
+  }
+  if (!key || !ADDRESS_RE.test(key)) {
+    return { category: "unclassified", label: "unclassified", confidence: "unknown", clusterEligible: false, protocolLike: false };
+  }
+  const code = await ethGetCode(key);
+  if (code === "0x") return { category: "eoa", label: "EOA wallet", confidence: "eth_getCode", clusterEligible: true, protocolLike: false };
+  if (code && /^0x[0-9a-fA-F]+$/.test(code)) {
+    return { category: "contract", label: "contract / Safe-like", confidence: "eth_getCode", clusterEligible: true, protocolLike: false };
+  }
+  return { category: "unclassified", label: "unclassified", confidence: "unknown", clusterEligible: false, protocolLike: false };
+}
+
+function timestampIso(ts: number): string | null {
+  return ts > 0 ? new Date(ts * 1000).toISOString() : null;
+}
+
+function summarizeGroups(rows: OutflowRow[]): OutflowSummaryRow[] {
+  const byKey = new Map<string, OutflowSummaryRow>();
+  for (const row of rows) {
+    const key = `${row.category}:${row.counterparty}:${row.tokenAddress ?? "eth"}:${row.symbol}`;
+    const cur = byKey.get(key);
+    if (!cur) {
+      byKey.set(key, {
+        category: row.category,
+        label: row.label,
+        counterparty: row.counterparty,
+        tokenAddress: row.tokenAddress,
+        symbol: row.symbol,
+        amount: row.amount,
+        valueUsd: row.valueUsd,
+        txCount: 1,
+        firstSeenUtc: row.datetimeUtc,
+        lastSeenUtc: row.datetimeUtc,
+        sampleTx: row.txHash || null,
+      });
+      continue;
+    }
+    cur.amount = cur.amount != null || row.amount != null ? (cur.amount ?? 0) + (row.amount ?? 0) : null;
+    cur.valueUsd = cur.valueUsd != null || row.valueUsd != null ? (cur.valueUsd ?? 0) + (row.valueUsd ?? 0) : null;
+    cur.txCount += 1;
+    if (row.datetimeUtc && (!cur.firstSeenUtc || row.datetimeUtc < cur.firstSeenUtc)) cur.firstSeenUtc = row.datetimeUtc;
+    if (row.datetimeUtc && (!cur.lastSeenUtc || row.datetimeUtc > cur.lastSeenUtc)) cur.lastSeenUtc = row.datetimeUtc;
+  }
+  return [...byKey.values()].sort((a, b) => (b.valueUsd ?? 0) - (a.valueUsd ?? 0));
+}
+
+function summarizeOutflows(rows: OutflowRow[], scanLimit: number): ExternalOutflows {
+  const now = Date.now() / 1000;
+  const recent30d = rows.filter((row) => row.timestamp >= now - 30 * 86400);
+  const recent7d = rows.filter((row) => row.timestamp >= now - 7 * 86400);
+  const cexBridge = (set: OutflowRow[]) => set.filter((row) => row.category === "cex" || row.category === "bridge");
+  const knownInfra = (set: OutflowRow[]) => set.filter((row) => isKnownInfrastructureCategory(row.category));
+  const wallet = (set: OutflowRow[]) => set.filter((row) => row.clusterEligible);
+  const valueSum = (set: OutflowRow[]) => sumNullable(set.map((row) => row.valueUsd)) ?? 0;
+  return {
+    totals: {
+      knownInfraUsd7d: valueSum(knownInfra(recent7d)),
+      knownInfraUsd30d: valueSum(knownInfra(recent30d)),
+      knownInfraUsdAll: valueSum(knownInfra(rows)),
+      knownCexBridgeUsd7d: valueSum(cexBridge(recent7d)),
+      knownCexBridgeUsd30d: valueSum(cexBridge(recent30d)),
+      knownCexBridgeUsdAll: valueSum(cexBridge(rows)),
+      cexUsd30d: valueSum(recent30d.filter((row) => row.category === "cex")),
+      bridgeUsd30d: valueSum(recent30d.filter((row) => row.category === "bridge")),
+      routerUsd30d: valueSum(recent30d.filter((row) => row.category === "router")),
+      solverUsd30d: valueSum(recent30d.filter((row) => row.category === "solver")),
+      protocolUsd30d: valueSum(recent30d.filter((row) => row.category === "protocol")),
+      walletUsd7d: valueSum(wallet(recent7d)),
+      walletUsd30d: valueSum(wallet(recent30d)),
+      walletUsdAll: valueSum(wallet(rows)),
+      eoaUsd30d: valueSum(recent30d.filter((row) => row.category === "eoa")),
+      contractUsd30d: valueSum(recent30d.filter((row) => row.category === "contract")),
+      largeUnclassifiedUsd30d: valueSum(recent30d.filter((row) => row.category === "unclassified" && (row.valueUsd ?? 0) >= 25_000)),
+    },
+    cex: summarizeGroups(rows.filter((row) => row.category === "cex")).slice(0, 8),
+    bridge: summarizeGroups(rows.filter((row) => row.category === "bridge")).slice(0, 8),
+    router: summarizeGroups(rows.filter((row) => row.category === "router")).slice(0, 8),
+    solver: summarizeGroups(rows.filter((row) => row.category === "solver")).slice(0, 8),
+    protocol: summarizeGroups(rows.filter((row) => row.category === "protocol")).slice(0, 10),
+    eoa: summarizeGroups(rows.filter((row) => row.category === "eoa")).slice(0, 10),
+    contract: summarizeGroups(rows.filter((row) => row.category === "contract")).slice(0, 10),
+    unclassifiedLarge: summarizeGroups(rows.filter((row) => row.category === "unclassified" && (row.valueUsd ?? 0) >= 25_000)).slice(0, 12),
+    scannedRows: rows.length,
+    scanLimit,
+    dataGaps: [
+      "known_counterparty_registry_is_static_and_incomplete",
+      "outflow_history_is_limited_by_scan_limit",
+      "contract_or_safe_classification_uses_eth_getCode_not_owner_semantics",
+    ],
+  };
+}
+
+async function fetchExternalOutflows(address: string, offset: number): Promise<ExternalOutflows> {
+  const lower = address.toLowerCase();
+  let rawRows: RawOutflowRow[] = [];
+
+  if (ALCHEMY_URL) {
+    try {
+      rawRows = await fetchExternalOutflowsAlchemy(address, offset);
+    } catch {
+      rawRows = [];
+    }
+  }
+
+  if (!rawRows.length && ETHERSCAN_KEY) {
+    const [tokenRows, nativeRows] = await Promise.all([
+      etherscanAccount<EtherscanTokenTransfer>(address, "tokentx", offset),
+      etherscanAccount<EtherscanTx>(address, "txlist", Math.min(1000, offset)),
+    ]);
+    const tokenAddresses = [...new Set(tokenRows.map((row) => row.contractAddress?.toLowerCase()).filter((x): x is string => !!x && ADDRESS_RE.test(x)))];
+    const prices = await fetchPrices(tokenAddresses);
+
+    for (const row of tokenRows) {
+      if (row.from?.toLowerCase() !== lower) continue;
+      const to = row.to?.toLowerCase();
+      if (!to || !ADDRESS_RE.test(to)) continue;
+      if (to === ZERO_ADDRESS) continue;
+      const tokenAddress = row.contractAddress?.toLowerCase() ?? null;
+      const decimals = row.tokenDecimal != null && /^\d+$/.test(row.tokenDecimal) ? Number(row.tokenDecimal) : 18;
+      const amount = amountFromRaw(row.value ?? "0", decimals);
+      if (amount == null || amount <= 0) continue;
+      const price = tokenAddress ? prices.get(`ethereum:${tokenAddress}`) ?? null : null;
+      const valueUsd = amount != null && price != null ? amount * price : null;
+      const timestamp = Number(row.timeStamp ?? 0);
+      rawRows.push({
+        counterparty: to,
+        tokenAddress,
+        symbol: row.tokenSymbol || tokenAddress?.slice(0, 8) || "TOKEN",
+        amount,
+        valueUsd,
+        timestamp,
+        datetimeUtc: timestampIso(timestamp),
+        txHash: row.hash ?? "",
+        source: "etherscan:tokentx",
+      });
+    }
+
+    const ethPrice = prices.get("coingecko:ethereum") ?? null;
+    for (const row of nativeRows) {
+      if (row.from?.toLowerCase() !== lower) continue;
+      const to = row.to?.toLowerCase();
+      if (!to || !ADDRESS_RE.test(to)) continue;
+      if (to === ZERO_ADDRESS) continue;
+      const amount = amountFromRaw(row.value ?? "0", 18);
+      if (!amount || amount <= 0) continue;
+      const timestamp = Number(row.timeStamp ?? 0);
+      rawRows.push({
+        counterparty: to,
+        tokenAddress: null,
+        symbol: "ETH",
+        amount,
+        valueUsd: ethPrice == null ? null : amount * ethPrice,
+        timestamp,
+        datetimeUtc: timestampIso(timestamp),
+        txHash: row.hash ?? "",
+        source: "etherscan:txlist",
+      });
+    }
+  }
+
+  const tags = new Map(await mapLimit([...new Set(rawRows.map((row) => row.counterparty))], 8, async (to) => {
+    const tag = await classifyCounterparty(to);
+    return [to, tag] as [string, CounterpartyTag];
+  }));
+  const rows: OutflowRow[] = rawRows.map((row) => {
+    const tag = tags.get(row.counterparty) ?? { category: "unclassified", label: "unclassified", confidence: "unknown", clusterEligible: false, protocolLike: false };
+    return {
+      ...row,
+      category: tag.category,
+      label: tag.label,
+      confidence: tag.confidence,
+      clusterEligible: tag.clusterEligible,
+      protocolLike: tag.protocolLike,
+    };
+  });
+
+  return summarizeOutflows(rows, offset);
 }
 
 async function fetchWalletTokens(wallet: string, maxTokens: number, minUsd: number, includeUnpriced: boolean): Promise<WalletToken[]> {
@@ -1099,8 +1585,16 @@ export async function GET(req: Request) {
   const minUsd = Math.max(0, Number(url.searchParams.get("minUsd") ?? 1));
   const includeUnpriced = url.searchParams.get("includeUnpriced") !== "false";
   const includeFlow = url.searchParams.get("includeFlow") !== "false";
+  const includeOutflows = url.searchParams.get("includeOutflows") !== "false";
+  const outflowOffset = safeLimit(url.searchParams.get("outflowOffset"), 500, 2000);
+  const force = ["1", "true", "yes"].includes((url.searchParams.get("force") ?? "").toLowerCase());
+  const cacheKey = requestCacheKey(url, address);
+  if (!force) {
+    const cached = await fileCacheGet<WalletPortfolioResponse>(cacheKey);
+    if (cached) return NextResponse.json(cached);
+  }
 
-  const [walletTokenRes, morphoRes, flowRes] = await Promise.all([
+  const [walletTokenRes, morphoRes, flowRes, outflowRes] = await Promise.all([
     timed("wallet-tokens:alchemy+rpc+llama", () => fetchWalletTokens(address, maxTokens, minUsd, includeUnpriced)),
     timed("protocol:morpho-blue", () => fetchMorphoProtocol(address, minUsd)),
     includeFlow
@@ -1108,6 +1602,12 @@ export async function GET(req: Request) {
       : Promise.resolve({
           value: { available: false, eventCount: 0, linkedProtocols: [], protocolFlows: [] } satisfies FlowHint,
           status: { source: "flow-hints:eoa-flow", ok: true, elapsedMs: 0, detail: "disabled" } satisfies SourceStatus,
+        }),
+    includeOutflows
+      ? timed("external-outflows:alchemy+etherscan-fallback+known-counterparties", () => fetchExternalOutflows(address, outflowOffset))
+      : Promise.resolve({
+          value: null,
+          status: { source: "external-outflows:alchemy+etherscan-fallback+known-counterparties", ok: true, elapsedMs: 0, detail: "disabled" } satisfies SourceStatus,
         }),
   ]);
 
@@ -1140,6 +1640,10 @@ export async function GET(req: Request) {
   const protocolNetUsd = sumNullable(protocols.map((p) => p.netUsd));
   const dataGaps: string[] = [];
   if (!ALCHEMY_URL && !ETHERSCAN_KEY) dataGaps.push("wallet_token_full_scan_requires_alchemy_or_etherscan");
+  if (includeOutflows && !ALCHEMY_URL && !ETHERSCAN_KEY) dataGaps.push("external_outflow_scan_requires_alchemy_or_etherscan_key");
+  if (includeOutflows) {
+    for (const gap of outflowRes.value?.dataGaps ?? []) dataGaps.push(gap);
+  }
   if (!morphoRes.value) dataGaps.push("no_morpho_position_or_adapter_empty");
   dataGaps.push("aave_collateral_flags_and_health_factor_pending");
   dataGaps.push("compound_direct_user_adapter_pending");
@@ -1155,6 +1659,7 @@ export async function GET(req: Request) {
     protocolNetUsd,
     walletTokens,
     protocols,
+    externalOutflows: outflowRes.value,
     flowHints: flowRes.value ?? {
       available: false,
       eventCount: 0,
@@ -1162,9 +1667,10 @@ export async function GET(req: Request) {
       protocolFlows: [],
       error: "error" in flowRes.status ? flowRes.status.error : "flow hints unavailable",
     },
-    sources: [walletTokenRes.status, morphoRes.status, aaveLikeRes.status, erc4626Res.status, flowRes.status],
+    sources: [walletTokenRes.status, morphoRes.status, aaveLikeRes.status, erc4626Res.status, flowRes.status, outflowRes.status],
     dataGaps,
   };
 
+  await fileCachePut(cacheKey, response);
   return NextResponse.json(response);
 }

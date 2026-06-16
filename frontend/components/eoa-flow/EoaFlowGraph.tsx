@@ -7,6 +7,7 @@ import {
   BackgroundVariant,
   Controls,
   Handle,
+  MarkerType,
   MiniMap,
   Position,
   ReactFlow,
@@ -21,7 +22,7 @@ import {
 import "@xyflow/react/dist/style.css";
 
 import { ADDR_EXPLORER, PRow, TX_EXPLORER, shortAddr } from "@/components/panel/spec";
-import type { EoaFlowDetail, EoaFlowEdge, EoaFlowNode, EoaFlowTransfer } from "@/lib/eoa-flow-types";
+import type { EoaAddressPortfolioSummary, EoaFlowDetail, EoaFlowEdge, EoaFlowNode, EoaFlowTransfer, EoaWalletClusterPayload } from "@/lib/eoa-flow-types";
 
 const CATEGORY_COLOR: Record<string, string> = {
   lending: "#0ea5e9",
@@ -54,6 +55,21 @@ const CATEGORY_LABEL: Record<string, string> = {
 type EoaNodeData = {
   raw: EoaFlowNode;
   dim?: boolean;
+};
+
+type ClusterCloudData = {
+  label: string;
+  width: number;
+  height: number;
+  dim?: boolean;
+};
+
+type EoaGraphMode = "d0" | "d-inf";
+
+type ClusterGraphEdge = EoaFlowEdge & {
+  clusterStrength?: "weak" | "strong";
+  clusterRelation?: "transfer" | "deployer";
+  clusterDirection?: "directed" | "mutual";
 };
 
 type DetailContext = {
@@ -100,12 +116,13 @@ type ProtocolFlowBucket = {
 type InflowBucket = {
   detail: EoaFlowDetail;
   source?: EoaFlowNode;
+  counterparty?: string | null;
   tokens: EoaFlowTransfer[];
 };
 
 type TokenChipMode = "position" | "activity" | "sent" | "bridge" | "holding";
 
-const nodeTypes = { eoaFlow: EoaFlowNodeShell };
+const nodeTypes = { eoaFlow: EoaFlowNodeShell, clusterCloud: ClusterCloudNode };
 const edgeTypes = { centerLine: CenterLineEdge };
 
 function categoryColor(category?: string): string {
@@ -113,7 +130,7 @@ function categoryColor(category?: string): string {
 }
 
 function isWalletNode(node: EoaFlowNode): boolean {
-  return node.type === "eoa" || node.data.kind === "eoa" || node.data.kind === "safe";
+  return node.type === "eoa" || node.data.kind === "eoa" || node.data.kind === "safe" || node.data.kind === "wallet_contract";
 }
 
 function nodeRank(node: EoaFlowNode): number {
@@ -145,9 +162,84 @@ function isSeedWallet(node: EoaFlowNode): boolean {
   return isWalletNode(node) && (node.data.discovered_by === "seed" || (node.data.dfs_depth ?? 0) === 0);
 }
 
-function layoutVisibleNodes(nodes: EoaFlowNode[]): Map<string, { x: number; y: number }> {
+function clusterNodeId(address: string): string {
+  return `eoa:${address.toLowerCase()}`;
+}
+
+function nodeAddress(node?: EoaFlowNode): string | null {
+  return (node?.data.address ?? node?.data.target ?? null)?.toLowerCase() ?? null;
+}
+
+function transferCounterparty(detail: EoaFlowDetail, direction: "in" | "out"): string | null {
+  const transfer = (detail.transfers ?? []).find((row) => row.direction === direction);
+  const raw = direction === "in" ? transfer?.from : transfer?.to;
+  return isEvmAddress(raw) ? raw!.toLowerCase() : null;
+}
+
+function isEvmAddress(value: string | null | undefined): boolean {
+  return /^0x[a-fA-F0-9]{40}$/.test(value ?? "");
+}
+
+function layoutVisibleNodes(nodes: EoaFlowNode[], mode: EoaGraphMode, walletClusters?: EoaWalletClusterPayload): Map<string, { x: number; y: number }> {
   const pos = new Map<string, { x: number; y: number }>();
   const seed = nodes.find(isSeedWallet);
+  const walletPeers = nodes.filter((node) => isWalletNode(node) && node.id !== seed?.id).sort(nodeSort);
+  if (mode === "d-inf") {
+    const byAddress = new Map(nodes.map((node) => [nodeAddress(node), node] as const).filter((row): row is [string, EoaFlowNode] => !!row[0]));
+    const placed = new Set<string>();
+    const clusters = (walletClusters?.clusters ?? [])
+      .map((cluster) => ({
+        ...cluster,
+        members: cluster.addresses
+          .map((address) => byAddress.get(address.toLowerCase()))
+          .filter((node): node is EoaFlowNode => !!node)
+          .sort(nodeSort),
+      }))
+      .filter((cluster) => cluster.members.length > 0)
+      .sort((a, b) => Number(b.hasSeed) - Number(a.hasSeed) || b.members.length - a.members.length || a.id.localeCompare(b.id));
+    const nonSeedClusters = clusters.filter((cluster) => !cluster.hasSeed);
+    const clusterRadius = Math.max(500, nonSeedClusters.length * 120);
+    for (const cluster of clusters) {
+      const clusterIndex = nonSeedClusters.findIndex((row) => row.id === cluster.id);
+      const center = cluster.hasSeed || clusterIndex < 0
+        ? CENTER
+        : {
+            x: CENTER.x + Math.cos(-Math.PI / 2 + (Math.PI * 2 * clusterIndex) / Math.max(1, nonSeedClusters.length)) * clusterRadius,
+            y: CENTER.y + Math.sin(-Math.PI / 2 + (Math.PI * 2 * clusterIndex) / Math.max(1, nonSeedClusters.length)) * clusterRadius,
+          };
+      const seedMember = cluster.members.find(isSeedWallet);
+      const ringMembers = seedMember ? cluster.members.filter((node) => node.id !== seedMember.id) : cluster.members;
+      if (seedMember) {
+        pos.set(seedMember.id, { x: center.x - WALLET_W / 2, y: center.y - WALLET_H / 2 });
+        placed.add(seedMember.id);
+      }
+      if (ringMembers.length === 1 && !seedMember) {
+        pos.set(ringMembers[0].id, { x: center.x - WALLET_W / 2, y: center.y - WALLET_H / 2 });
+        placed.add(ringMembers[0].id);
+      } else {
+        const memberRadius = Math.max(seedMember ? 230 : 150, ringMembers.length * 40);
+        ringMembers.forEach((node, index) => {
+          const angle = -Math.PI / 2 + (Math.PI * 2 * index) / Math.max(1, ringMembers.length);
+          pos.set(node.id, {
+            x: center.x + Math.cos(angle) * memberRadius - WALLET_W / 2,
+            y: center.y + Math.sin(angle) * memberRadius - WALLET_H / 2,
+          });
+          placed.add(node.id);
+        });
+      }
+    }
+    const leftovers = nodes.filter((node) => isWalletNode(node) && !placed.has(node.id)).sort(nodeSort);
+    const leftoverRadius = Math.max(720, leftovers.length * 52);
+    leftovers.forEach((node, index) => {
+      const angle = Math.PI / 2 + (Math.PI * 2 * index) / Math.max(1, leftovers.length);
+      pos.set(node.id, {
+        x: CENTER.x + Math.cos(angle) * leftoverRadius - WALLET_W / 2,
+        y: CENTER.y + Math.sin(angle) * leftoverRadius - WALLET_H / 2,
+      });
+    });
+    return pos;
+  }
+
   const protocols = nodes
     .filter((node) => !isWalletNode(node) && (node.type === "protocol" || node.data.kind === "protocol"))
     .sort((a, b) => (a.data.category ?? "").localeCompare(b.data.category ?? "") || nodeSort(a, b));
@@ -156,6 +248,15 @@ function layoutVisibleNodes(nodes: EoaFlowNode[]): Map<string, { x: number; y: n
     .sort(nodeSort);
 
   if (seed) pos.set(seed.id, { x: CENTER.x - WALLET_W / 2, y: CENTER.y - WALLET_H / 2 });
+
+  const walletRadius = Math.max(260, walletPeers.length * 36);
+  walletPeers.forEach((node, index) => {
+    const angle = -Math.PI / 2 + (Math.PI * 2 * index) / Math.max(1, walletPeers.length);
+    pos.set(node.id, {
+      x: CENTER.x + Math.cos(angle) * walletRadius - WALLET_W / 2,
+      y: CENTER.y + Math.sin(angle) * walletRadius - WALLET_H / 2,
+    });
+  });
 
   const protocolRadius = Math.max(480, protocols.length * 44);
   protocols.forEach((node, index) => {
@@ -178,7 +279,10 @@ function layoutVisibleNodes(nodes: EoaFlowNode[]): Map<string, { x: number; y: n
   return pos;
 }
 
-function edgeColor(edge: EoaFlowEdge): string {
+function edgeColor(edge: ClusterGraphEdge): string {
+  if (edge.clusterRelation === "deployer") return "#7c3aed";
+  if (edge.clusterStrength === "strong") return "#111827";
+  if (edge.clusterStrength === "weak") return "#94a3b8";
   if (edge.edge_type === "wallet_move") return "#334155";
   if (edge.edge_type === "wallet_transfer") return "#7c3aed";
   if (edge.edge_type === "asset_in") return "#16a34a";
@@ -265,13 +369,40 @@ function formatSignedAmount(value: number): string {
   return `${value > 0 ? "+" : "-"}${body}`;
 }
 
-function tokenAmountLabel(bucket: Pick<TokenBucket, "net" | "count" | "unknownCount" | "symbol">, signed = false): string {
+function formatUsd(value: number | null | undefined): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "-";
+  const abs = Math.abs(value);
+  if (abs >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
+  if (abs >= 1e6) return `$${(value / 1e6).toFixed(2)}M`;
+  if (abs >= 1e3) return `$${(value / 1e3).toFixed(1)}K`;
+  return `$${value.toFixed(2)}`;
+}
+
+function isLowSignalTokenSymbol(symbol: string): boolean {
+  return !/^[\x20-\x7e]+$/.test(symbol) || /^(token|tkn|erc20|unknown|unknown token)$/i.test(symbol.trim());
+}
+
+function tokenDisplaySymbol(symbol: string | null | undefined, token?: string | null): string {
+  const raw = symbol?.trim() || "TOKEN";
+  if (token && isLowSignalTokenSymbol(raw)) return `${raw} ${shortAddr(token)}`;
+  return raw;
+}
+
+function transferAmountLabel(transfer: EoaFlowTransfer): string {
+  const amount = Number(transfer.amount);
+  if (Number.isFinite(amount) && amount > 0) return formatAmount(amount);
+  if (Number.isFinite(amount) && amount === 0 && transfer.amount_source === "receipt_logs") return "0";
+  return transfer.amount_source === "missing" ? "amount unknown" : `${transfer.count}x`;
+}
+
+function tokenAmountLabel(bucket: Pick<TokenBucket, "token" | "net" | "count" | "unknownCount" | "symbol">, signed = false): string {
+  const symbol = tokenDisplaySymbol(bucket.symbol, bucket.token);
   if (!Number.isFinite(bucket.net) || Math.abs(bucket.net) <= 1e-12) {
     return bucket.unknownCount > 0
-      ? `amount unknown · ${bucket.unknownCount} transfers ${bucket.symbol}`
-      : `net 0 ${bucket.symbol}`;
+      ? `amount unknown · ${bucket.unknownCount} transfers ${symbol}`
+      : `net 0 ${symbol}`;
   }
-  return `${signed ? formatSignedAmount(bucket.net) : formatAmount(Math.abs(bucket.net))} ${bucket.symbol}`;
+  return `${signed ? formatSignedAmount(bucket.net) : formatAmount(Math.abs(bucket.net))} ${symbol}`;
 }
 
 function transferSign(direction: EoaFlowTransfer["direction"]): string {
@@ -285,6 +416,7 @@ function formatDateTime(value?: string): string | null {
 
 function labelForKind(node: EoaFlowNode): string {
   if (node.data.kind === "safe") return "Safe";
+  if (node.data.kind === "wallet_contract") return "Contract";
   if (isWalletNode(node)) return "EOA";
   if (node.type === "asset" || node.data.kind === "asset") return "Asset";
   return CATEGORY_LABEL[node.data.category ?? ""] ?? "Protocol";
@@ -299,12 +431,13 @@ function addTokenBucket(map: Map<string, TokenBucket>, transfer: EoaFlowTransfer
   const cur = map.get(key) ?? { token: transfer.token, symbol: transfer.symbol || "TOKEN", in: 0, out: 0, net: 0, count: 0, unknownCount: 0 };
   const amount = Number(transfer.amount);
   const hasAmount = Number.isFinite(amount) && amount > 0;
+  const hasKnownZeroAmount = Number.isFinite(amount) && amount === 0 && transfer.amount_source === "receipt_logs";
   if (hasAmount) {
     if (direction === "out") cur.out += amount;
     else if (direction === "in") cur.in += amount;
     else cur.net += amount;
     if (direction !== "net") cur.net = cur.in - cur.out;
-  } else {
+  } else if (!hasKnownZeroAmount) {
     cur.unknownCount += transfer.count || 1;
   }
   cur.count += transfer.count || 1;
@@ -335,29 +468,69 @@ function isPositionLikeProtocol(row: ProtocolFlowBucket): boolean {
   return row.tokens.some((token) => isDebtSymbol(token.symbol) || /^(a|sp|stk|yv|pt-|yt-|morpho|9s)/i.test(token.symbol));
 }
 
-function nodeAddress(node?: EoaFlowNode): string | null {
-  return (node?.data.address ?? node?.data.target ?? null)?.toLowerCase() ?? null;
+function invertDirection(direction: EoaFlowTransfer["direction"]): EoaFlowTransfer["direction"] {
+  if (direction === "out") return "in";
+  if (direction === "in") return "out";
+  return "internal";
 }
 
-function contextsForAddress(address: string, edges: EoaFlowEdge[], nodesById: Map<string, EoaFlowNode>): DetailContext[] {
+function detailForSelectedAddress(detail: EoaFlowDetail, edge: EoaFlowEdge, source: EoaFlowNode | undefined, target: EoaFlowNode | undefined, addr: string): EoaFlowDetail | null {
+  if ((detail.address ?? "").toLowerCase() === addr) return detail;
+  if (edge.edge_type !== "wallet_move" && edge.edge_type !== "wallet_transfer" && edge.edge_type !== "wallet_cluster") return null;
+  const sourceAddr = nodeAddress(source);
+  const targetAddr = nodeAddress(target);
+  if (sourceAddr !== addr && targetAddr !== addr) return null;
+  const invert = targetAddr === addr;
+  return {
+    ...detail,
+    address: addr,
+    transfers: (detail.transfers ?? []).map((transfer) => ({
+      ...transfer,
+      direction: invert ? invertDirection(transfer.direction) : transfer.direction,
+    })),
+  };
+}
+
+function contextsForAddress(address: string, edges: EoaFlowEdge[], nodesById: Map<string, EoaFlowNode>, events: EoaFlowDetail[] = []): DetailContext[] {
   const addr = address.toLowerCase();
   const seen = new Map<string, DetailContext>();
   for (const edge of edges) {
     const source = nodesById.get(edge.source);
     const target = nodesById.get(edge.target);
     for (const detail of edge.details ?? []) {
-      if ((detail.address ?? "").toLowerCase() !== addr) continue;
-      const key = detailKey(detail);
-      if (!seen.has(key)) seen.set(key, { detail, edge, source, target });
+      const selectedDetail = detailForSelectedAddress(detail, edge, source, target, addr);
+      if (!selectedDetail) continue;
+      const key = detailKey(selectedDetail);
+      if (!seen.has(key)) seen.set(key, { detail: selectedDetail, edge, source, target });
+    }
+  }
+  for (const detail of events) {
+    if ((detail.address ?? "").toLowerCase() !== addr) continue;
+    const key = detailKey(detail);
+    if (!seen.has(key)) {
+      seen.set(key, {
+        detail,
+        edge: {
+          id: `standalone:${key}`,
+          source: "",
+          target: "",
+          edge_type: "standalone_event",
+          category: detail.category,
+          label: detail.action ?? detail.category,
+          tx_hash: detail.tx_hash,
+          event_count: 1,
+          details: [detail],
+        },
+      });
     }
   }
   return [...seen.values()].sort((a, b) => (a.detail.block_number ?? 0) - (b.detail.block_number ?? 0) || detailKey(a.detail).localeCompare(detailKey(b.detail)));
 }
 
-function nodeFlowSummary(node: EoaFlowNode, edges: EoaFlowEdge[], nodesById: Map<string, EoaFlowNode>) {
+function nodeFlowSummary(node: EoaFlowNode, edges: EoaFlowEdge[], nodesById: Map<string, EoaFlowNode>, events: EoaFlowDetail[] = []) {
   const address = node.data.address ?? node.data.target;
   if (!address) return null;
-  const contexts = contextsForAddress(address, edges, nodesById);
+  const contexts = contextsForAddress(address, edges, nodesById, events);
 
   const positionMap = new Map<string, TokenBucket>();
   for (const { detail } of contexts) {
@@ -461,6 +634,7 @@ function nodeFlowSummary(node: EoaFlowNode, edges: EoaFlowEdge[], nodesById: Map
     .map(({ detail, source, target }) => ({
       detail,
       source: nodeAddress(source) === address.toLowerCase() ? target : source,
+      counterparty: transferCounterparty(detail, "in"),
       tokens: detail.transfers?.filter((transfer) => transfer.direction === "in") ?? [],
     }));
 
@@ -512,17 +686,39 @@ function EoaFlowNodeShell({ data, selected }: NodeProps) {
   );
 }
 
+function ClusterCloudNode({ data }: NodeProps) {
+  const cloud = data as ClusterCloudData;
+  return (
+    <div
+      className="pointer-events-none rounded-[44px] border-2 border-dashed border-slate-400/80 bg-slate-100/10 shadow-[inset_0_0_28px_rgba(148,163,184,0.16)]"
+      style={{
+        width: cloud.width,
+        height: cloud.height,
+        opacity: cloud.dim ? 0.14 : 1,
+      }}
+    >
+      <div className="px-6 py-4 font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">
+        {cloud.label}
+      </div>
+    </div>
+  );
+}
+
 function SelectionPanel({
   selectedNode,
   selectedEdge,
   nodesById,
   edges,
+  events,
+  walletClusters,
   onClose,
 }: {
   selectedNode: EoaFlowNode | null;
   selectedEdge: EoaFlowEdge | null;
   nodesById: Map<string, EoaFlowNode>;
   edges: EoaFlowEdge[];
+  events?: EoaFlowDetail[];
+  walletClusters?: EoaWalletClusterPayload;
   onClose: () => void;
 }) {
   const edgeSource = selectedEdge ? nodesById.get(selectedEdge.source) : null;
@@ -551,16 +747,17 @@ function SelectionPanel({
         </button>
       </div>
 
-      {selectedNode && <NodeDetails node={selectedNode} edges={edges} nodesById={nodesById} />}
+      {selectedNode && <NodeDetails node={selectedNode} edges={edges} nodesById={nodesById} events={events} walletClusters={walletClusters} />}
       {selectedEdge && <EdgeDetails edge={selectedEdge} />}
     </div>
   );
 }
 
-function NodeDetails({ node, edges, nodesById }: { node: EoaFlowNode; edges: EoaFlowEdge[]; nodesById: Map<string, EoaFlowNode> }) {
+function NodeDetails({ node, edges, nodesById, events, walletClusters }: { node: EoaFlowNode; edges: EoaFlowEdge[]; nodesById: Map<string, EoaFlowNode>; events?: EoaFlowDetail[]; walletClusters?: EoaWalletClusterPayload }) {
   const address = node.data.address ?? node.data.target;
   const counts = node.data.category_counts ?? {};
-  const summary = isWalletNode(node) ? nodeFlowSummary(node, edges, nodesById) : null;
+  const summary = isWalletNode(node) ? nodeFlowSummary(node, edges, nodesById, events) : null;
+  const portfolio = address ? walletClusters?.addressPortfolios?.find((row) => row.address.toLowerCase() === address.toLowerCase()) ?? null : null;
   return (
     <div className="mt-3 space-y-0.5">
       <PRow k="주소" v={address ? shortAddr(address) : null} href={address ? ADDR_EXPLORER.ethereum(address) : null} badge={address ? "verified" : undefined} />
@@ -581,6 +778,7 @@ function NodeDetails({ node, edges, nodesById }: { node: EoaFlowNode; edges: Eoa
           </div>
         </div>
       )}
+      {portfolio && <AddressPortfolioSnapshot portfolio={portfolio} />}
       {summary && <WalletFlowSummary summary={summary} />}
     </div>
   );
@@ -610,7 +808,7 @@ function TokenList({ rows, signed = false, limit = 8 }: { rows: TokenBucket[]; s
       {rows.slice(0, limit).map((bucket) => (
         <a
           key={`${bucket.token}:${bucket.symbol}:${bucket.net}`}
-          href={bucket.token ? ADDR_EXPLORER.ethereum(bucket.token) : undefined}
+          href={isEvmAddress(bucket.token) ? ADDR_EXPLORER.ethereum(bucket.token) : undefined}
           target="_blank"
           rel="noreferrer"
           title={bucket.token}
@@ -622,6 +820,78 @@ function TokenList({ rows, signed = false, limit = 8 }: { rows: TokenBucket[]; s
           <span className="text-[var(--color-text-muted)]">in {formatAmount(bucket.in)} / out {formatAmount(bucket.out)}</span>
         </a>
       ))}
+    </div>
+  );
+}
+
+function AddressPortfolioSnapshot({ portfolio }: { portfolio: EoaAddressPortfolioSummary }) {
+  const outflows = portfolio.externalOutflows;
+  return (
+    <div className="mt-4 rounded-md border border-[var(--color-border-subtle)] bg-[var(--color-bg)] p-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-[12px] font-semibold text-[var(--color-text-primary)]">현재 포트폴리오 snapshot</div>
+        <div className="font-mono text-[10px] text-[var(--color-text-muted)]">pseudo-debank</div>
+      </div>
+      <div className="mt-2 grid grid-cols-3 gap-2 font-mono text-[10px]">
+        <PRow k="total" v={formatUsd(portfolio.totalUsd)} />
+        <PRow k="wallet" v={formatUsd(portfolio.walletTokenUsd)} />
+        <PRow k="protocol" v={formatUsd(portfolio.protocolNetUsd)} />
+      </div>
+      {!!portfolio.topWalletTokens.length && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {portfolio.topWalletTokens.slice(0, 8).map((token) => (
+            <a
+              key={`${token.tokenAddress ?? "native"}:${token.symbol}`}
+              href={token.tokenAddress ? ADDR_EXPLORER.ethereum(token.tokenAddress) : undefined}
+              target="_blank"
+              rel="noreferrer"
+              title={token.tokenAddress ?? token.symbol}
+              className="rounded border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)]"
+            >
+              {tokenDisplaySymbol(token.symbol, token.tokenAddress)} {formatUsd(token.valueUsd)}
+            </a>
+          ))}
+        </div>
+      )}
+      {!!portfolio.topProtocols.length && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {portfolio.topProtocols.slice(0, 6).map((protocol) => (
+            <span key={protocol.protocolId} className="rounded border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-secondary)]">
+              {protocol.protocolName} {formatUsd(protocol.netUsd ?? protocol.assetUsd)}
+            </span>
+          ))}
+        </div>
+      )}
+      {outflows && (
+        <>
+          <div className="mt-2 grid grid-cols-3 gap-2 font-mono text-[10px]">
+            <PRow k="infra out all" v={formatUsd(outflows.totals.knownInfraUsdAll)} />
+            <PRow k="wallet out all" v={formatUsd(outflows.totals.walletUsdAll)} />
+            <PRow k="wallet out 30d" v={formatUsd(outflows.totals.walletUsd30d)} />
+          </div>
+          {!!outflows.topCounterparties.filter((row) => (row.valueUsd ?? 0) > 0).length && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {outflows.topCounterparties.filter((row) => (row.valueUsd ?? 0) > 0).slice(0, 6).map((row) => (
+                <a
+                  key={`${row.category}:${row.counterparty}:${row.symbol}`}
+                  href={row.counterparty ? ADDR_EXPLORER.ethereum(row.counterparty) : undefined}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={row.counterparty}
+                  className="rounded border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)]"
+                >
+                  {row.category} {shortAddr(row.counterparty)} {row.amount != null ? `${formatAmount(row.amount)} ` : ""}{row.symbol} {formatUsd(row.valueUsd)}
+                </a>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+      {!!portfolio.dataGaps.length && (
+        <div className="mt-2 truncate font-mono text-[9px] text-[var(--color-text-muted)]" title={portfolio.dataGaps.join(", ")}>
+          portfolio gap · {portfolio.dataGaps[0]}
+        </div>
+      )}
     </div>
   );
 }
@@ -807,13 +1077,13 @@ function WalletFlowSummary({
           {summary.inflows.slice(0, 24).map((row, index) => (
             <div key={`${row.detail.event_id ?? row.detail.tx_hash}:${index}`} className="rounded-md border border-[var(--color-border-subtle)] bg-[var(--color-bg)] p-2.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="truncate text-[11px] font-semibold text-[var(--color-text-primary)]">{row.detail.category === "token_mint" ? "mint" : "receive"} · {row.source?.label ?? row.detail.protocol ?? "unknown"}</span>
+                <span className="truncate text-[11px] font-semibold text-[var(--color-text-primary)]">{row.detail.category === "token_mint" ? "mint" : "receive"} · {row.source?.label ?? (row.counterparty ? shortAddr(row.counterparty) : null) ?? row.detail.protocol ?? "unknown"}</span>
                 <span className="font-mono text-[10px] text-[var(--color-text-muted)]">{row.detail.datetime_utc?.slice(0, 10) ?? "unknown"}</span>
               </div>
               <div className="mt-1 flex flex-wrap gap-1">
                 {(row.tokens.length ? row.tokens : row.detail.transfers ?? []).slice(0, 5).map((transfer) => (
                   <span key={`${transfer.token}:${transfer.symbol}:${transfer.amount}:${row.detail.event_id}`} className="rounded border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-healthy)]">
-                    +{Number(transfer.amount) > 0 ? formatAmount(transfer.amount) : "amount unknown"} {transfer.symbol}
+                    +{transferAmountLabel(transfer)} {tokenDisplaySymbol(transfer.symbol, transfer.token)}
                   </span>
                 ))}
                 {row.detail.tx_hash && (
@@ -879,7 +1149,7 @@ function DetailRow({ detail }: { detail: EoaFlowDetail }) {
           {transfers.map((transfer, index) => (
             <a
               key={`${transfer.direction}:${transfer.token}:${transfer.symbol}:${index}`}
-              href={ADDR_EXPLORER.ethereum(transfer.token)}
+              href={isEvmAddress(transfer.token) ? ADDR_EXPLORER.ethereum(transfer.token) : undefined}
               target="_blank"
               rel="noreferrer"
               title={transfer.token}
@@ -888,8 +1158,9 @@ function DetailRow({ detail }: { detail: EoaFlowDetail }) {
               <span className={transfer.direction === "out" ? "text-[var(--color-danger)]" : transfer.direction === "in" ? "text-[var(--color-healthy)]" : "text-[var(--color-text-muted)]"}>
                 {transferSign(transfer.direction)}
               </span>
-              <span className="text-[var(--color-text-primary)]">{formatAmount(transfer.amount) || `${transfer.count}x`}</span>
-              <span className="min-w-0 truncate text-[var(--color-text-secondary)]">{transfer.symbol}</span>
+              <span className="text-[var(--color-text-primary)]">{transferAmountLabel(transfer)}</span>
+              <span className="min-w-0 truncate text-[var(--color-text-secondary)]">{tokenDisplaySymbol(transfer.symbol, transfer.token)}</span>
+              {transfer.amount_source === "receipt_logs" && <span className="text-[var(--color-text-muted)]">receipt</span>}
             </a>
           ))}
         </div>
@@ -909,20 +1180,115 @@ function DetailRow({ detail }: { detail: EoaFlowDetail }) {
   );
 }
 
-export function EoaFlowGraph({ nodes, edges }: { nodes: EoaFlowNode[]; edges: EoaFlowEdge[] }) {
-  const allEntityNodes = useMemo(() => nodes.filter((node) => node.type !== "event" && node.data.kind !== "event").sort(nodeSort), [nodes]);
+function walletNodeLabel(kind: string, address: string): string {
+  const prefix = kind === "safe" ? "Safe" : kind === "contract" ? "Contract" : "EOA";
+  return `${prefix} ${shortAddr(address)}`;
+}
+
+function syntheticWalletNode(row: EoaWalletClusterPayload["addresses"][number]): EoaFlowNode {
+  return {
+    id: clusterNodeId(row.address),
+    type: "eoa",
+    label: row.label ?? walletNodeLabel(row.kind, row.address),
+    data: {
+      kind: row.kind === "safe" ? "safe" : row.kind === "contract" ? "wallet_contract" : "eoa",
+      address: row.address,
+      discovered_by: row.discoveredBy ?? "cluster",
+    },
+  };
+}
+
+function clusterGraphEdge(edge: EoaWalletClusterPayload["edges"][number], nodeIdByAddress: Map<string, string>): ClusterGraphEdge | null {
+  const source = nodeIdByAddress.get(edge.source.toLowerCase());
+  const target = nodeIdByAddress.get(edge.target.toLowerCase());
+  if (!source || !target) return null;
+  const weak = edge.strength === "weak";
+  return {
+    id: edge.id,
+    source,
+    target,
+    edge_type: "wallet_cluster",
+    category: edge.relation,
+    label: `${edge.strength} ${edge.relation} · ${edge.txCount} tx${edge.symbols.length ? ` · ${edge.symbols.slice(0, 4).join("/")}` : ""}`,
+    tx_hash: edge.sampleTx ?? undefined,
+    event_count: edge.txCount,
+    details: edge.details ?? [],
+    clusterStrength: edge.strength,
+    clusterRelation: edge.relation,
+    clusterDirection: weak ? "directed" : edge.direction,
+  };
+}
+
+function clusterCloudNodes(
+  clusters: EoaWalletClusterPayload["clusters"],
+  positions: Map<string, { x: number; y: number }>,
+  nodeIdByAddress: Map<string, string>,
+  focus: { nodeIds: Set<string>; edgeIds: Set<string> } | null,
+): Node[] {
+  const clouds: Node[] = [];
+  for (const cluster of clusters) {
+    if (cluster.size < 2) continue;
+    const boxes = cluster.addresses
+      .map((address) => nodeIdByAddress.get(address.toLowerCase()))
+      .map((id) => id ? positions.get(id) : null)
+      .filter((pos): pos is { x: number; y: number } => !!pos);
+    if (boxes.length < 2) continue;
+    const pad = 110;
+    const minX = Math.min(...boxes.map((box) => box.x)) - pad;
+    const minY = Math.min(...boxes.map((box) => box.y)) - pad;
+    const maxX = Math.max(...boxes.map((box) => box.x + WALLET_W)) + pad;
+    const maxY = Math.max(...boxes.map((box) => box.y + WALLET_H)) + pad;
+    const dim = focus ? !cluster.addresses.some((address) => {
+      const id = nodeIdByAddress.get(address.toLowerCase());
+      return id ? focus.nodeIds.has(id) : false;
+    }) : false;
+    clouds.push({
+      id: `cloud:${cluster.id}`,
+      type: "clusterCloud",
+      position: { x: minX, y: minY },
+      data: { label: `${cluster.hasSeed ? "seed " : ""}${cluster.id.replace("wallet-cluster:", "cluster ")} · ${cluster.size} addr`, width: maxX - minX, height: maxY - minY, dim },
+      draggable: false,
+      selectable: false,
+      zIndex: -10,
+    } as Node);
+  }
+  return clouds;
+}
+
+export function EoaFlowGraph({ nodes, edges, events = [], mode = "d0", walletClusters }: { nodes: EoaFlowNode[]; edges: EoaFlowEdge[]; events?: EoaFlowDetail[]; mode?: EoaGraphMode; walletClusters?: EoaWalletClusterPayload }) {
+  const allEntityNodes = useMemo(() => {
+    const base = nodes.filter((node) => node.type !== "event" && node.data.kind !== "event");
+    if (mode !== "d-inf" || !walletClusters) return base.sort(nodeSort);
+    const seen = new Set(base.map((node) => nodeAddress(node)).filter((address): address is string => !!address));
+    const synthetic = walletClusters.addresses
+      .filter((row) => !seen.has(row.address.toLowerCase()))
+      .map(syntheticWalletNode);
+    return [...base, ...synthetic].sort(nodeSort);
+  }, [mode, nodes, walletClusters]);
   const seedWallet = useMemo(() => allEntityNodes.find(isSeedWallet) ?? allEntityNodes.find(isWalletNode) ?? null, [allEntityNodes]);
-  const candidateVisibleNodeIds = useMemo(() => new Set(allEntityNodes.filter((node) => !isWalletNode(node) || node.id === seedWallet?.id).map((node) => node.id)), [allEntityNodes, seedWallet]);
   const nodesById = useMemo(() => new Map(allEntityNodes.map((node) => [node.id, node] as const)), [allEntityNodes]);
+  const nodeIdByAddress = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const node of allEntityNodes) {
+      const address = nodeAddress(node);
+      if (address) map.set(address, node.id);
+    }
+    return map;
+  }, [allEntityNodes]);
+  const clusterEdges = useMemo(() => {
+    if (mode !== "d-inf" || !walletClusters) return [];
+    return walletClusters.edges.map((edge) => clusterGraphEdge(edge, nodeIdByAddress)).filter((edge): edge is ClusterGraphEdge => !!edge);
+  }, [mode, nodeIdByAddress, walletClusters]);
   const visibleEdges = useMemo(() => edges.filter((edge) => {
+    if (mode === "d-inf") return false;
     const source = nodesById.get(edge.source);
     const target = nodesById.get(edge.target);
     if (!source || !target) return false;
     if (isWalletNode(source) && isWalletNode(target)) return false;
     if (isWalletNode(source) && source.id !== seedWallet?.id) return false;
     if (isWalletNode(target) && target.id !== seedWallet?.id) return false;
-    return candidateVisibleNodeIds.has(edge.source) && candidateVisibleNodeIds.has(edge.target);
-  }), [candidateVisibleNodeIds, edges, nodesById, seedWallet]);
+    return true;
+  }).concat(clusterEdges), [clusterEdges, edges, mode, nodesById, seedWallet]);
   const visibleConnectedNodeIds = useMemo(() => {
     const ids = new Set<string>();
     for (const edge of visibleEdges) {
@@ -932,7 +1298,7 @@ export function EoaFlowGraph({ nodes, edges }: { nodes: EoaFlowNode[]; edges: Eo
     if (seedWallet) ids.add(seedWallet.id);
     return ids;
   }, [seedWallet, visibleEdges]);
-  const visibleNodes = useMemo(() => allEntityNodes.filter((node) => candidateVisibleNodeIds.has(node.id) && visibleConnectedNodeIds.has(node.id)), [allEntityNodes, candidateVisibleNodeIds, visibleConnectedNodeIds]);
+  const visibleNodes = useMemo(() => allEntityNodes.filter((node) => visibleConnectedNodeIds.has(node.id)), [allEntityNodes, visibleConnectedNodeIds]);
   const edgesById = useMemo(() => new Map(visibleEdges.map((edge) => [edge.id, edge] as const)), [visibleEdges]);
   const [selected, setSelected] = useState<{ type: "node" | "edge"; id: string } | null>(null);
   const selectedNode = selected?.type === "node" ? nodesById.get(selected.id) ?? null : null;
@@ -963,7 +1329,7 @@ export function EoaFlowGraph({ nodes, edges }: { nodes: EoaFlowNode[]; edges: Eo
   }, [edgesById, selected, visibleEdges]);
 
   const { rfNodesBase, rfEdgesBase } = useMemo(() => {
-    const positions = layoutVisibleNodes(visibleNodes);
+    const positions = layoutVisibleNodes(visibleNodes, mode, walletClusters);
     const rfNodesBase: Node[] = visibleNodes.map((node) => {
       const pos = positions.get(node.id) ?? { x: 0, y: 0 };
       const dim = focus ? !focus.nodeIds.has(node.id) : false;
@@ -978,31 +1344,38 @@ export function EoaFlowGraph({ nodes, edges }: { nodes: EoaFlowNode[]; edges: Eo
         targetPosition: Position.Left,
       } as Node;
     });
+    const cloudNodes = mode === "d-inf" && walletClusters
+      ? clusterCloudNodes(walletClusters.clusters, positions, nodeIdByAddress, focus)
+      : [];
 
     const rfEdgesBase: Edge[] = visibleEdges.map((edge) => {
-      const color = edgeColor(edge);
+      const clusterEdge = edge as ClusterGraphEdge;
+      const color = edgeColor(clusterEdge);
       const active = focus ? focus.edgeIds.has(edge.id) : true;
       const walletMove = edge.edge_type === "wallet_move" || edge.edge_type === "wallet_transfer";
       const protocolFlow = edge.edge_type === "protocol_flow";
+      const weakCluster = clusterEdge.clusterStrength === "weak";
+      const strongCluster = clusterEdge.clusterStrength === "strong";
       return {
         id: edge.id,
         source: edge.source,
         target: edge.target,
         type: "centerLine",
-        animated: active && (walletMove || protocolFlow),
+        animated: active && mode !== "d-inf" && (walletMove || protocolFlow),
         data: edge,
         selected: selected?.type === "edge" && selected.id === edge.id,
+        markerEnd: mode === "d-inf" && weakCluster ? { type: MarkerType.ArrowClosed, color } : undefined,
         style: {
           stroke: color,
-          strokeWidth: active ? (walletMove ? 2.8 : protocolFlow ? 2.4 : 2) : 1.1,
-          strokeDasharray: edge.edge_type === "wallet_transfer" || edge.edge_type === "asset_out" ? "4 4" : undefined,
-          opacity: active ? 0.92 : 0.08,
+          strokeWidth: active ? (strongCluster ? 5.2 : weakCluster ? 2.2 : walletMove ? 2.8 : protocolFlow ? 2.4 : 2) : 1.1,
+          strokeDasharray: weakCluster ? "10 9" : edge.edge_type === "wallet_transfer" || edge.edge_type === "asset_out" ? "4 4" : undefined,
+          opacity: active ? (weakCluster ? 0.82 : 0.98) : 0.08,
         },
       } as Edge;
     });
 
-    return { rfNodesBase, rfEdgesBase };
-  }, [focus, selected, visibleEdges, visibleNodes]);
+    return { rfNodesBase: [...cloudNodes, ...rfNodesBase], rfEdgesBase };
+  }, [focus, mode, nodeIdByAddress, selected, visibleEdges, visibleNodes, walletClusters]);
 
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState(rfNodesBase);
   const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState(rfEdgesBase);
@@ -1053,27 +1426,38 @@ export function EoaFlowGraph({ nodes, edges }: { nodes: EoaFlowNode[]; edges: Eo
 
         <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-surface)]/95 px-3 py-2 text-[10px] text-[var(--color-text-muted)] shadow-sm">
           <div className="flex flex-wrap gap-3">
-            <Legend color="#4f46e5" label="seed EOA" />
-            <Legend color="#0ea5e9" label="lending" />
-            <Legend color="#059669" label="yield basis" />
-            <Legend color="#d97706" label="swap" />
+            {mode === "d-inf" ? (
+              <>
+                <Legend color="#111827" label="strong SCC" />
+                <Legend color="#94a3b8" label="weak directed" dashed />
+                <Legend color="#7c3aed" label="deployer" />
+                <Legend color="#cbd5e1" label="cluster cloud" dashed />
+              </>
+            ) : (
+              <>
+                <Legend color="#4f46e5" label="seed EOA" />
+                <Legend color="#0ea5e9" label="lending" />
+                <Legend color="#059669" label="yield basis" />
+                <Legend color="#d97706" label="swap" />
+              </>
+            )}
           </div>
         </div>
       </div>
 
       {(selectedNode || selectedEdge) && (
         <aside className="w-full shrink-0 overflow-y-auto border-t border-[var(--color-border-subtle)] bg-[var(--color-surface)] lg:w-[380px] lg:border-l lg:border-t-0">
-          <SelectionPanel selectedNode={selectedNode} selectedEdge={selectedEdge} nodesById={nodesById} edges={edges} onClose={clearSelection} />
+          <SelectionPanel selectedNode={selectedNode} selectedEdge={selectedEdge} nodesById={nodesById} edges={edges} events={events} walletClusters={walletClusters} onClose={clearSelection} />
         </aside>
       )}
     </div>
   );
 }
 
-function Legend({ color, label }: { color: string; label: string }) {
+function Legend({ color, label, dashed = false }: { color: string; label: string; dashed?: boolean }) {
   return (
     <span className="flex items-center gap-1.5">
-      <span className="inline-block size-2 rounded-sm" style={{ backgroundColor: color }} />
+      <span className="inline-block h-2 w-4 rounded-sm border" style={{ backgroundColor: dashed ? "transparent" : color, borderColor: color, borderStyle: dashed ? "dashed" : "solid" }} />
       {label}
     </span>
   );

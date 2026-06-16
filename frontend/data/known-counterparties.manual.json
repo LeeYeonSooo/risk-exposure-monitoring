@@ -1,0 +1,198 @@
+[
+  {
+    "address": "0x28c6c06298d514db089934071355e5743bf21d60",
+    "category": "cex",
+    "label": "Binance hot wallet",
+    "family": "Binance",
+    "source": "manual"
+  },
+  {
+    "address": "0x21a31ee1afc51d94c2efccaa2092ad1028285549",
+    "category": "cex",
+    "label": "Binance hot wallet",
+    "family": "Binance",
+    "source": "manual"
+  },
+  {
+    "address": "0x71660c4005ba85c37ccec55d0c4493e66fe775d3",
+    "category": "cex",
+    "label": "Coinbase hot wallet",
+    "family": "Coinbase",
+    "source": "manual"
+  },
+  {
+    "address": "0xbeb5fc579115071764c7423a4f12edde41f106ed",
+    "category": "bridge",
+    "label": "Optimism Portal",
+    "family": "Optimism",
+    "source": "manual"
+  },
+  {
+    "address": "0x49048044d57e1c92a77f79988d21fa8faf74e97e",
+    "category": "bridge",
+    "label": "Base Portal",
+    "family": "Base",
+    "source": "manual"
+  },
+  {
+    "address": "0x4dbd4fc535ac27206064b68ffcf827b0a60bab3f",
+    "category": "bridge",
+    "label": "Arbitrum Delayed Inbox",
+    "family": "Arbitrum",
+    "source": "manual"
+  },
+  {
+    "address": "0x8315177ab297ba92a06054ce80a67ed4dbd7ed3a",
+    "category": "bridge",
+    "label": "Arbitrum Bridge",
+    "family": "Arbitrum",
+    "source": "manual"
+  },
+  {
+    "address": "0x111111125421ca6dc452d289314280a0f8842a65",
+    "category": "router",
+    "label": "1inch Aggregation Router",
+    "family": "1inch",
+    "source": "manual"
+  },
+  {
+    "address": "0x1111111254eeb25477b68fb85ed929f73a960582",
+    "category": "router",
+    "label": "1inch Aggregation Router",
+    "family": "1inch",
+    "source": "manual"
+  },
+  {
+    "address": "0xdef1c0ded9bec7f1a1670819833240f027b25eff",
+    "category": "router",
+    "label": "0x Exchange Proxy",
+    "family": "0x",
+    "source": "manual"
+  },
+  {
+    "address": "0xdef171fe48cf0115b1d80b88dc8eab59176fee57",
+    "category": "router",
+    "label": "ParaSwap Augustus",
+    "family": "ParaSwap",
+    "source": "manual"
+  },
+  {
+    "address": "0x6a000f20005980200259b80c5102003040001068",
+    "category": "router",
+    "label": "ParaSwap Augustus V6",
+    "family": "ParaSwap",
+    "source": "manual"
+  },
+  {
+    "address": "0xef1c6e67703c7bd7107eed8303fbe6ec2554bf6b",
+    "category": "router",
+    "label": "Uniswap Universal Router",
+    "family": "Uniswap",
+    "source": "manual"
+  },
+  {
+    "address": "0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad",
+    "category": "router",
+    "label": "Uniswap Universal Router",
+    "family": "Uniswap",
+    "source": "manual"
+  },
+  {
+    "address": "0x66a9893cc07d91d95644aedd05d03f95e1dba8af",
+    "category": "router",
+    "label": "Uniswap Universal Router",
+    "family": "Uniswap",
+    "source": "manual"
+  },
+  {
+    "address": "0xe592427a0aece92de3edee1f18e0157c05861564",
+    "category": "router",
+    "label": "Uniswap V3 SwapRouter",
+    "family": "Uniswap",
+    "source": "manual"
+  },
+  {
+    "address": "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45",
+    "category": "router",
+    "label": "Uniswap V3 SwapRouter02",
+    "family": "Uniswap",
+    "source": "manual"
+  },
+  {
+    "address": "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
+    "category": "router",
+    "label": "Uniswap V2 Router02",
+    "family": "Uniswap",
+    "source": "manual"
+  },
+  {
+    "address": "0x000000000022d473030f116ddee9f6b43ac78ba3",
+    "category": "router",
+    "label": "Permit2",
+    "family": "Uniswap",
+    "source": "manual"
+  },
+  {
+    "address": "0x9008d19f58aabd9ed0d60971565aa8510560ab41",
+    "category": "solver",
+    "label": "CoW Protocol Settlement",
+    "family": "CoW Protocol",
+    "source": "manual"
+  },
+  {
+    "address": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+    "category": "protocol",
+    "label": "Morpho Blue",
+    "family": "Morpho",
+    "source": "manual"
+  },
+  {
+    "address": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+    "category": "protocol",
+    "label": "Aave V3 Pool",
+    "family": "Aave",
+    "source": "manual"
+  },
+  {
+    "address": "0x7d2768de32b0b80b7a3454c06bdac94a69ddc7a9",
+    "category": "protocol",
+    "label": "Aave V2 LendingPool",
+    "family": "Aave",
+    "source": "manual"
+  },
+  {
+    "address": "0xc13e21b648a5ee794902342038ff3adab66be987",
+    "category": "protocol",
+    "label": "Spark Pool",
+    "family": "Spark",
+    "source": "manual"
+  },
+  {
+    "address": "0xc3d688b66703497daa19211eedff47f25384cdc3",
+    "category": "protocol",
+    "label": "Compound Comet USDC",
+    "family": "Compound",
+    "source": "manual"
+  },
+  {
+    "address": "0xa17581a9e3356d9a858b789d68b4d866e593ae94",
+    "category": "protocol",
+    "label": "Compound Comet WETH",
+    "family": "Compound",
+    "source": "manual"
+  },
+  {
+    "address": "0xba12222222228d8ba445958a75a0704d566bf2c8",
+    "category": "protocol",
+    "label": "Balancer Vault",
+    "family": "Balancer",
+    "source": "manual"
+  },
+  {
+    "address": "0x1f98431c8ad98523631ae4a59f267346ea31f984",
+    "category": "protocol",
+    "label": "Uniswap V3 Factory",
+    "family": "Uniswap",
+    "source": "manual"
+  }
+]

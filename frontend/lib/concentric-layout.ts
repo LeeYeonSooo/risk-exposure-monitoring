@@ -234,6 +234,7 @@ function edgeMetrics(edge: GraphEdge, totalUsd: number, protocolKey: string): Re
   const counted = tokenRoles.length ? tokenRoles : roles;
   const tokenAmount = counted.length ? counted.reduce((s, r) => s + r.amount_token, 0) : null;
   const tokenAmountUsd = counted.length ? counted.reduce((s, r) => s + r.amount_usd, 0) : null;
+  const availableLiquidityUsd = attrs?.lendingRisk?.liquidityUsd ?? null;
   const collateralCount = roles.filter((r) => r.edge_type === "collateral" || r.edge_type === "collateral_isolated" || r.edge_type === "cdp_collateral").length;
   const depositCount = roles.filter((r) => r.edge_type === "collateral" || r.edge_type === "collateral_isolated" || r.edge_type === "deposit_supply" || r.edge_type === "cdp_collateral" || r.edge_type === "mint_backing").length;
   const dexLiquidity = attrs?.dex?.liquidityUsd ?? null;
@@ -245,6 +246,8 @@ function edgeMetrics(edge: GraphEdge, totalUsd: number, protocolKey: string): Re
     tokenAmountUsd,
     tvlUsd: tokenAmountUsd ?? totalUsd,
     dexLiquidityUsd: dexLiquidity,
+    availableLiquidityUsd,
+    availableLiquidityPct: availableLiquidityUsd != null && tokenAmountUsd != null && tokenAmountUsd > 0 ? availableLiquidityUsd / tokenAmountUsd : null,
     weeklySwapTokenAmount: null,
     weeklySwapUsd: null,
     depositCount: depositCount || null,
@@ -268,6 +271,8 @@ function mergeMetrics(base: RelationDetailMetrics, extra?: RelationDetailMetrics
   if (extra.tokenAmount != null) out.tokenAmount = extra.tokenAmount;
   if (extra.tokenAmountUsd != null) out.tokenAmountUsd = extra.tokenAmountUsd;
   if (extra.tvlUsd != null) out.tvlUsd = extra.tvlUsd;
+  if (extra.availableLiquidityUsd != null) out.availableLiquidityUsd = extra.availableLiquidityUsd;
+  if (extra.availableLiquidityPct != null) out.availableLiquidityPct = extra.availableLiquidityPct;
   if (extra.depositCount != null) out.depositCount = extra.depositCount;
   if (extra.collateralCount != null) out.collateralCount = extra.collateralCount;
   if (extra.borrowCount != null) out.borrowCount = extra.borrowCount;
@@ -296,13 +301,17 @@ function marketMetrics(entry: MEntry): RelationDetailMetrics {
   const weeklySwapUsd = numberOrNull(p.weeklySwapUsd);
   const gaps = new Set(metricDataGaps(isDexPool ? "pool" : "market", hasTokenAmount));
   const collateralUsd = numberOrNull(p.collateralAssetsUsd);
+  const supplyUsd = numberOrNull(p.supplyAssetsUsd);
   const borrowUsd = numberOrNull(p.borrowAssetsUsd);
+  const availableLiquidityUsd = kind === "lending" && supplyUsd != null && borrowUsd != null ? Math.max(0, supplyUsd - borrowUsd) : null;
   if (weeklySwapUsd != null) gaps.delete("weekly_swap");
   return {
     tokenAmount: null,
     tokenAmountUsd: hasTokenAmount ? entry.sizeUsd : null,
     tvlUsd: numberOrNull(p.marketSizeUsd) ?? numberOrNull(p.sizeUsd) ?? entry.sizeUsd,
     dexLiquidityUsd: isDexPool ? entry.sizeUsd : null,
+    availableLiquidityUsd,
+    availableLiquidityPct: availableLiquidityUsd != null && supplyUsd != null && supplyUsd > 0 ? availableLiquidityUsd / supplyUsd : null,
     weeklySwapTokenAmount: null,
     weeklySwapUsd,
     depositCount: 1,
@@ -336,12 +345,18 @@ function protocolMetrics(edge: GraphEdge, entries: MEntry[], totalUsd: number, p
   const baseRows = base.marketRows ?? [];
   const marketRows = baseRows.length ? baseRows : mergeMarketRows(entryRows);
   const weeklySwapUsd = base.weeklySwapUsd ?? (sum((m) => m.weeklySwapUsd) || null);
+  const availableLiquidityUsd = base.availableLiquidityUsd ?? (sum((m) => m.availableLiquidityUsd) || null);
+  const supplyRowsUsd = marketRows
+    .filter((r) => r.label.includes("예치") || r.label.includes("공급") || r.label.includes("리저브"))
+    .reduce((s, r) => s + (r.amountUsd ?? 0), 0);
   if (weeklySwapUsd != null) gaps.delete("weekly_swap");
   return {
     tokenAmount: base.tokenAmount,
     tokenAmountUsd: base.tokenAmountUsd ?? totalUsd,
     tvlUsd: totalUsd,
     dexLiquidityUsd: base.dexLiquidityUsd ?? sum((m) => m.dexLiquidityUsd),
+    availableLiquidityUsd,
+    availableLiquidityPct: availableLiquidityUsd != null && supplyRowsUsd > 0 ? availableLiquidityUsd / supplyRowsUsd : base.availableLiquidityPct ?? null,
     weeklySwapTokenAmount: null,
     weeklySwapUsd,
     depositCount: base.depositCount ?? entries.length,
