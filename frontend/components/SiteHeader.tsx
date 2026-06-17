@@ -8,7 +8,8 @@ import { cn } from "@/lib/utils";
 const TOGGLE_NAV = [
   { href: "/", label: "검색" },
   { href: "/flow", label: "흐름맵" },
-  { href: "/eoa-flow", label: "EOA 흐름" },
+  // EOA 흐름 — 기능 제거(사용자 2026-06-17). 페이지/컴포넌트/조회 API(eoa-flows) 삭제, 관계맵·흐름맵·모니터링만 남김.
+  //   (내부 enrich용 /api/eoa-flow + wallet-portfolio 는 관계맵 Morpho 패널이 쓰므로 유지.)
 ];
 
 const EXTRA_NAV: { href: string; label: string }[] = [];

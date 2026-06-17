@@ -49,10 +49,10 @@ export const EDGE_GROUPS: { label: string; color: string }[] = [
 
 export const EDGE_TYPE_DEFAULT_COLOR = "#475569"; // slate-600 — 미분류
 
-// 구조상 가능(관측 안 됨) 엣지 색 — 회색. "이 관계가 구조적으로 가능하다"는 골격만 표시하고,
-//   실제 자금(amountUsd>0)이 흐른 관측 엣지는 위 EDGE_TYPE_COLORS(범례색)로 칠한다.
-//   회색 골격 위로 라이브 트랜잭션 입자를 흘리면 "지금 실제로 도는" 엣지가 그 위에서 살아난다.
-export const STRUCTURAL_EDGE_COLOR = "#9aa6b8"; // slate-400 계열 — 중립 회색(라이트/다크 모두 무난)
+// 구조상 가능(온체인 미검증) 엣지 색 — 검은 선. "이 관계가 구조적으로 가능하다"는 골격만 표시하고,
+//   온체인 검증된 관계(실제 자금 흐름 또는 관계 evidence)는 위 EDGE_TYPE_COLORS(범례색)로 칠한다.
+//   → 점선 없이 "범례색 = 온체인 검증 / 검은 선 = 구조상 가능"의 2분류로 정직하게 구분(사용자 2026-06-17).
+export const STRUCTURAL_EDGE_COLOR = "#111827"; // gray-900 — 검은 선(라이트 배경에서 또렷)
 
 // (b) 관계는 검증됐는데 금액만 미측정(데이터 소스 한계 — 예: Fluid 스마트담보, Euler RPC 실패).
 //   "구조상 가능(미관측, 회색)"과 다르다 — 관계 자체는 evidence 로 확인됨. 그래서 별도 색 + "구조상 가능" 토글에 안 묶임.

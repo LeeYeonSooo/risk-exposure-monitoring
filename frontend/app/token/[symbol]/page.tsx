@@ -20,7 +20,7 @@ import { mapAlertsToNodeRisk, type RiskAlertLike } from "@/lib/alert-link";
 import { deOverlapConcentric } from "@/lib/deoverlap-layout";
 import { relayoutConcentric } from "@/lib/concentric-relayout";
 import { applyTreeLayout } from "@/lib/tree-layout";
-import { EDGE_GROUPS, EDGE_TYPE_COLORS, EDGE_TYPE_LABELS, STRUCTURAL_EDGE_COLOR, VERIFIED_UNMEASURED_COLOR } from "@/lib/edge-colors";
+import { EDGE_GROUPS, EDGE_TYPE_COLORS, EDGE_TYPE_LABELS, STRUCTURAL_EDGE_COLOR } from "@/lib/edge-colors";
 
 interface Relation { edge: GraphEdge; otherId: string; otherLabel: string; direction: "out" | "in" }
 interface BreadthItem { chain: string; project: string; tvlUsd: number; category: string | null; pools: PoolLike[] }
@@ -59,8 +59,10 @@ export default function TokenPage() {
   // 머니레고 레이어 — 파생토큰(PT/YT/LP/aToken) + 구조 엣지 (snapshot-lego 적재분)
   const [lego, setLego] = useState<{ nodes: LegoApiNode[]; edges: LegoApiEdge[] }>({ nodes: [], edges: [] });
   const [showDerivs, setShowDerivs] = useState(true);
-  // 구조상 가능 엣지(회색 골격) 표시 — 기본 켜짐. 끄면 실제 발생(관측·범례색) 엣지만.
+  // 구조상 가능 엣지(검은 선) 표시 — 기본 켜짐. 끄면 온체인 검증(관측·범례색) 엣지만.
   const [showStructural, setShowStructural] = useState(true);
+  // 파생자산 포함만 — 파생토큰이 다른 곳(담보·스테이킹)에 들어가는 노드·엣지만 남김. 켜면 파생토큰도 강제 표시.
+  const [derivOnly, setDerivOnly] = useState(false);
 
   useEffect(() => {
     // 이 토큰의 정밀(DB) 서브그래프만 온디맨드로 — 전체 스냅샷(/api/graph) 통째로 받지 않음.
@@ -84,6 +86,7 @@ export default function TokenPage() {
     setLego({ nodes: [], edges: [] });
     fetch(`/api/lego/${encodeURIComponent(sym)}`, { cache: "no-store" }).then((r) => r.json()).then((d) => setLego({ nodes: d.nodes ?? [], edges: d.edges ?? [] })).catch(() => {});
     setPicked(null);
+    setDerivOnly(false); // 새 토큰 진입 시 파생 필터 해제(파생 없는 토큰에서 빈 그래프 방지)
   }, [sym]);
 
   // 같은 심볼의 체인별 토큰 노드(token:USDC, token:USDC@base, token:USDC@arbitrum) 통합 →
@@ -398,9 +401,17 @@ export default function TokenPage() {
             <Seg active={showDerivs} onClick={() => setShowDerivs((v) => !v)}>파생토큰 {showDerivs ? "켜짐" : "꺼짐"}</Seg>
           </ControlGroup>
         )}
+        {view === "map" && lego.nodes.length > 0 && (
+          <ControlGroup label="필터">
+            {/* 파생자산 포함만 — 파생토큰이 다른 곳(담보·스테이킹)에 들어가는 노드·엣지만 남긴다. 켜면 파생토큰도 강제 표시. */}
+            <Seg active={derivOnly} onClick={() => { const next = !derivOnly; setDerivOnly(next); if (next) setShowDerivs(true); }}>
+              파생자산 포함만 {derivOnly ? "켜짐" : "꺼짐"}
+            </Seg>
+          </ControlGroup>
+        )}
         {view === "map" && (
           <ControlGroup label="엣지">
-            {/* 구조상 가능(회색 골격) on/off — 끄면 실제 발생(관측·범례색) 엣지만 남는다. */}
+            {/* 구조상 가능(검은 선) on/off — 끄면 온체인 검증(관측·범례색) 엣지만 남는다. */}
             <Seg active={showStructural} onClick={() => setShowStructural((v) => !v)}>구조상 가능 {showStructural ? "표시" : "숨김"}</Seg>
           </ControlGroup>
         )}
@@ -453,7 +464,7 @@ export default function TokenPage() {
               </div>
             </div>
           ) : legoTopology.nodes.length > 1 ? (
-            <GraphCanvas graphKey={`tok-${sym}-${depth}-${shape}-${bridgeHub ? "macro" : "micro"}-${[...hiddenChains].sort().join(",") || "all"}-${legoTopology.nodes.length}`} topology={legoTopology} nodeStates={subNodeStates} selectedNodeId={selNode} onSelectNode={onGraphSelect} showStructural={showStructural} staticLayout straightEdges />
+            <GraphCanvas graphKey={`tok-${sym}-${depth}-${shape}-${bridgeHub ? "macro" : "micro"}-${[...hiddenChains].sort().join(",") || "all"}-${legoTopology.nodes.length}`} topology={legoTopology} nodeStates={subNodeStates} selectedNodeId={selNode} onSelectNode={onGraphSelect} showStructural={showStructural} derivativeOnly={derivOnly && showDerivs && lego.nodes.length > 0} staticLayout straightEdges />
           ) : (
             <Empty msg={`${sym} 의 온체인 엣지가 DB 에 없음 — 스냅샷 대상 토큰이 아닐 수 있어요.`} />
           )}
@@ -557,9 +568,9 @@ function GraphLegend({ bridge, lego }: { bridge: boolean; lego?: boolean }) {
       </div>
       {!bridge && (
         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 border-t border-[var(--color-border-subtle)] pt-1">
-          <span className="flex items-center gap-1"><span className="inline-block h-0 w-3.5 border-t-2" style={{ borderColor: EDGE_GROUPS[0].color }} />실제 발생 <span className="text-[var(--color-text-muted)]">(범례색)</span></span>
-          <span className="flex items-center gap-1"><span className="inline-block h-0 w-3.5 border-t-2 border-dashed" style={{ borderColor: VERIFIED_UNMEASURED_COLOR }} />관계 검증·금액 미상</span>
-          <span className="flex items-center gap-1"><span className="inline-block h-0 w-3.5 border-t-2 border-dashed" style={{ borderColor: STRUCTURAL_EDGE_COLOR }} />구조상 가능</span>
+          {/* 점선 없는 2분류 — 범례색(위 엣지 색) = 온체인 검증 / 검은 선 = 구조상 가능 (사용자 2026-06-17) */}
+          <span className="flex items-center gap-1"><span className="inline-block h-0 w-3.5 border-t-2" style={{ borderColor: EDGE_GROUPS[0].color }} />온체인 검증 <span className="text-[var(--color-text-muted)]">(범례색)</span></span>
+          <span className="flex items-center gap-1"><span className="inline-block h-0 w-3.5 border-t-2" style={{ borderColor: STRUCTURAL_EDGE_COLOR }} />구조상 가능 <span className="text-[var(--color-text-muted)]">(검은 선)</span></span>
         </div>
       )}
       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 border-t border-[var(--color-border-subtle)] pt-1">
@@ -583,11 +594,6 @@ function GraphLegend({ bridge, lego }: { bridge: boolean; lego?: boolean }) {
 
 const compact = (n: number) => Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 2 }).format(n);
 const missing = (m: RelationDetailMetrics | null, key: string) => m?.dataGaps?.includes(key) ? "미수집" : null;
-function eoaFlowHref(address: string, chain: string) {
-  const params = new URLSearchParams({ address });
-  if (chain) params.set("chain", chain);
-  return `/eoa-flow?${params.toString()}`;
-}
 function CounterpartyList({ label, rows, missingValue, chain, badge }: {
   label: string;
   rows: RelationDetailMetrics["topDepositors"];
@@ -616,9 +622,15 @@ function CounterpartyList({ label, rows, missingValue, chain, badge }: {
             const amount = r.amountUsd != null ? formatUsd(r.amountUsd) : r.amount != null ? compact(r.amount) : null;
             return (
               <div key={r.address} className="grid grid-cols-[minmax(76px,1fr)_auto] items-center gap-x-2 gap-y-0.5">
-                <Link href={eoaFlowHref(r.address, chain)} className="min-w-0 truncate font-mono text-[var(--color-accent)] hover:underline" title={`${chain}:${r.address}`}>
-                  {r.label || shortAddr(r.address)}
-                </Link>
+                {ADDR_EXPLORER[chain] ? (
+                  <a href={ADDR_EXPLORER[chain](r.address)} target="_blank" rel="noopener noreferrer" className="min-w-0 truncate font-mono text-[var(--color-accent)] hover:underline" title={`${chain}:${r.address}`}>
+                    {r.label || shortAddr(r.address)}
+                  </a>
+                ) : (
+                  <span className="min-w-0 truncate font-mono text-[var(--color-text-secondary)]" title={`${chain}:${r.address}`}>
+                    {r.label || shortAddr(r.address)}
+                  </span>
+                )}
                 <span className="shrink-0 font-mono text-[var(--color-text-primary)]">{r.sharePct != null ? pct1(r.sharePct) : "비중 미상"}</span>
                 <span className="truncate text-[10px] text-[var(--color-text-muted)]">{r.kind ?? "unknown"}</span>
                 {amount && <span className="truncate text-right font-mono text-[10px] text-[var(--color-text-secondary)]">{amount}</span>}
@@ -724,12 +736,13 @@ function MorphoBorrowerRiskPanel({ marketKey, chain }: { marketKey: string | nul
               <div key={address ?? `${marketKey}:${idx}`} className="rounded border border-[var(--color-border-subtle)] bg-[var(--color-bg)] px-2 py-1.5">
                 <div className="flex items-center justify-between gap-2">
                   {address ? (
-                    <Link
-                      href={`/eoa-flow?address=${address}&depth=1&market=${marketKey}&limit=5`}
+                    <a
+                      href={ADDR_EXPLORER.ethereum(address)}
+                      target="_blank" rel="noopener noreferrer"
                       className="min-w-0 truncate font-mono text-[11px] text-[var(--color-accent)] hover:underline"
                     >
                       {shortAddr(address)}
-                    </Link>
+                    </a>
                   ) : (
                     <span className="min-w-0 truncate font-mono text-[11px] text-[var(--color-text-muted)]">unknown</span>
                   )}
@@ -818,8 +831,39 @@ function MetricRows({ metrics, showDex = false, showTopBorrowers = true, chain =
   );
 }
 
+// 노드 상세 패널 섹션 헤더/도움말/스펙블록 — EOA 흐름 SelectionPanel 과 같은 시각언어(사용자 2026-06-17).
+function SectionTitle({ children, note }: { children: ReactNode; note?: string }) {
+  return (
+    <div className="mt-4 flex items-center justify-between gap-3">
+      <div className="text-[12px] font-semibold text-[var(--color-text-primary)]">{children}</div>
+      {note && <div className="font-mono text-[10px] text-[var(--color-text-muted)]">{note}</div>}
+    </div>
+  );
+}
+function SectionHelp({ children }: { children: ReactNode }) {
+  return (
+    <div className="mt-2 rounded-md border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-2.5 py-1.5 text-[10px] leading-4 text-[var(--color-text-muted)]">
+      {children}
+    </div>
+  );
+}
+function SpecBlock({ children }: { children: ReactNode }) {
+  return <div className="mt-2 space-y-0.5">{children}</div>;
+}
+// 노드 종류별 한 줄 설명 — 헤더 바로 아래 회색 박스(EOA 흐름의 SectionHelp 와 동일).
+const KIND_HELP: Record<string, string> = {
+  token: "이 토큰의 공급·디페그·백킹 등 기본 스펙입니다.",
+  derivative: "프로토콜이 이 토큰에서 발행한 파생자산입니다. 어디에 담보·스테이킹으로 들어가는지(수용처)와 종착 여부를 봅니다.",
+  vault: "큐레이터가 운용하는 볼트입니다. 보상 재원이 어느 마켓 이자에서 나오는지와 인출 큐(디리스킹) 진입을 봅니다.",
+  bridge: "크로스체인 브릿지의 발행 권한·메커니즘입니다. 번&민트는 소스 락이 없는 약한 고리입니다.",
+  protocol: "이 프로토콜로 들어가는 노출의 관계 메트릭과 마켓 요약입니다.",
+  pool: "DEX 풀/마켓의 유동성·구성 토큰·APY 입니다.",
+  market: "이 마켓의 담보·LLTV·이용률·오라클·큐레이터와 차입자 리스크 입력입니다.",
+};
+
 function PickDetail({ d, onClose }: { d: Record<string, unknown>; onClose: () => void }) {
-  // 스펙 패널 — 값은 한 줄 토큰 · 없으면 행 숨김 · 위험 ⚠빨강 · 주소 ↗ · ✓검증/~추정
+  // 스펙 패널 — 값은 한 줄 토큰 · 없으면 행 숨김 · 위험 ⚠빨강 · 주소 ↗ · ✓검증/~추정.
+  //   레이아웃은 EOA 흐름 SelectionPanel 과 동일(굵은 타이틀 + "종류 · 체인" 부제 + 섹션 제목/도움말).
   const kind = String(d.kind ?? (("curator" in d || "allocationUsd" in d) ? "vault" : "market"));
   const chain = String(d.chain ?? "ethereum");
   const protoCounts = useNodeAlertCounts(kind === "protocol" ? String(d.nodeId ?? "") || null : null);
@@ -833,34 +877,50 @@ function PickDetail({ d, onClose }: { d: Record<string, unknown>; onClose: () =>
       ? String(d.protocolClass ?? d.category ?? "").toLowerCase().includes("dex")
       : false;
   const showDexMetrics = !!metrics && isDexDetail && ((metrics.dexLiquidityUsd ?? 0) > 0 || !!metrics.dataGaps?.includes("weekly_swap"));
+  // _market.kind(lending 등)가 kind 를 덮어쓸 수 있어, 도움말은 실제 렌더 분기로 정규화(그 외=마켓).
+  const helpKey = (["token", "derivative", "vault", "bridge", "protocol", "pool"] as const).includes(kind as never) ? kind : "market";
 
-  let body: React.ReactNode = null;
+  let body: ReactNode = null;
   if (kind === "token") {
-    body = <TokenSpecRows symbol={String(d.symbol)} />;
+    body = (
+      <>
+        <SectionTitle note={chain}>토큰 스펙</SectionTitle>
+        <SpecBlock><TokenSpecRows symbol={String(d.symbol)} /></SpecBlock>
+      </>
+    );
   } else if (kind === "derivative") {
     const accepts = (d.accepts as { rel: string; to: string }[] | undefined) ?? [];
     // 브릿지 래핑본(venue=bridge)은 wrapper 역할이지만 볼트 쉐어가 아님 — 종류 표기 분리.
     const roleDesc = (d.role === "wrapper" && d.source === "bridge") ? "브릿지 래핑본" : ROLE_DESC[String(d.role)] ?? "파생토큰";
     body = (
       <>
-        <PRow k="종류" v={roleDesc} />
-        <PRow k="발행 프로토콜" v={d.source != null ? String(d.source) : null} />
-        <PRow k="컨트랙트" v={d.address != null ? shortAddr(String(d.address)) : null} href={d.address != null ? ADDR_EXPLORER[chain]?.(String(d.address)) : undefined} />
-        {accepts.length > 0
-          ? accepts.map((a, i) => <PRow key={i} k={a.rel === "collateral_at" ? "담보로 쓰임" : a.rel === "staked_in" ? "스테이킹 수용" : "수용처"} v={a.to} />)
-          : d.terminal === true
-            ? <PRow k="종착" v="여기가 끝 — 다음 예치 홉 없음" />
-            : <PRow k="수용처" v="아직 담보·스테이킹 수용 확인 안 됨" />}
+        <SectionTitle note={chain}>발행</SectionTitle>
+        <SpecBlock>
+          <PRow k="종류" v={roleDesc} />
+          <PRow k="발행 프로토콜" v={d.source != null ? String(d.source) : null} />
+          <PRow k="컨트랙트" v={d.address != null ? shortAddr(String(d.address)) : null} href={d.address != null ? ADDR_EXPLORER[chain]?.(String(d.address)) : undefined} />
+        </SpecBlock>
+        <SectionTitle note={accepts.length ? `${accepts.length}곳` : undefined}>수용처 · 다음 홉</SectionTitle>
+        <SpecBlock>
+          {accepts.length > 0
+            ? accepts.map((a, i) => <PRow key={i} k={a.rel === "collateral_at" ? "담보로 쓰임" : a.rel === "staked_in" ? "스테이킹 수용" : "수용처"} v={a.to} />)
+            : d.terminal === true
+              ? <PRow k="종착" v="여기가 끝 — 다음 예치 홉 없음" />
+              : <PRow k="수용처" v="아직 담보·스테이킹 수용 확인 안 됨" />}
+        </SpecBlock>
         {d.terminal === true && d.terminalReason != null && <TerminalNote reason={String(d.terminalReason)} rewardSource={d.rewardSource != null ? String(d.rewardSource) : null} />}
       </>
     );
   } else if (kind === "vault") {
     body = (
       <>
-        <PRow k="AUM" v={(d.allocationUsd as number) > 0 ? formatUsd(d.allocationUsd as number) : null} />
-        <PRow k="펀딩 마켓" v={d.market != null ? String(d.market) : null} />
-        <PRow k="예치자산" v={d.depositAsset != null ? String(d.depositAsset) : null} />
-        <PRow k="디리스킹" v={d.inWithdrawQueue === true ? "인출 큐 진입" : null} warn={d.inWithdrawQueue === true} />
+        <SectionTitle note={chain}>볼트</SectionTitle>
+        <SpecBlock>
+          <PRow k="AUM" v={(d.allocationUsd as number) > 0 ? formatUsd(d.allocationUsd as number) : null} />
+          <PRow k="펀딩 마켓" v={d.market != null ? String(d.market) : null} />
+          <PRow k="예치자산" v={d.depositAsset != null ? String(d.depositAsset) : null} />
+          <PRow k="디리스킹" v={d.inWithdrawQueue === true ? "인출 큐 진입" : null} warn={d.inWithdrawQueue === true} />
+        </SpecBlock>
         {/* 보상 재원 — 이 볼트의 수익이 어느 마켓 이자에서 나오는지(감사관 [고정2]). */}
         {d.rewardSource != null && <TerminalNote label="보상 재원" reason={String(d.rewardSource)} rewardSource={null} />}
       </>
@@ -871,10 +931,13 @@ function PickDetail({ d, onClose }: { d: Record<string, unknown>; onClose: () =>
     const types = Array.isArray(d.types) ? (d.types as string[]).join("·") : d.tag != null ? String(d.tag) : null;
     body = (
       <>
-        <PRow k="mint 한도" v={d.mintLimit != null ? Intl.NumberFormat("en", { notation: "compact" }).format(d.mintLimit as number) : null} />
-        <PRow k="권한" v={types ?? mech} badge={verified ? "verified" : "estimated"} />
-        <PRow k="메커니즘" v={mech === "lock_mint" ? "락&민트" : mech === "burn_mint" ? "번&민트" : mech} warn={mech === "burn_mint"} />
-        <PRow k="백킹" v={verified ? "온체인 권한 검증" : null} badge="verified" />
+        <SectionTitle note={verified ? "온체인 검증" : "추정"}>브릿지 권한</SectionTitle>
+        <SpecBlock>
+          <PRow k="mint 한도" v={d.mintLimit != null ? Intl.NumberFormat("en", { notation: "compact" }).format(d.mintLimit as number) : null} />
+          <PRow k="권한" v={types ?? mech} badge={verified ? "verified" : "estimated"} />
+          <PRow k="메커니즘" v={mech === "lock_mint" ? "락&민트" : mech === "burn_mint" ? "번&민트" : mech} warn={mech === "burn_mint"} />
+          <PRow k="백킹" v={verified ? "온체인 권한 검증" : null} badge="verified" />
+        </SpecBlock>
       </>
     );
   } else if (kind === "protocol") {
@@ -885,22 +948,29 @@ function PickDetail({ d, onClose }: { d: Record<string, unknown>; onClose: () =>
     const avgUtil = utils.length ? utils.reduce((a, b) => a + b, 0) / utils.length : null;
     body = (
       <>
-        <MetricRows metrics={metrics} showDex={showDexMetrics} chain={chain} />
-        <PRow k="최고 LLTV" v={maxLltv != null ? pct1(maxLltv) : null} warn={maxLltv != null && maxLltv >= 0.945} />
-        <PRow k="평균 이용률" v={avgUtil != null ? pct1(avgUtil) : null} warn={avgUtil != null && avgUtil >= 0.95} />
-        <PRow k="알림" v={protoCounts ? sevDots(protoCounts.crit, protoCounts.warnN) : null} warn={(protoCounts?.crit ?? 0) > 0} />
+        <SectionTitle note={chain}>관계 메트릭</SectionTitle>
+        <SpecBlock><MetricRows metrics={metrics} showDex={showDexMetrics} chain={chain} /></SpecBlock>
+        <SectionTitle>마켓 요약</SectionTitle>
+        <SpecBlock>
+          <PRow k="최고 LLTV" v={maxLltv != null ? pct1(maxLltv) : null} warn={maxLltv != null && maxLltv >= 0.945} />
+          <PRow k="평균 이용률" v={avgUtil != null ? pct1(avgUtil) : null} warn={avgUtil != null && avgUtil >= 0.95} />
+          <PRow k="알림" v={protoCounts ? sevDots(protoCounts.crit, protoCounts.warnN) : null} warn={(protoCounts?.crit ?? 0) > 0} />
+        </SpecBlock>
       </>
     );
   } else if (kind === "pool") {
     body = (
       <>
-        <MetricRows metrics={metrics} showDex={d.exposure === "multi" || showDexMetrics} showTopBorrowers={false} chain={chain} />
-        <PRow k="페어" v={d.poolMeta != null ? String(d.poolMeta) : String(d.market ?? "")} />
-        <PRow k="구성 토큰" v={tokenList(d.underlyingTokens)} />
-        <PRow k="프로토콜" v={d.protocol != null ? String(d.protocol) : null} />
-        <PRow k="규모" v={(d.sizeUsd as number) > 0 ? formatUsd(d.sizeUsd as number) : null} badge="estimated" />
-        <PRow k="APY" v={d.apy != null ? `${(d.apy as number).toFixed(2)}%` : null} badge="estimated" />
-        <PRow k="IL 위험" v={d.ilRisk === "yes" ? "있음" : null} warn={d.ilRisk === "yes"} />
+        <SectionTitle note={chain}>풀 메트릭</SectionTitle>
+        <SpecBlock>
+          <MetricRows metrics={metrics} showDex={d.exposure === "multi" || showDexMetrics} showTopBorrowers={false} chain={chain} />
+          <PRow k="페어" v={d.poolMeta != null ? String(d.poolMeta) : String(d.market ?? "")} />
+          <PRow k="구성 토큰" v={tokenList(d.underlyingTokens)} />
+          <PRow k="프로토콜" v={d.protocol != null ? String(d.protocol) : null} />
+          <PRow k="규모" v={(d.sizeUsd as number) > 0 ? formatUsd(d.sizeUsd as number) : null} badge="estimated" />
+          <PRow k="APY" v={d.apy != null ? `${(d.apy as number).toFixed(2)}%` : null} badge="estimated" />
+          <PRow k="IL 위험" v={d.ilRisk === "yes" ? "있음" : null} warn={d.ilRisk === "yes"} />
+        </SpecBlock>
       </>
     );
   } else {
@@ -917,33 +987,42 @@ function PickDetail({ d, onClose }: { d: Record<string, unknown>; onClose: () =>
     const marketKey = typeof d.marketKey === "string" ? d.marketKey : null;
     body = (
       <>
-        <MetricRows metrics={metrics} chain={chain} />
-        <MorphoBorrowerRiskPanel marketKey={marketKey} chain={chain} />
-        <PRow k="페어" v={d.collateralAsset != null || d.loanAsset != null ? `${String(d.collateralAsset ?? "?")} / ${String(d.loanAsset ?? "?")}` : String(d.market ?? "")} />
-        <PRow k="LLTV / 여유" v={cushion != null ? `${pct1(lltv)} · ${cushion.toFixed(1)}%p` : lltv ? pct1(lltv) : null}
-          warn={lltv >= 0.945 || (cushion != null && cushion <= 8)} badge={agg != null ? "verified" : undefined} />
-        <PRow k="이용률" v={d.utilization != null ? pct1(d.utilization as number) : null} warn={((d.utilization as number) ?? 0) >= 0.95} />
-        <PRow k="규모" v={marketSizeUsd > 0 ? formatUsd(marketSizeUsd) : null} />
-        <PRow k="오라클" v={oracleAddr ? shortAddr(oracleAddr) : null} href={oracleAddr ? ADDR_EXPLORER[chain]?.(oracleAddr) : null} badge={oracleAddr ? "verified" : undefined} />
-        <PRow k="큐레이터" v={curators.length ? `${curators.slice(0, 2).join(" · ")}${curators.length > 2 ? ` +${curators.length - 2}` : ""}` : null} />
-        {d.ouroborosRisk === true && <PRow k="구조" v="자기참조 (ouroboros)" warn />}
-        {/* 담보 종착 — 담보가 여기서 잠기고 청산, 원금 회수는 역방향 상환(감사관 [추궁]·[고정3]). */}
-        {d.terminal === true && <PRow k="종착" v="담보 종착 — 여기서 잠김·청산" />}
+        <SectionTitle note={chain}>마켓 스펙</SectionTitle>
+        <SpecBlock>
+          <MetricRows metrics={metrics} chain={chain} />
+          <PRow k="페어" v={d.collateralAsset != null || d.loanAsset != null ? `${String(d.collateralAsset ?? "?")} / ${String(d.loanAsset ?? "?")}` : String(d.market ?? "")} />
+          <PRow k="LLTV / 여유" v={cushion != null ? `${pct1(lltv)} · ${cushion.toFixed(1)}%p` : lltv ? pct1(lltv) : null}
+            warn={lltv >= 0.945 || (cushion != null && cushion <= 8)} badge={agg != null ? "verified" : undefined} />
+          <PRow k="이용률" v={d.utilization != null ? pct1(d.utilization as number) : null} warn={((d.utilization as number) ?? 0) >= 0.95} />
+          <PRow k="규모" v={marketSizeUsd > 0 ? formatUsd(marketSizeUsd) : null} />
+          <PRow k="오라클" v={oracleAddr ? shortAddr(oracleAddr) : null} href={oracleAddr ? ADDR_EXPLORER[chain]?.(oracleAddr) : null} badge={oracleAddr ? "verified" : undefined} />
+          <PRow k="큐레이터" v={curators.length ? `${curators.slice(0, 2).join(" · ")}${curators.length > 2 ? ` +${curators.length - 2}` : ""}` : null} />
+          {d.ouroborosRisk === true && <PRow k="구조" v="자기참조 (ouroboros)" warn />}
+          {/* 담보 종착 — 담보가 여기서 잠기고 청산, 원금 회수는 역방향 상환(감사관 [추궁]·[고정3]). */}
+          {d.terminal === true && <PRow k="종착" v="담보 종착 — 여기서 잠김·청산" />}
+        </SpecBlock>
         {d.terminal === true && d.terminalReason != null && <TerminalNote reason={String(d.terminalReason)} rewardSource={d.rewardSource != null ? String(d.rewardSource) : null} />}
+        {marketKey && chain === "ethereum" && (
+          <>
+            <SectionTitle note="DeBank · 30d outflow">차입자 리스크</SectionTitle>
+            <MorphoBorrowerRiskPanel marketKey={marketKey} chain={chain} />
+          </>
+        )}
       </>
     );
   }
 
   return (
     <div className="px-5 py-4">
-      <div className="mb-3 flex items-start justify-between">
-        <div>
-          <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">{head}</div>
-          <div className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="truncate text-[15px] font-bold text-[var(--color-text-primary)]">{title || head}</div>
+          <div className="text-[11px] text-[var(--color-text-muted)]">{head} · {chain}</div>
         </div>
-        <button onClick={onClose} className="rounded p-1 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-raised)]"><X size={16} /></button>
+        <button onClick={onClose} className="rounded p-1 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-raised)]" aria-label="close detail"><X size={16} /></button>
       </div>
-      <div className="space-y-0.5">{body}</div>
+      {KIND_HELP[helpKey] && <SectionHelp>{KIND_HELP[helpKey]}</SectionHelp>}
+      {body}
     </div>
   );
 }
