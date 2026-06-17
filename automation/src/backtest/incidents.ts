@@ -86,7 +86,8 @@ export interface Incident {
   priceV4Pool?: { poolId: `0x${string}`; quote: `0x${string}`; quoteDecimals: number; quoteUsd?: number };
 }
 
-// 최근 사건(2024~2026): 디페그(6) · 자금유출/무담보(2) · 민트권한탈취(1) · 교차체인 무단민트(1) + control(2).
+// 최근 사건(2024~2026) 9개 — 전부 실사건(웹+온체인 검증, 2026-06). 디페그 5(USD0++·FDUSD·sUSD·xUSD·USR) ·
+//   자금유출/공급붕괴 3(mkUSD·reUSD·deUSD) · 교차체인 무단발행 1(rsETH). 정상 대조군(USDC-organic·crvUSD)은 삭제됨.
 export const INCIDENTS: Incident[] = [
   // ───────────── DEPEG ─────────────
   {
@@ -120,7 +121,7 @@ export const INCIDENTS: Incident[] = [
     category: "depeg",
     window: { from: "2025-04-02T13:00:00Z", to: "2025-04-02T18:00:00Z" }, // 5분 간격 · 인트라데이 트러프(~16:00 $0.945) 포함
     expect: [{ kind: "depeg", minSeverity: "warning" }],
-    note: "FDUSD 발행사 지급능력 루머로 인트라데이 ~5.5% 디페그(하드스테이블, 16:00 트러프 $0.945).",
+    note: "FDUSD 발행사 지급능력 루머(Justin Sun)로 인트라데이 디페그. 실제 CEX 트러프 ~$0.87(−13%)이나 coins.llama 블렌디드 가격은 ~$0.945(−5.5%)까지만 — 표시는 보수적(피드 한계, 부풀리지 않음).",
   },
   {
     id: "2025-04-18-sUSD-incentive-depeg",
@@ -179,7 +180,7 @@ export const INCIDENTS: Incident[] = [
     baselineAt: "2025-10-25T00:00:00Z", // 정상 peak(기준선, 풀 공급)
     window: { from: "2025-11-06T06:00:00Z", to: "2025-11-06T16:00:00Z" }, // 5분 간격 · 리뎀션 런 공급붕괴 구간
     expect: [{ kind: "value_drift", minSeverity: "warning" }],
-    note: "Stream 손실 노출로 deUSD 대량 리뎀션 런 — 공급 units 붕괴(가격 마크다운 아닌 실유출).",
+    note: "Stream 손실 노출로 deUSD 대량 리뎀션 런 — 공급 units 붕괴(가격 마크다운 아닌 실유출). 표시 −38%는 런 초기 신호; 최종은 ~80% 상환·가격 ~$0.03(−98%, 사후) — Elixir 가 deUSD 준비금 65%($68M)를 Stream 에 노출.",
   },
 
   // ───────────── 민트 권한 탈취 ─────────────
