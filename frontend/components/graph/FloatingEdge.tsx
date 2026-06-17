@@ -6,7 +6,7 @@ import {
   useInternalNode,
 } from "@xyflow/react";
 
-import { edgeColor, STRUCTURAL_EDGE_COLOR, VERIFIED_UNMEASURED_COLOR } from "@/lib/edge-colors";
+import { edgeColor, STRUCTURAL_EDGE_COLOR } from "@/lib/edge-colors";
 import { getEdgeParams } from "@/lib/floating-edge";
 import { oracleClassOf, ORACLE_COLORS } from "@/lib/oracle";
 
@@ -21,7 +21,7 @@ export interface FloatingEdgeData extends Record<string, unknown> {
   opaque?: boolean;
   /**
    * 관측됨(실제 발생) 여부. true = 실제 자금(amountUsd>0)이 흐른 엣지 → 범례색(EDGE_TYPE_COLORS).
-   * false = 구조상 가능하나 아직 관측 안 됨 → 회색 골격(STRUCTURAL_EDGE_COLOR). undefined = 기존 동작(범례색).
+   * false = 구조상 가능하나 아직 관측 안 됨 → 검은 골격선(STRUCTURAL_EDGE_COLOR). undefined = 기존 동작(범례색).
    */
   observed?: boolean;
   /**
@@ -90,16 +90,16 @@ export function FloatingEdge({
   const active = data?.active ?? false;
   const danger = data?.danger ?? false;
   const faded = data?.faded ?? false;
-  const unverified = data?.unverified ?? false;
-  const opaque = data?.opaque ?? false;
-  // 기반·배킹(언더라잉 체인) 엣지 — 고유 색(cyan)·실선. 인디고/회색 분기에 묶이지 않게 먼저 판정.
+  // 기반·배킹(언더라잉 체인) 엣지 — 고유 색(cyan)·범례색. 구조상가능(검은) 분기에 묶이지 않게 먼저 판정.
   const isBacking = data?.edgeType === "backed_by";
-  // (b) 관계 검증·금액 미측정 — 별도 색, 토글에 안 묶임. (a) 구조상 가능(미관측/미사용) = 회색 골격.
-  const verified = !isBacking && data?.observed === false && data?.verifiedUnmeasured === true;
-  const structural = !isBacking && data?.observed === false && !verified;
+  // 2분류(점선 없음 — 사용자 2026-06-17):
+  //   · 온체인 검증 = 실제 자금 흐름(observed) · 관계 evidence(verifiedUnmeasured) · 배킹(backed_by) → 범례색.
+  //   · 구조상 가능 = 그 외(미관측·미검증) → 검은 선(STRUCTURAL_EDGE_COLOR).
+  const verifiedUnmeasured = !isBacking && data?.observed === false && data?.verifiedUnmeasured === true;
+  const structural = !isBacking && data?.observed === false && !verifiedUnmeasured;
 
-  // 엣지 타입별 색. 위험(danger)>기반·배킹(cyan)>관계검증·미측정(인디고)>구조상가능(회색)>관측(범례색) 순.
-  const stroke = danger ? "var(--color-danger)" : isBacking ? edgeColor("backed_by") : verified ? VERIFIED_UNMEASURED_COLOR : structural ? STRUCTURAL_EDGE_COLOR : edgeColor(data?.edgeType);
+  // 색: 위험(danger) > 구조상 가능(검은 선) > 그 외 온체인 검증(범례색 — backed_by 는 edgeColor 가 cyan 반환).
+  const stroke = danger ? "var(--color-danger)" : structural ? STRUCTURAL_EDGE_COLOR : edgeColor(data?.edgeType);
 
   // 엣지 위 오라클 원 — 마켓이 쓰는 오라클 종류를 색으로(시장가/환율/풀현물/하드코딩). 엣지 중점에.
   const oracleType = data?.oracleType as string | undefined;
@@ -116,16 +116,13 @@ export function FloatingEdge({
         strokeWidth={20}
         style={{ cursor: "pointer" }}
       />
-      {/* Visible styled path. unverified(breadth) = 점선 + 약간 흐리게 — 온체인 검증 엣지와 구분 */}
+      {/* Visible styled path — 점선 없이 모두 실선. 범례색 = 온체인 검증 / 검은 선 = 구조상 가능. */}
       <path
         d={path}
         fill="none"
         stroke={stroke}
-        strokeWidth={danger ? 3.2 : structural ? 1.5 : verified ? 2 : active ? 2.8 : 2.4}
-        strokeOpacity={
-          faded ? 0.08 : danger ? 0.95 : verified ? 0.85 : structural ? 0.5 : opaque ? 0.42 : unverified ? 0.7 : 0.92
-        }
-        strokeDasharray={verified ? "6 4" : structural ? "2 4" : opaque ? "1.5 4" : unverified ? "7 4" : undefined}
+        strokeWidth={danger ? 3.2 : structural ? 1.6 : verifiedUnmeasured ? 2 : active ? 2.8 : 2.4}
+        strokeOpacity={faded ? 0.08 : danger ? 0.95 : structural ? 0.75 : verifiedUnmeasured ? 0.85 : 0.92}
         markerEnd={faded ? undefined : markerEnd}
         style={{
           transition: "stroke 400ms var(--ease-snappy), stroke-opacity 400ms",

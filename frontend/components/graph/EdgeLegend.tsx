@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp, X } from "lucide-react";
 
-import { EDGE_TYPE_COLORS, EDGE_TYPE_LABELS } from "@/lib/edge-colors";
+import { EDGE_TYPE_COLORS, EDGE_TYPE_LABELS, STRUCTURAL_EDGE_COLOR } from "@/lib/edge-colors";
 
 /**
  * 엣지 타입 범례 + 필터 — 그래프 좌하단. 접기/펴기.
@@ -96,25 +96,15 @@ export function EdgeLegend({
               );
             })}
           </ul>
-          {/* 데이터 출처 3단계 — 실선=온체인 검증 / 점선=DeFiLlama 추정 / 점점선=검증불가(DD 불가) */}
+          {/* 데이터 출처 2분류(점선 없음) — 범례색 실선=온체인 검증 / 검은 실선=구조상 가능 (사용자 2026-06-17) */}
           <div className="mt-2 space-y-1 border-t border-[var(--color-border-subtle)] pt-1.5">
             <div className="flex items-center gap-2">
               <span className="h-0.5 w-4 shrink-0 rounded-full" style={{ backgroundColor: "#cbd5e1" }} />
-              <span className="text-[var(--color-text-secondary)]">온체인 검증</span>
+              <span className="text-[var(--color-text-secondary)]">온체인 검증 <span className="text-[var(--color-text-muted)]">(범례색)</span></span>
             </div>
             <div className="flex items-center gap-2">
-              <span
-                className="w-4 shrink-0"
-                style={{ borderTop: "2px dashed #cbd5e1", opacity: 0.5 }}
-              />
-              <span className="text-[var(--color-text-secondary)]">DeFiLlama 추정 (미검증)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span
-                className="w-4 shrink-0"
-                style={{ borderTop: "2px dotted #cbd5e1", opacity: 0.4 }}
-              />
-              <span className="text-[var(--color-text-secondary)]">검증불가 <span className="text-[var(--color-text-muted)]">(정체불명 · DD 불가)</span></span>
+              <span className="h-0.5 w-4 shrink-0 rounded-full" style={{ backgroundColor: STRUCTURAL_EDGE_COLOR }} />
+              <span className="text-[var(--color-text-secondary)]">구조상 가능 <span className="text-[var(--color-text-muted)]">(검은 선)</span></span>
             </div>
           </div>
           {/* 화살표 방향 = 예치(자금이 들어가는) 방향. 출금/상환은 같은 화살표를 거꾸로 읽는다 — 가역(역엣지 없음). 감사관 [고정3]. */}

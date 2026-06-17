@@ -162,12 +162,10 @@ export function overlayLego(
   for (const e of lego.edges) {
     if ((e.relation === "collateral_at" || e.relation === "staked_in") && derivById.has(e.src) && acceptMktIds.has(e.dst)) connected.add(e.src);
   }
-  // 종착 파생(YT 이자종착·영수증 보상종착)은 수용처 out엣지가 없어도 "끊김"이 아니라 "끝"이다 — 숨기지 말고 보존.
-  //   YT 가 안 보이면 "이자가 어디서 나오는지"를 트리에서 물을 수조차 없다(감사관 [고정4]). 종착으로 명시 표시한다.
-  //   (snapshot-lego ⑦ 가 meta.terminal 을 얹음. 출처(issues)는 이미 token→YT 로 트리에 있으므로 누수 아님.)
-  for (const d of derivs) {
-    if ((d.meta as { terminal?: boolean } | undefined)?.terminal) connected.add(d.id);
-  }
+  // (2026-06-17 사용자) 종착·고아 파생 숨김 — "프로토콜에서 나왔지만 어디에도 안 들어가는" 파생은 보여주지 않는다.
+  //   이전엔 종착(YT·영수증)을 meta.terminal 로 보존했으나, 이제 수용처(collateral_at/staked_in)나 연결된
+  //   하위 파생 생산이 없으면 숨긴다. connected 에 안 들어가면 아래 step1(bySource)에서 제외 → 파생토큰 켜짐·
+  //   파생자산 포함만 양쪽 모두에서 사라진다. (단, 연결된 파생을 낳는 상위 파생은 아래 루프가 보존)
   // 연결된 파생을 낳는 상위 파생도 보존: LP→cvxLP→Morpho 에서 LP, LP→PT→Morpho 에서 LP 도 표시.
   for (let grew = true; grew; ) {
     grew = false;

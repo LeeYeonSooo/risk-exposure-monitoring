@@ -71,6 +71,11 @@ export interface GraphCanvasProps {
    * true = 회색 골격 엣지까지 모두 표시(실제 발생 엣지는 범례색). false = 관측된 엣지만.
    */
   showStructural?: boolean;
+  /**
+   * 파생자산 포함만 — 파생토큰(DerivativeToken)에 닿는 노드·엣지만 남기고 나머지는 숨김.
+   * 파생자산이 다른 곳(담보·스테이킹)에 들어가는 연결만 보고 싶을 때.
+   */
+  derivativeOnly?: boolean;
   /** ReactFlow 내부(ViewportPortal 사용 가능 위치)에 렌더할 오버레이 — 메인화면 실시간 입자 레이어용. */
   overlay?: React.ReactNode;
 }
@@ -107,6 +112,7 @@ function GraphCanvasInner({
   straightEdges,
   overlay,
   showStructural = true,
+  derivativeOnly = false,
 }: GraphCanvasProps) {
 
   const initialNodes = useMemo<RiskNodeType[]>(
@@ -482,6 +488,72 @@ function GraphCanvasInner({
         })()
       : null;
 
+    // 파생자산 포함만 — 한 갈래로 이어지는 파생 흐름만 남긴다 (사용자 2026-06-17):
+    //   선택 토큰 → 출처 프로토콜 → 파생자산 → 받아주는 풀·마켓( + 그 마켓이 속한 프로토콜).
+    //   · UP(조상): 파생의 발행 체인을 토큰까지 거슬러 올라가 토큰·출처 프로토콜·중간 생산자(LP→cvxLP 등)를 켠다.
+    //   · DOWN(수용): 파생이 들어가는 마켓/풀 1홉 + 그 마켓이 다른 프로토콜 소속이면 그 프로토콜 노드를 켠다.
+    //   (어디에도 안 들어가는 종착·고아 파생은 overlayLego 가 이미 빼므로 여기엔 없다.)
+    const derivActive = !!derivativeOnly;
+    let derivNodeIds: Set<string> | null = null;
+    let derivEdgeIds: Set<string> | null = null;
+    if (derivActive) {
+      const nodeById = new Map<string, GraphNode>(topology.nodes.map((n) => [n.id, n]));
+      const incoming = new Map<string, GraphEdge[]>();
+      const outgoing = new Map<string, GraphEdge[]>();
+      for (const e of topology.edges) {
+        let inn = incoming.get(e.target); if (!inn) incoming.set(e.target, (inn = []));
+        inn.push(e);
+        let out = outgoing.get(e.source); if (!out) outgoing.set(e.source, (out = []));
+        out.push(e);
+      }
+      const isTokenId = (id: string) => /^c:[^:]+:token$/.test(id) || nodeById.get(id)?.type === "Token";
+      const isDeriv = (id: string) => nodeById.get(id)?.type === "DerivativeToken";
+      const meta = (id: string) => (nodeById.get(id)?.metadata ?? {}) as Record<string, unknown>;
+      const isMarket = (id: string) => meta(id)._market != null;
+      const isVault = (id: string) => meta(id)._vault != null;
+      const isProtocol = (id: string) =>
+        nodeById.get(id)?.type === "DefiProtocol" && !isMarket(id) && !isVault(id);
+      const ISSUE = new Set(["issues", "lp_of"]);
+      const RECEIVE = new Set(["collateral_at", "staked_in"]);
+
+      const keepN = new Set<string>();
+      const keepE = new Set<string>();
+      const derivs = topology.nodes.filter((n) => n.type === "DerivativeToken").map((n) => n.id);
+      for (const id of derivs) keepN.add(id);
+
+      // UP — 발행/생산 체인을 토큰까지: 발행(issues/lp_of)·토큰직결·프로토콜부모·파생생산자 엣지를 따라 오른다.
+      const climbUp = (start: string) => {
+        const stack = [start];
+        const seen = new Set<string>([start]);
+        while (stack.length) {
+          const cur = stack.pop()!;
+          for (const e of incoming.get(cur) ?? []) {
+            const src = e.source;
+            if (!(ISSUE.has(e.type) || isTokenId(src) || isProtocol(src) || isDeriv(src))) continue;
+            keepN.add(src);
+            keepE.add(e.id);
+            if (!isTokenId(src) && !seen.has(src)) { seen.add(src); stack.push(src); }
+          }
+        }
+      };
+      for (const id of derivs) {
+        climbUp(id);
+        // DOWN — 파생이 들어가는 마켓/풀 1홉 + 그 마켓의 부모 프로토콜.
+        for (const e of outgoing.get(id) ?? []) {
+          if (!RECEIVE.has(e.type)) continue;
+          keepN.add(e.target);
+          keepE.add(e.id);
+          if (isMarket(e.target)) {
+            for (const e2 of incoming.get(e.target) ?? []) {
+              if (isProtocol(e2.source)) { keepN.add(e2.source); keepE.add(e2.id); }
+            }
+          }
+        }
+      }
+      derivNodeIds = keepN;
+      derivEdgeIds = keepE;
+    }
+
     setNodes((nds) =>
       nds.map((n) => {
         const isHighlighted = walletHighlightIds?.has(n.id) ?? false;
@@ -490,11 +562,13 @@ function GraphCanvasInner({
         const isHandle = n.id.startsWith("island:");
         const typeFaded =
           typeFilterActive && !isHandle && !nodesInTypeFilter!.has(n.id);
+        // 파생자산 포함만: 파생토큰에 닿지 않는 노드는 숨김(섬 핸들 포함).
+        const derivHidden = derivActive && !derivNodeIds!.has(n.id);
         return {
           ...n,
           selected: n.id === selectedNodeId,
-          // 포커스 줌 모드: 포커스 셋에 포함된 노드만 보이게
-          hidden: focusActive && !isInFocus,
+          // 포커스 줌 모드: 포커스 셋에 포함된 노드만 보이게 / 파생 필터: 파생 비관련 노드 숨김
+          hidden: (focusActive && !isInFocus) || derivHidden,
           data: {
             ...n.data,
             state: nodeStates[n.id] ?? SAFE_NODE_STATE,
@@ -523,10 +597,12 @@ function GraphCanvasInner({
         const typeHidden = typeFilterActive && !edgeTypeFilter!.has(e.data?.edgeType ?? "");
         // 구조상 가능(a) 엣지만 숨김(토글 off). 관측(실제 발생)·(b)관계검증·금액미측정 엣지는 유지.
         const structuralHidden = !showStructural && e.data?.observed === false && e.data?.verifiedUnmeasured !== true;
+        // 파생자산 포함만: 파생토큰에 닿지 않는 엣지는 숨김.
+        const derivEdgeHidden = derivActive && !derivEdgeIds!.has(e.id);
         return {
           ...e,
-          // 포커스 줌 숨김 + (검색/hover) 양끝이 모두 lit 이 아닌 엣지 + 타입 필터 밖 + 구조상가능(off) 엣지는 숨김.
-          hidden: edgeHidden || edgeFaded || typeHidden || structuralHidden,
+          // 포커스 줌 숨김 + (검색/hover) 양끝이 모두 lit 이 아닌 엣지 + 타입 필터 밖 + 구조상가능(off) + 파생필터 밖 엣지는 숨김.
+          hidden: edgeHidden || edgeFaded || typeHidden || structuralHidden || derivEdgeHidden,
           data: {
             ...e.data,
             edgeType: e.data?.edgeType ?? "",
@@ -537,7 +613,7 @@ function GraphCanvasInner({
         };
       }),
     );
-  }, [nodeStates, walletHighlightIds, focusOnlyIds, selectedNodeId, expandedAroundSelected, hoverNodeId, hoverNeighbors, edgeTypeFilter, showStructural, topology.edges, setNodes, setEdges]);
+  }, [nodeStates, walletHighlightIds, focusOnlyIds, selectedNodeId, expandedAroundSelected, hoverNodeId, hoverNeighbors, edgeTypeFilter, showStructural, derivativeOnly, topology.nodes, topology.edges, setNodes, setEdges]);
 
   // 포커스 줌 모드 진입/해제 시 자동 fitView (보이는 노드들만)
   useEffect(() => {
@@ -553,6 +629,21 @@ function GraphCanvasInner({
     // focusOnlyIds 참조가 변할 때만 트리거
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusOnlyIds]);
+
+  // 파생자산 포함만 토글 진입/해제 시 자동 fitView (보이는 노드들만 — 켜면 파생 서브그래프로 줌, 끄면 전체 복귀)
+  useEffect(() => {
+    if (!nodesInitializedRef.current) return;
+    const t = setTimeout(() => {
+      try {
+        fitView({ padding: 0.2, duration: 500 });
+      } catch {
+        /* ignore */
+      }
+    }, 80);
+    return () => clearTimeout(t);
+    // derivativeOnly 가 변할 때만 트리거 (fitView 는 useReactFlow 안정 참조)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [derivativeOnly]);
 
   // Fit view on mount
   const nodesInitialized = useNodesInitialized();
