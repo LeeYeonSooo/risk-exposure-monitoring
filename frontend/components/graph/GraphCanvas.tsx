@@ -64,6 +64,13 @@ export interface GraphCanvasProps {
   edgeTypeFilter?: Set<string>;
   /** 정적 레이아웃 — d3-force 끄고 주어진 좌표 그대로 사용(동심원 4-링 고정 배치용). */
   staticLayout?: boolean;
+  /** 직선 엣지 — 교차 엣지 바깥 곡선 라우팅을 끄고 모두 직선(트리 계층 배치용). */
+  straightEdges?: boolean;
+  /**
+   * 구조상 가능(관측 안 됨) 엣지 표시 여부. 기본 true.
+   * true = 회색 골격 엣지까지 모두 표시(실제 발생 엣지는 범례색). false = 관측된 엣지만.
+   */
+  showStructural?: boolean;
   /** ReactFlow 내부(ViewportPortal 사용 가능 위치)에 렌더할 오버레이 — 메인화면 실시간 입자 레이어용. */
   overlay?: React.ReactNode;
 }
@@ -97,7 +104,9 @@ function GraphCanvasInner({
   focusOnlyIds,
   edgeTypeFilter,
   staticLayout,
+  straightEdges,
   overlay,
+  showStructural = true,
 }: GraphCanvasProps) {
 
   const initialNodes = useMemo<RiskNodeType[]>(
@@ -121,9 +130,45 @@ function GraphCanvasInner({
 
   const initialEdges = useMemo<FloatingEdgeType[]>(() => {
     const nmap = new Map(topology.nodes.map((n) => [n.id, n] as const));
+    // 레이아웃 중심 = 토큰 노드 중심 → 파생↔수용처 교차 엣지를 이 점에서 바깥으로 휘게(FloatingEdge).
+    const toks = topology.nodes.filter((n) => /^c:[^:]+:token$/.test(n.id) || n.type === "Token");
+    let cx: number | undefined, cy: number | undefined, rp: number | undefined;
+    if (toks.length && !straightEdges) { // 트리(직선)면 곡선 라우팅 중심 계산 생략 → 모든 엣지 직선
+      let sx = 0, sy = 0;
+      for (const t of toks) {
+        const d = (t.metadata.diameterPx as number | undefined) ?? 80;
+        sx += ((t.position?.x ?? 0) + d / 2) * LAYOUT_SCALE_X;
+        sy += ((t.position?.y ?? 0) + d / 2) * LAYOUT_SCALE_Y;
+      }
+      cx = sx / toks.length; cy = sy / toks.length;
+      // 외곽 반지름 = 최외곽 노드(중심에서 가장 먼 노드의 바깥 끝)
+      let max = 0;
+      for (const n of topology.nodes) {
+        if (!n.position) continue;
+        const d = (n.metadata.diameterPx as number | undefined) ?? 60;
+        const ncx = (n.position.x + d / 2) * LAYOUT_SCALE_X, ncy = (n.position.y + d / 2) * LAYOUT_SCALE_Y;
+        max = Math.max(max, Math.hypot(ncx - cx, ncy - cy) + d / 2);
+      }
+      rp = max;
+    }
     return topology.edges.map((e) => {
       // 출처 3단계(verified/estimated/opaque) — 양 끝 노드 + 엣지 dataSource 종합 (정직성 인코딩)
       const prov = edgeProvenance(e, nmap.get(e.source), nmap.get(e.target));
+      // 관측됨(실제 발생) vs 구조상 가능 — 실제 자금(amountUsd>0)이 흐른 엣지만 관측.
+      //   USD 추출은 legoTopology PageRank 와 동일 규칙: attrs.core.amountUsd 우선, 없으면 weight(>1 만 —
+      //   0.2/0.3/1 류는 구조 상수라 USD 아님). 관측이면 범례색, 아니면 회색 골격(FloatingEdge).
+      const eUsd = e.attrs?.core?.amountUsd ?? (typeof e.weight === "number" && e.weight > 1 ? e.weight : null);
+      const observed = typeof eUsd === "number" && eUsd > 0;
+      // (b) 관계 검증·금액 미측정 — 금액이 null(측정된 0 아님)이면서 수용처 evidence.source 가 있는 엣지(예: Fluid
+      //   스마트담보, Euler RPC 실패). 관계는 확인됨 → 별색 + "구조상 가능" 토글에 안 묶임. 측정된 0 = (a) 회색.
+      const lev = (e.attrs as { legoEvidence?: { source?: string } } | undefined)?.legoEvidence;
+      const verifiedUnmeasured = !observed && eUsd == null && !!lev?.source;
+      // 엣지 위 오라클 원 — automation 수집 엣지 attrs.oracle.type(MARKET/EXCHANGE_RATE/NAV/ORACLE_FREE/NONE) 우선,
+      //   없으면 마켓 노드 meta._market.oracle. 심볼은 LST 보정용(MARKET+LST → 환율).
+      const omkt = ((nmap.get(e.target)?.metadata?._market ?? nmap.get(e.source)?.metadata?._market) as Record<string, unknown> | undefined);
+      const oa = (e.attrs as { oracle?: { type?: string } } | undefined)?.oracle;
+      const oracleType = oa?.type ?? (omkt?.oracle as string | undefined);
+      const oracleSymbol = ((omkt?.collateral ?? omkt?.loan) as string | undefined) ?? (nmap.get(e.source)?.label as string | undefined);
       return {
         id: e.id,
         source: e.source,
@@ -141,13 +186,17 @@ function GraphCanvasInner({
           danger: false,
           unverified: prov === "estimated", // 점선 = breadth(미검증)
           opaque: prov === "opaque",         // 점점선 = 검증불가(DD 불가)
+          observed,                          // 실제 발생=범례색 / 구조상 가능=회색 골격
+          verifiedUnmeasured,                // (b) 관계 검증·금액 미측정 = 인디고(토글 무관)
           tier: e.tier,
           bridge: e.bridge,
           sharedWhales: e.sharedWhales,
+          cx, cy, rp, // 교차 엣지 바깥 라우팅(중심 + 외곽 반지름)
+          oracleType, oracleSymbol, // 엣지 위 오라클 원(target 마켓의 오라클 종류)
         },
       };
     });
-  }, [topology]);
+  }, [topology, straightEdges]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<RiskNodeType>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<FloatingEdgeType>(initialEdges);
@@ -472,10 +521,12 @@ function GraphCanvasInner({
         const edgeFaded = dimming && !edgeLit;
         // 엣지 타입 필터: 선택된 타입이 아니면 숨김.
         const typeHidden = typeFilterActive && !edgeTypeFilter!.has(e.data?.edgeType ?? "");
+        // 구조상 가능(a) 엣지만 숨김(토글 off). 관측(실제 발생)·(b)관계검증·금액미측정 엣지는 유지.
+        const structuralHidden = !showStructural && e.data?.observed === false && e.data?.verifiedUnmeasured !== true;
         return {
           ...e,
-          // 포커스 줌 숨김 + (검색/hover) 양끝이 모두 lit 이 아닌 엣지 + 타입 필터 밖 엣지는 숨김.
-          hidden: edgeHidden || edgeFaded || typeHidden,
+          // 포커스 줌 숨김 + (검색/hover) 양끝이 모두 lit 이 아닌 엣지 + 타입 필터 밖 + 구조상가능(off) 엣지는 숨김.
+          hidden: edgeHidden || edgeFaded || typeHidden || structuralHidden,
           data: {
             ...e.data,
             edgeType: e.data?.edgeType ?? "",
@@ -486,7 +537,7 @@ function GraphCanvasInner({
         };
       }),
     );
-  }, [nodeStates, walletHighlightIds, focusOnlyIds, selectedNodeId, expandedAroundSelected, hoverNodeId, hoverNeighbors, edgeTypeFilter, topology.edges, setNodes, setEdges]);
+  }, [nodeStates, walletHighlightIds, focusOnlyIds, selectedNodeId, expandedAroundSelected, hoverNodeId, hoverNeighbors, edgeTypeFilter, showStructural, topology.edges, setNodes, setEdges]);
 
   // 포커스 줌 모드 진입/해제 시 자동 fitView (보이는 노드들만)
   useEffect(() => {

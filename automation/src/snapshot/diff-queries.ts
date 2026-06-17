@@ -2,10 +2,39 @@
  * diff 엔진의 baseline/prev 조회 헬퍼 — diffAndAlert(오케스트레이터) 전용 DB·RPC read.
  * (god-file 축소 2026-06: diff.ts 에서 fetch* 7개를 분리. 디텍터 로직 무관 — 순수 데이터 조회라 충돌·위험 최소.)
  */
+import { classifyAsset } from "@/config/alert-thresholds";
 import { query } from "@/db/client";
 import { rpc } from "@/lib/rpc";
 import { median } from "@/lib/stats";
+import { marketKey } from "@/snapshot/rules/shared";
 import type { EdgeSnapshot } from "@/types/edge-schema";
+
+interface MarketUtilRow { collateralAsset?: string; loanAsset?: string; oracleAddress?: string; irmAddress?: string; lltv: number; utilization?: number | null }
+
+/**
+ * per-market util 시계열(현재 ts 미만, 최신 N) — util_jump per-market 경로의 median baseline.
+ * 단일-prev baseline 은 직전 스냅샷의 transient dip 이 +Δpp 를 인위적으로 부풀려 dip-recovery FP 를 낸다(#725/#703 weETH).
+ *   marketKey(5요소·오라클/irm 주소 포함→프로토콜 구분)별 최근 util 을 median 기준선으로 써 일시 dip 만 평활(지속 상승은 추종).
+ */
+export async function fetchRecentMarketUtil(tokenNodeId: string, beforeTs: string, perMarket = 8): Promise<Map<string, number[]>> {
+  const r = await query<{ markets: MarketUtilRow[] | null }>(
+    `SELECT attrs->'topMarkets' AS markets FROM edges
+     WHERE token_node_id = $1 AND snapshot_ts < $2 AND attrs->'topMarkets' IS NOT NULL
+     ORDER BY snapshot_ts DESC LIMIT 200`,
+    [tokenNodeId, beforeTs],
+  ).catch(() => ({ rows: [] as { markets: MarketUtilRow[] | null }[] }));
+  const map = new Map<string, number[]>();
+  for (const row of r.rows) {
+    for (const m of row.markets ?? []) {
+      if (m.utilization == null || !(m.utilization >= 0)) continue;
+      const k = marketKey(m);
+      let arr = map.get(k);
+      if (!arr) { arr = []; map.set(k, arr); }
+      if (arr.length < perMarket) arr.push(Number(m.utilization));
+    }
+  }
+  return map;
+}
 
 // 디페그 판정 기준선 = 이 토큰의 **최근 디페그 알림 가격**(detail.priceUsd) median.
 //   chain_supply_samples 는 sUSDat 같은 소형 담보 토큰의 가격 이력이 없어(0샘플) 정작 재발화 대상을 못 잡는다.
@@ -27,11 +56,15 @@ export async function fetchRecentPriceBaseline(tokenNodeId: string, label: strin
       [tokenNodeId, beforeTs],
     ).catch(() => ({ rows: [] as { su: number; ts: number }[] })),
   ]);
+  // 상한 필터 — USD 는 글리치($5↑) 컷. LST/BTC래퍼는 실가격이 ~$1800/$60000 라 종전 `p < 5` 가 비-USD baseline 을 **전량 폐기**
+  //   → priceBaseline 영구 null → depeg.ts 평활 가드(cmpPrice=max(price,baseline)) 무력화(시장가-NAV skew FP #710/#705). 자산클래스별 상한.
+  const usdLike = classifyAsset(label) === "stable" || classifyAsset(label) === "stable_soft";
+  const upper = usdLike ? 5 : Number.POSITIVE_INFINITY;
   const prices = [
     ...alertR.rows.map((x) => Number(x.p)),
     ...csR.rows.map((x) => Number(x.su) / Number(x.ts)),
-  ].filter((p) => p > 0 && p < 5);
-  if (prices.length < 3) return null;  // 이력 부족 → $1 기준 폴백(초기 break 포착)
+  ].filter((p) => p > 0 && p < upper);
+  if (prices.length < 3) return null;  // 이력 부족 → $1/NAV 기준 폴백(초기 break 포착)
   return median(prices);
 }
 

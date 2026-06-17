@@ -142,9 +142,10 @@ export async function checkDepeg(current: TokenSnapshotResult, t: AlertThreshold
   //   stale 시세 1프린트(≥8.5%)가 곧장 catastrophic critical 페이지가 된다. 진짜 catastrophic 은 baseline(최근
   //   median)도 함께 내려앉지만 글리치는 1프린트만 튄다 → critical 은 baseline 도 catastrophic 수준일 때만 허용,
   //   아니면 warning 강등(초기 break 의 warning 민감도는 보존, 지속되면 다음 스냅샷에 baseline 동반 → critical).
+  let glitchDemoted = false;
   if (refKind === "usd" && sev === "critical" && priceBaseline != null && priceBaseline > 0) {
     const cmpCat = Math.max(price, priceBaseline);
-    if ((pegRef - cmpCat) / pegRef < t.depeg.catastrophicMagnitude) sev = "warning";
+    if ((pegRef - cmpCat) / pegRef < t.depeg.catastrophicMagnitude) { sev = "warning"; glitchDemoted = true; }
   }
 
   // ── 오라클-인지 위험 증폭 ──────────────────────────────────────────────
@@ -155,14 +156,20 @@ export async function checkDepeg(current: TokenSnapshotResult, t: AlertThreshold
   const orc = t.depeg.oracleRisk;
   let finalSev = sev;
   let note: string;
+  // ⚠️ 오라클 노출 승격은 **실제 디페그(sev≥warning, 즉 편차≥band)**일 때만 — band 내 노이즈(하드스테이블 USDC −0.33%=info)를
+  //   silent-bad-debt 로 critical 과승격하던 FP 차단(2026-06). band 내면 노출이 커도 "진짜 디페그"가 아님 → 승격 안 함(info 유지).
+  const realDepeg = sev !== "info";
   // 노트 = 미니멀 태그(severity 구동 시그널만). 서술은 라벨/툴팁이 담당.
-  if (exposure.silentBadDebtUsd >= orc.critUsd) {
+  // ⚠️ 글리치 강등(glitchDemoted) 시 critical 재승격 차단(2026-06): 미코로보 단일프린트(−10%, baseline=peg)를
+  //   글리치가드가 warning 으로 강등했는데, silent-bad-debt 노출(≥critUsd)이 이를 우회해 critical 로 되돌리던 FP.
+  //   글리치면 silent 승격을 warning 상한으로 막는다 — 다음 스냅샷에 baseline 동반하락(글리치 아님)이면 정상 critical.
+  if (realDepeg && !glitchDemoted && exposure.silentBadDebtUsd >= orc.critUsd) {
     finalSev = "critical";
     note = ` · 부실누적 ${formatUsd(exposure.silentBadDebtUsd)}`;
-  } else if (exposure.silentBadDebtUsd >= orc.warnUsd) {
+  } else if (realDepeg && exposure.silentBadDebtUsd >= orc.warnUsd) {
     finalSev = maxSev(sev, "warning");
     note = ` · 부실누적 ${formatUsd(exposure.silentBadDebtUsd)}`;
-  } else if (exposure.cascadeUsd >= orc.warnUsd) {
+  } else if (realDepeg && exposure.cascadeUsd >= orc.warnUsd) {
     note = "";
   } else if (exposure.cascadeUsd + exposure.silentBadDebtUsd === 0 && exposure.insulatedUsd > 0) {
     if (sev !== "critical") finalSev = "info"; // 전부 NAV/CAPO — 디페그 안 봄·청산위험 낮음(catastrophic 은 유지)

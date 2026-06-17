@@ -7,9 +7,13 @@ import pg from "pg";
  * Returns the latest snapshot topology for a given token symbol (e.g. "WBTC").
  * Source: automation pipeline's Postgres DB.
  *
- * No static fallback: responds 503 if DATABASE_URL is unset, 404 if no snapshot
- * exists yet for the token. The client renders an explicit "no live data" state.
+ * DB 미설정(DATABASE_URL 없음)일 때만: 번들된 fixture(현재 sUSDe)를 정적으로 서빙해
+ * DB 없이도 관계맵을 미리볼 수 있게 한다(데모/검토용). DB 가 있으면 항상 라이브 우선.
  */
+
+// 데모 fixture — DB 없을 때만 사용. 키 = 소문자 심볼. (lib/__fixtures__/susde-topology.json)
+import susdeTopology from "@/lib/__fixtures__/susde-topology.json";
+const FIXTURES: Record<string, unknown> = { susde: susdeTopology };
 
 const DATABASE_URL = process.env.DATABASE_URL;
 let _pool: pg.Pool | null = null;
@@ -37,6 +41,11 @@ interface EdgeRow {
   attrs: unknown;
 }
 
+// 2026-06-12 스코프 축소: 이더리움·베이스·아비트럼만 서빙. DB 에는 과거 스냅샷(다른 EVM·비EVM
+// 체인 노드)이 남아 있어 — 데이터는 보존하되 여기서 걸러 그래프에 안 나오게 한다.
+const ALLOWED_CHAINS = new Set(["ethereum", "base", "arbitrum"]);
+const chainOfNodeId = (id: string) => (id.includes("@") ? id.split("@")[1] : "ethereum");
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ token: string }> },
@@ -50,7 +59,9 @@ export async function GET(
 
   const p = pool();
   if (!p) {
-    // No DB configured → no data (no static fallback). Client shows empty state.
+    // DB 미설정 → fixture 가 있으면 정적 서빙(데모/검토), 없으면 빈 상태.
+    const fx = FIXTURES[token.toLowerCase()];
+    if (fx) return NextResponse.json(fx);
     return NextResponse.json(
       { error: "DATABASE_URL not configured" },
       { status: 503 },
@@ -70,12 +81,15 @@ export async function GET(
        FROM edges e JOIN toks t ON e.token_node_id = t.token_node_id AND e.snapshot_ts = t.ts`,
       [tokenNodeIdLc],
     );
-    if (edgesR.rows.length === 0) {
+    const edges = edgesR.rows.filter(
+      (e) => ALLOWED_CHAINS.has(chainOfNodeId(e.source)) && ALLOWED_CHAINS.has(chainOfNodeId(e.target)),
+    );
+    if (edges.length === 0) {
       return NextResponse.json({ error: `No snapshots yet for ${token}` }, { status: 404 });
     }
 
     const involved = new Set<string>();
-    edgesR.rows.forEach((e) => {
+    edges.forEach((e) => {
       involved.add(e.source);
       involved.add(e.target);
     });
@@ -85,11 +99,12 @@ export async function GET(
        FROM nodes WHERE node_id = ANY($1::text[])`,
       [Array.from(involved)],
     );
+    const nodes = nodesR.rows.filter((n) => !n.chain || ALLOWED_CHAINS.has(n.chain));
 
     return NextResponse.json({
       symbol: token,
-      nodes: nodesR.rows,
-      edges: edgesR.rows,
+      nodes,
+      edges,
     });
   } catch (e) {
     return NextResponse.json(

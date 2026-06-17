@@ -1,7 +1,7 @@
 import { insertAlert } from "@/db/upsert";
 import {
   edgeExistedBefore, fetchPrevEdges, fetchPrevTopHolders, fetchRecentEdgeLiquidity,
-  fetchRecentPriceBaseline, fetchRecentSupplySamples, fetchTotalSupplyAtBlock,
+  fetchRecentMarketUtil, fetchRecentPriceBaseline, fetchRecentSupplySamples, fetchTotalSupplyAtBlock,
 } from "@/snapshot/diff-queries";
 import { checkDepeg } from "@/snapshot/rules/depeg";
 import { checkBadDebt, checkCollateralAdoption, checkNewMarkets, checkReserveFreeze } from "@/snapshot/rules/market";
@@ -45,7 +45,7 @@ export async function diffAndAlert(
   const nowSec = Math.floor(new Date(current.snapshotTs).getTime() / 1000); // D04b 오라클 staleness 기준 시각
 
   // Load reference data (totalSupply 시계열 윈도, 직전 엣지, top holders, 직전-블록 supply, 유동성·가격 baseline)
-  const [recentSupplySamples, prevEdges, prevTopHolders, prevTotalSupplyAtPrevBlock, liqBaseline, priceBaseline] =
+  const [recentSupplySamples, prevEdges, prevTopHolders, prevTotalSupplyAtPrevBlock, liqBaseline, priceBaseline, marketUtilBaseline] =
     await Promise.all([
       fetchRecentSupplySamples(tokenNodeId, current.snapshotTs, thresholds.totalSupply.windowN),
       fetchPrevEdges(tokenNodeId),
@@ -53,6 +53,7 @@ export async function diffAndAlert(
       fetchTotalSupplyAtBlock(current.token.address, (current.blockNumber ?? 1) - 1, current.token.metadata.decimals),
       fetchRecentEdgeLiquidity(tokenNodeId, current.snapshotTs),
       fetchRecentPriceBaseline(tokenNodeId, current.token.label, current.snapshotTs),
+      fetchRecentMarketUtil(tokenNodeId, current.snapshotTs),
     ]);
 
   const prevByKey = new Map(prevEdges.map((e) => [edgeKey(e), e]));
@@ -100,8 +101,8 @@ export async function diffAndAlert(
       alerts.push(...checkIrmChange(token, curr, prev, thresholds));
       // Rule 4: 오라클 변경
       alerts.push(...checkOracleChange(token, curr, prev, thresholds));
-      // Rule 7: utilization / liquidity 변동 — 최근 중앙값 baseline 전달(spike-reversion FP 차단)
-      alerts.push(...checkUtilizationLiquidity(token, curr, prev, thresholds, liqBaseline.get(curr.target)));
+      // Rule 7: utilization / liquidity 변동 — 최근 중앙값 baseline 전달(spike-reversion FP 차단). per-market util 은 marketUtilBaseline(median).
+      alerts.push(...checkUtilizationLiquidity(token, curr, prev, thresholds, liqBaseline.get(curr.target), marketUtilBaseline));
       // 동결 전이(false→true) — 방금 동결 = 거버넌스 긴급조치/사건. (standing 동결은 scan 이 info 로 별도 담당.)
       alerts.push(...checkReserveFreeze(token, curr, prev));
     }
@@ -132,13 +133,19 @@ export async function diffAndAlert(
     final.push(a);
     // DB 적재 (프론트 패널) — info 포함 전부. 채널 발송(Discord 등)은 insertAlert 내부에서
     // dispatchAlert 가 severity별 쿨다운을 적용해 처리 → 여기서 별도 post 하면 중복/쿨다운 우회라 제거.
+    // detail.block 주입 — 상태-스냅샷 디텍터는 단일 원인 tx 가 없지만(수 블록 범위 상태변화), 알림이 관측된
+    //   스냅샷 블록은 프론트에서 Etherscan 블록 바로가기로 제공(그 블록에 거버넌스/상태변경 tx 포함). 이미 block 이
+    //   있는 디텍터(supply_single_mint 등)는 보존.
+    const detail = (a.detail && typeof a.detail === "object")
+      ? { block: current.blockNumber, ...(a.detail as Record<string, unknown>) }
+      : { block: current.blockNumber };
     await insertAlert({
       severity: a.severity,
       kind: a.kind,
       token: a.token,
       protocolNodeId: a.protocolNodeId,
       message: a.message,
-      detail: a.detail,
+      detail,
       snapshotTs: current.snapshotTs,
     });
   }

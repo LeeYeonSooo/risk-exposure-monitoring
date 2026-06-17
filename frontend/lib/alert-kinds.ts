@@ -7,35 +7,34 @@
 export type AlertCategory = "minting" | "depeg" | "contract" | "liquidity";
 
 /** 백엔드 발화 kind 전수 → 한국어 라벨. 미등록 kind 는 KIND_LABEL[k] ?? k 로 폴백(원문 노출). */
-// 라벨 스타일(2026-06 라벨 리뷰): 괄호 없는 간결 명사구로 통일. 등급/수식어는 앞에 붙이거나 KIND_DESC 로 이관.
-//   supply_spike/chain_supply_spike=통계 관찰 신호 · unmatched_mint/supply_conservation=무담보 발행 본질로 ·
-//   depeg=오라클 가중 명시 · near_liquidation=집계 평균(개별 청산임박 아님) · high_utilization=봉쇄 과장 제거.
+// 라벨 스타일(2026-06 단순화): 칩에 들어갈 **짧은 명사구**로 통일. 수식어(가중/한계/통계/의심 등)는 제거하고
+//   본질만 — 상세는 KIND_DESC·본문 message 가 담당. 영문 통용어(depeg·utilization)는 그대로 둔다(사용자 라벨 정책).
 export const KIND_LABEL: Record<string, string> = {
   // 민팅/공급 무결성
-  supply_spike: "공급 통계 이상",
-  supply_single_mint: "단일 대량 민트",
-  chain_supply_spike: "체인 공급 통계 이상",
-  unmatched_mint: "무담보 민트 의심",
-  supply_conservation: "교차체인 무담보 발행",
+  supply_spike: "공급 이상",
+  supply_single_mint: "대량 민트",
+  chain_supply_spike: "체인 공급 이상",
+  unmatched_mint: "무담보 민트",
+  supply_conservation: "무담보 발행",
   // 디페그
-  depeg: "오라클 가중 디페그",
+  depeg: "depeg",
   // 부실/청산
-  bad_debt_threshold: "실현 부실채권",
-  near_liquidation: "포지션 청산위험",
+  bad_debt_threshold: "부실채권",
+  near_liquidation: "청산 위험",
   // 컨트랙트/구조
   new_market: "신규 마켓",
-  collateral_adoption: "신규 담보 채택",
+  collateral_adoption: "담보 채택",
   oracle_changed: "오라클 변경",
-  oracle_stale: "오라클 피드 정지",
+  oracle_stale: "오라클 정지",
   oracle_paused_suspect: "오라클 정지 의심",
-  oracle_hardcoded_switch: "하드코딩 오라클 전환",
+  oracle_hardcoded_switch: "오라클 하드코딩",
   irm_changed: "IRM 변경",
-  irm_base_rate_jump: "IRM 기준금리 급변",
+  irm_base_rate_jump: "금리 급변",
   reserve_frozen: "리저브 동결",
-  high_lltv_market: "고 LLTV 마켓",
+  high_lltv_market: "고 LLTV",
   // 유동성/자금흐름
-  high_utilization: "이용률 한계",
-  utilization_jump: "이용률 급등",
+  high_utilization: "utilization 높음",
+  utilization_jump: "utilization 급등",
   liquidity_drop_dex: "DEX 유동성 급감",
   whale_unwind: "고래 이탈",
   curator_derisk: "큐레이터 디리스킹",

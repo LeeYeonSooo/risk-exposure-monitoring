@@ -123,9 +123,10 @@ async function main() {
       collateral: string;
       vault_name: string;
       curator: string;
+      chain: string;
       snapshot_ts: string;
     }>(
-      `SELECT vault_address, market_key, supply_usd, in_withdraw_queue, collateral, vault_name, curator, snapshot_ts
+      `SELECT vault_address, market_key, supply_usd, in_withdraw_queue, collateral, vault_name, curator, chain, snapshot_ts
        FROM vault_allocations WHERE snapshot_ts = (SELECT MAX(snapshot_ts) FROM vault_allocations)`,
     );
     const prevByKey = new Map(prev.rows.map((r) => [`${r.vault_address}::${r.market_key}`, r]));
@@ -162,7 +163,7 @@ async function main() {
           severity: "warning",
           token: r.collateral,
           message: `${r.vaultName} ${r.collateral} — 인출큐 제거 · AUM −${(netDrop * 100).toFixed(0)}%`,
-          detail: { curator: r.curator, vault: r.vaultName, chain: r.chain, marketKey: r.marketKey, prevSupplyUsd: p.supply_usd, vaultNetDropPct: netDrop },
+          detail: { curator: r.curator, vault: r.vaultName, vaultAddress: r.vaultAddress, chain: r.chain, marketKey: r.marketKey, prevSupplyUsd: p.supply_usd, vaultNetDropPct: netDrop },
         });
       }
       // 신호 2: 적극적 인출 (supply 급감) — vault 순유출 동반일 때만(내부 리밸런싱 제외)
@@ -173,7 +174,7 @@ async function main() {
             severity: "warning",
             token: r.collateral,
             message: `${r.vaultName} ${r.collateral} — −${(drop * 100).toFixed(0)}% · ${fmt(p.supply_usd)}→${fmt(r.supplyUsd)}`,
-            detail: { curator: r.curator, vault: r.vaultName, chain: r.chain, dropPct: drop, prevSupplyUsd: p.supply_usd, currSupplyUsd: r.supplyUsd, vaultNetDropPct: netDrop },
+            detail: { curator: r.curator, vault: r.vaultName, vaultAddress: r.vaultAddress, chain: r.chain, dropPct: drop, prevSupplyUsd: p.supply_usd, currSupplyUsd: r.supplyUsd, vaultNetDropPct: netDrop },
           });
         }
       }
@@ -200,7 +201,7 @@ async function main() {
         severity: "warning",
         token: tok,
         message: `${p.vault_name} ${tok} — 전량 이탈 · ${fmt(p.supply_usd)}→$0`,
-        detail: { curator: p.curator, vault: p.vault_name, marketKey: p.market_key, prevSupplyUsd: p.supply_usd, currSupplyUsd: 0, dropPct: 1, vaultNetDropPct: netDrop, fullExit: true },
+        detail: { curator: p.curator, vault: p.vault_name, vaultAddress: p.vault_address, chain: p.chain, marketKey: p.market_key, prevSupplyUsd: p.supply_usd, currSupplyUsd: 0, dropPct: 1, vaultNetDropPct: netDrop, fullExit: true },
       });
     }
 

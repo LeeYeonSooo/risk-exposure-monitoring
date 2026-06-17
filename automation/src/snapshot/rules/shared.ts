@@ -48,7 +48,9 @@ const IMMUTABLE_MARKET_PROTOCOLS = new Set([
   "protocol:morpho_blue", "protocol:euler_v2", "protocol:euler",
 ]);
 export function hasImmutableMarkets(protocolNodeId: string | null | undefined): boolean {
-  return IMMUTABLE_MARKET_PROTOCOLS.has((protocolNodeId ?? "").toLowerCase());
+  // baseProtoId 로 체인스코프 제거 — L2 엣지 id 는 `protocol:morpho_blue@base` 라 raw 매칭이 빗나가
+  //   immutable 가드가 우회되던 버그(isMajor 와 동형). 체인 무관하게 base id 로 판정.
+  return IMMUTABLE_MARKET_PROTOCOLS.has(baseProtoId(protocolNodeId).toLowerCase());
 }
 
 // Morpho 마켓 불변 식별키 — collateral|loan|oracle|irm|lltv 5요소(레퍼런스 top_market_key 동형).

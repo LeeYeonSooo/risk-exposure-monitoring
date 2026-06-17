@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 const TOGGLE_NAV = [
   { href: "/", label: "검색" },
   { href: "/flow", label: "흐름맵" },
+  { href: "/eoa-flow", label: "EOA 흐름" },
 ];
 
 const EXTRA_NAV: { href: string; label: string }[] = [];

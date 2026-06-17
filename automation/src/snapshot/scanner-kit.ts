@@ -33,3 +33,14 @@ export async function recentSupplySamples(tokenNodeId: string, chain: string, be
   ).catch(() => ({ rows: [] as { total_supply: string }[] }));
   return r.rows.map((x) => Number(x.total_supply)).filter((v) => v > 0);
 }
+
+/** 직전(현재 ts 미만) chain_supply_samples 의 최신 snapshot_ts(ISO). 없으면 null. — z-score staleGap 게이트용(stale baseline 대비 단일틱 z 폭증 차단). */
+export async function latestSampleTs(tokenNodeId: string, chain: string, beforeTs: string): Promise<string | null> {
+  const r = await query<{ ts: string }>(
+    `SELECT snapshot_ts::text AS ts FROM chain_supply_samples
+     WHERE token_node_id=$1 AND chain=$2 AND snapshot_ts < $3
+     ORDER BY snapshot_ts DESC LIMIT 1`,
+    [tokenNodeId, chain, beforeTs],
+  ).catch(() => ({ rows: [] as { ts: string }[] }));
+  return r.rows[0]?.ts ?? null;
+}

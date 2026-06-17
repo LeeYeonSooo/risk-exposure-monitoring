@@ -8,6 +8,7 @@
 import { closePool, query } from "@/db/client";
 import { insertAlert, loadActiveStateAlerts, resolveStaleAlerts, updateStateAlert } from "@/db/upsert";
 import { RECOMMENDED_THRESHOLDS as T, severityForValue, isNavPricedLoop } from "@/config/alert-thresholds";
+import { isActiveChain } from "@/config/chains";
 import { isSuspectPartialScan } from "@/snapshot/data-quality";
 import { fmtUsd } from "@/lib/fmt";
 import { protoLabel } from "@/lib/proto-label";
@@ -30,6 +31,8 @@ interface EdgeRow {
       collateralUsd?: number | null;
       borrowUsd?: number | null;
       riskiestPosition?: RiskiestPosition | null;
+      // per-market 온체인 오라클(introspect). near_liq 시장가-청산 면제 판정에 심볼휴리스틱 대신 실타입 사용.
+      oracle?: { type?: string | null } | null;
     }> | null;
     meta?: { dataSource?: string | null };
   };
@@ -74,6 +77,11 @@ async function main() {
     // 심볼 미해석(token:UNKNOWN) 엣지 — 동일 온체인 리저브가 token:<symbol> 로도 적재돼 있어
     // 이 유령노드는 stale phantom 상태(가짜 reserve_frozen #286 등)만 만든다. 정상 노드가 커버하므로 skip(R6).
     if (token === "" || token.toUpperCase() === "UNKNOWN") continue;
+    // 비활성 체인(eth/base/arb 외) 엣지 skip — 옛 스냅샷이 남긴 deactivated-chain edges(avalanche/scroll/linea/zksync 등)를
+    //   계속 평가하면 reserve_frozen 팬텀이 영영 재발(그 체인은 스냅샷 안 함 → 조건 갱신 불가). skip 하면 미-assert → resolveStaleAlerts 가 자동해소.
+    //   체인 유도: protocol@chain → token@chain → (둘 다 없으면) ethereum.
+    const edgeChain = (row.protocol?.split("@")[1]) ?? (token.split("@")[1]) ?? "ethereum";
+    if (!isActiveChain(edgeChain)) continue;
     // 마켓 총공급 규모 — high_utilization dust 게이트용(R4: 의미 없는 초소형 마켓 100% util 차단).
     //   ⚠️ Math.max — topMarkets 합이 작아도(예 $2) core.amountUsd($1.265B)가 크면 큰 값 사용. `||` 는 합이
     //   truthy 면 core 를 무시해 USDC@arbitrum 같은 대형 고-util 마켓을 dust 로 오컷하던 FN(2026-06 검증).
@@ -170,7 +178,12 @@ async function main() {
       for (const m of attrs.topMarkets ?? []) {
         if (m.marketSizeUsd < 100_000) continue;
         const rp = m.riskiestPosition;
-        const navPriced = isNavPricedLoop(token, m.loanAsset ?? "");
+        // navPriced = 시장가-청산 채널이 약한 마켓(LST·달러루프·PT). 심볼휴리스틱(isNavPricedLoop)은 classifyAsset 가
+        //   altcoin 으로 보는 RWA/수익형 담보(PRIME=PRIME/WYLDS 교환비)를 놓침 → per-market 온체인 오라클 타입을 우선.
+        //   EXCHANGE_RATE/NAV/ORACLE_FREE = 비-시장가 → 시장가 −X% 청산 프레이밍 부적용(실현 부실은 bad_debt_threshold 담당). (FP #704)
+        const ot = m.oracle?.type;
+        const navPriced = isNavPricedLoop(token, m.loanAsset ?? "")
+          || ot === "EXCHANGE_RATE" || ot === "NAV" || ot === "ORACLE_FREE";
         if (rp && rp.dropToLiquidation <= 0.03 && rp.borrowUsd >= 1_000_000 && !navPriced) {
           nearLiq.push({ loanAsset: m.loanAsset, lltv: m.lltv, rp });
         }

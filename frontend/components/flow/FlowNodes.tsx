@@ -14,7 +14,7 @@ import type { FlowNode, RiskLevel } from "@/lib/flow-types";
 
 const CHAIN_ID: Record<string, number> = {
   ethereum: 1, arbitrum: 42161, base: 8453, optimism: 10, polygon: 137, avalanche: 43114,
-  bsc: 56, gnosis: 100, linea: 59144, scroll: 534352, mantle: 5000, sonic: 146, unichain: 130, berachain: 80094,
+  bsc: 56, gnosis: 100, linea: 59144, scroll: 534352, mantle: 5000, unichain: 130, berachain: 80094,
 };
 
 export interface FlowNodeData extends FlowNode {
@@ -65,6 +65,11 @@ const FILL: Record<string, string> = { market: "#38bdf8", vault: "#a855f7", exte
 function NodeShell({ data, selected }: NodeProps) {
   const d = data as FlowNodeData;
   const size = d.radius * 2;
+  // 선택하면 일시적으로 색 복귀 — 엣지(FloatingFlowEdge)의 dim 동작과 대칭
+  const dimmed = !!d.dim && !selected;
+  // 흐름 귀속 어댑터가 없는 노드(예: pendle·balancer·sushiswap·L2 euler 볼트) — 회색이어도
+  // "조용해서"가 아니라 "측정 미지원". 점선 외곽선 + 라벨로 "거래 없음 회색"과 구분한다.
+  const noAdapter = d.meta?.flowSupported === false;
   const isToken = d.kind === "token";
   const isProto = d.kind === "protocol";
   const isExt = d.kind === "external"; // (type completeness — flow-core does not create these today)
@@ -77,7 +82,8 @@ function NodeShell({ data, selected }: NodeProps) {
   if (isBridge) {
     const bc = d.risk === "caution" ? "#f59e0b" : "#0d9488";
     return (
-      <div className="relative flex items-center justify-center" style={{ width: size, height: size }}
+      <div className="relative flex items-center justify-center"
+        style={{ width: size, height: size, opacity: dimmed ? 0.35 : 1, filter: dimmed ? "grayscale(1)" : undefined, transition: "opacity .25s, filter .25s" }}
         title={`${d.label}${d.meta?.fromChain ? ` · ${String(d.meta.fromChain)}↔${String(d.meta.toChain)}` : ""}`}>
         <Handle type="target" position={Position.Top} style={{ opacity: 0, width: 1, height: 1, border: 0, minWidth: 0, minHeight: 0 }} isConnectable={false} />
         <Handle type="source" position={Position.Top} style={{ opacity: 0, width: 1, height: 1, border: 0, minWidth: 0, minHeight: 0 }} isConnectable={false} />
@@ -98,8 +104,9 @@ function NodeShell({ data, selected }: NodeProps) {
   return (
     <div
       className="relative flex items-center justify-center"
-      style={{ width: size, height: size, opacity: d.dim ? 0.15 : 1, transition: "opacity .25s" }}
-      title={`${d.label}${d.tvlUsd ? " · " + formatUsd(d.tvlUsd) : ""}${d.protocol && d.kind !== "protocol" ? " · " + d.protocol : ""}`}
+      // dim = "색을 뺀다": 회색조 + 반투명 — TX 없는 노드는 가라앉고, 흐름이 있는 노드만 색이 남는다
+      style={{ width: size, height: size, opacity: dimmed ? 0.35 : 1, filter: dimmed ? "grayscale(1)" : undefined, transition: "opacity .25s, filter .25s" }}
+      title={`${d.label}${d.tvlUsd ? " · " + formatUsd(d.tvlUsd) : ""}${d.protocol && d.kind !== "protocol" ? " · " + d.protocol : ""}${noAdapter ? " · 흐름 측정 미지원(어댑터 없음)" : ""}`}
     >
       <Handle type="target" position={Position.Top} style={{ opacity: 0, width: 1, height: 1, border: 0, minWidth: 0, minHeight: 0 }} isConnectable={false} />
       <Handle type="source" position={Position.Top} style={{ opacity: 0, width: 1, height: 1, border: 0, minWidth: 0, minHeight: 0 }} isConnectable={false} />
@@ -110,6 +117,9 @@ function NodeShell({ data, selected }: NodeProps) {
           boxShadow: selected ? "0 0 0 3px var(--color-accent)" : undefined,
           background: isDisc ? fill : undefined,
           border: d.kind === "vault" ? "1.5px solid #7e22ce" : d.kind === "market" ? "1.5px solid #0284c7" : d.kind === "bridge" ? "1.5px solid #d97706" : isExt ? "1.5px dashed #64748b" : undefined,
+          // 어댑터 없는 노드 = 점선 외곽선 (회색조여도 "측정 미지원"임을 표시 — dim grayscale 와 무관)
+          outline: noAdapter ? "2px dashed #94a3b8" : undefined,
+          outlineOffset: noAdapter ? 2 : undefined,
         }}
       >
         {isDisc ? <span /> : <Logo src={logo} label={d.label} size={size} />}
@@ -123,6 +133,7 @@ function NodeShell({ data, selected }: NodeProps) {
             <div className="text-[8px] text-[var(--color-text-muted)]">큐레이터 {curatorLabel(d.meta.curator)}</div>
           ) : null}
           {d.tvlUsd > 0 && <div className="font-mono text-[9px] text-[var(--color-text-muted)]">{formatUsd(d.tvlUsd)}</div>}
+          {noAdapter && (selected || d.radius > 14) && <div className="text-[8px] italic text-[var(--color-text-muted)]">흐름 측정 미지원</div>}
         </div>
       )}
     </div>

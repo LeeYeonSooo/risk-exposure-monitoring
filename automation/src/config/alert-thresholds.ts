@@ -340,10 +340,15 @@ export const RECOMMENDED_THRESHOLDS: AlertThresholds = {
 
   depeg: {
     // 자산클래스별 band(분수) — 정상 트레이딩 노이즈 vs 디페그 분리. risk_rules depeg_band_by_class + 라벨 백테스트.
-    // stable(하드페그) 타이트 0.5% / stable_soft·altcoin 넓은 5%(GHO·mkUSD 소프트 할인 정상) / pendle_pt 8%(만기 할인) / lst·rwa 2%.
-    bandByClass: { major: 0.0075, stable: 0.005, stable_soft: 0.05, pendle_pt: 0.08, lst: 0.02, rwa: 0.02, altcoin: 0.05 },
+    // stable(하드페그) 1%(info=band/2=0.5% · warning=1%) / stable_soft·altcoin 넓은 5%(GHO·mkUSD 소프트 할인 정상) / pendle_pt 8%(만기 할인) / lst·rwa 2%.
+    //   ⚠️ 하드스테이블 0.5→1.0% 완화(2026-06): USDC/USDT/DAI 가 평시 $0.997 대(0.3% 노이즈)에서 info 발화하던 FP 제거.
+    //   info 0.25%→0.5% / warning 0.5%→1% 로 상향. control 프로브(0.17~0.3%)는 침묵, 실제 사건(SVB 11%·USD0++ 9%·FDUSD 13%)은
+    //   전부 catastrophic(8.5%) 위라 발화 보존 — FN 0, control-FP 0(백테스트 검증). 노이즈만 걷어내고 민감도는 유지.
+    bandByClass: { major: 0.0075, stable: 0.01, stable_soft: 0.05, pendle_pt: 0.08, lst: 0.02, rwa: 0.02, altcoin: 0.05 },
     catastrophicMagnitude: 0.085, // ≥8.5% 디페그 = critical (USD0++ 실측 9.02% 보정)
-    nonUsdSkewFloor: 0.025,       // 비-USD: 2.5% 미만은 피드 lag·stale 시세 skew(실측 BTC래퍼 ~1.5%·osETH 1.5%)로 흡수. 진짜 LST/BTC 디페그(>2.5%)만.
+    nonUsdSkewFloor: 0.035,       // 비-USD: 3.5% 미만은 시장가(스냅샷)-vs-NAV(라이브) 시점불일치 skew 로 흡수. 측정(2026-06 FP #710/#705):
+                                  //   OETH/osETH 스냅샷 2.7~3.5% 가 라이브 재계산선 1.7~2.2%(floor 아래)로 수렴 → skew 마진 ~1%p 반영(2.5→3.5%).
+                                  //   진짜 LST/BTC 디페그(redemption-stress·crisis)는 더 깊고 지속(>3.5%)이라 보존. NAV절연이라 info 손실 미미.
     oracleRisk: { warnUsd: 1_000_000, critUsd: 10_000_000 }, // 자가보고/하드코딩 오라클 노출 ≥$1M warning·≥$10M critical(silent bad debt)
   },
 

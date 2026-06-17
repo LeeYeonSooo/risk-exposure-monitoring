@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Activity, AlertTriangle, ShieldCheck } from "lucide-react";
 
-import type { GraphEdge, GraphNode, NodeTickState } from "@/lib/api";
+import type { GraphEdge, GraphNode, LstFlowData, NodeTickState } from "@/lib/api";
 import { formatUsd } from "@/lib/api";
 import { prettyMessage } from "@/lib/alert-kinds";
 
@@ -40,6 +40,8 @@ export function TokenDossier({
   state,
   data,
   dataLoading,
+  lstFlow,
+  lstFlowLoading,
 }: {
   node: GraphNode;
   relations: Relation[];
@@ -47,6 +49,8 @@ export function TokenDossier({
   /** 부모(페이지)가 이미 /api/dossier 를 받아왔으면 그걸 공유 — 중복 fetch 방지. */
   data?: DossierData | null;
   dataLoading?: boolean;
+  lstFlow?: LstFlowData | null;
+  lstFlowLoading?: boolean;
 }) {
   const shared = data !== undefined; // 부모가 데이터를 내려주면 자체 fetch 안 함
   const [fetchedD, setFetchedD] = useState<DossierData | null>(null);
@@ -147,6 +151,9 @@ export function TokenDossier({
     : panelLevel.startsWith("주의")
       ? "#fbbf24"
       : "var(--color-healthy)";
+  const showLstFlow = lstFlowLoading
+    ? looksLikeLstLrt(node.label)
+    : !!lstFlow?.supported || lstFlow?.tokenType === "lst" || lstFlow?.tokenType === "lrt";
 
   return (
     <div className="space-y-4">
@@ -196,6 +203,8 @@ export function TokenDossier({
         </div>
         <AlertHistory loading={loading} alerts={d?.alerts ?? []} />
       </section>
+
+      {showLstFlow && <LstFlowCard loading={!!lstFlowLoading} flow={lstFlow ?? null} symbol={node.label} />}
 
       {/* ═══ TIER 2 — 리스크 경로 ═══ */}
       <section className="rounded-lg border border-[var(--color-border-subtle)] p-3">
@@ -376,6 +385,143 @@ function SevPill({ n, color, label }: { n: number; color: string; label: string 
   return (
     <span className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px]" style={{ backgroundColor: `${color}22`, color }}>
       <span className="font-semibold">{n}</span> {label}
+    </span>
+  );
+}
+
+function looksLikeLstLrt(symbol: string): boolean {
+  return new Set([
+    "STETH", "WSTETH", "RETH", "CBETH", "ANKRETH", "SWETH", "OSETH", "SFRXETH",
+    "WEETH", "EETH", "EZETH", "RSETH", "METH", "CMETH", "WBETH", "PUFETH", "PZETH",
+  ]).has(symbol.toUpperCase());
+}
+
+function tokenAmount(n: number | null | undefined): string {
+  if (n == null) return "—";
+  const sign = n < 0 ? "-" : "";
+  const abs = Math.abs(n);
+  if (abs >= 1e9) return `${sign}${(abs / 1e9).toFixed(2)}B`;
+  if (abs >= 1e6) return `${sign}${(abs / 1e6).toFixed(2)}M`;
+  if (abs >= 1e3) return `${sign}${(abs / 1e3).toFixed(1)}K`;
+  if (abs >= 10) return `${sign}${abs.toFixed(1)}`;
+  if (abs >= 0.01) return `${sign}${abs.toFixed(3)}`;
+  return `${sign}${abs.toFixed(5)}`;
+}
+
+function LstFlowCard({ loading, flow, symbol }: { loading: boolean; flow: LstFlowData | null; symbol: string }) {
+  const daily = flow?.daily ?? [];
+  const weekly = flow?.weekly ?? null;
+  const max = Math.max(1, ...daily.flatMap((d) => [d.mint, d.redeem, d.queueIn, d.queueOut]));
+  const queueOn = flow?.queueSupported === true || daily.some((d) => d.queueIn > 0 || d.queueOut > 0);
+  const unsupported = flow && !flow.supported;
+  const basis = flow?.basisSymbol && flow.basisSymbol.toUpperCase() !== symbol.toUpperCase() ? `${flow.basisSymbol} 기준` : null;
+
+  return (
+    <section className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-surface-raised)]/25 p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+          <Activity size={12} /> LST/LRT · mint/redeem/queue
+        </div>
+        <div className="flex items-center gap-1">
+          {basis && <span className="rounded bg-[var(--color-caution)]/15 px-1.5 py-0.5 text-[9px] text-[var(--color-caution)]">{basis}</span>}
+          {flow?.protocol && <span className="rounded bg-[var(--color-surface)] px-1.5 py-0.5 text-[9px] text-[var(--color-text-secondary)]">{flow.protocol}</span>}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center gap-2 rounded-md border border-dashed border-[var(--color-border-subtle)] px-2 py-2 text-[11px] text-[var(--color-text-muted)]">
+          <span className="size-3 animate-spin rounded-full border border-[var(--color-accent)] border-t-transparent" />
+          발행·상환 로그 수집 중…
+        </div>
+      ) : unsupported ? (
+        <div className="rounded-md border border-dashed border-[var(--color-border-subtle)] px-2 py-2 text-[11px] leading-relaxed text-[var(--color-text-muted)]">
+          {flow.notes?.[0] ?? `${symbol} 어댑터 없음`}
+        </div>
+      ) : weekly ? (
+        <>
+          <div className="grid grid-cols-2 gap-2 text-[12px]">
+            <FlowMetric label="7d mint" value={`${tokenAmount(weekly.mint)} ${flow?.unit ?? ""}`} color="var(--color-healthy)" />
+            <FlowMetric label="7d redeem" value={`${tokenAmount(weekly.redeem)} ${flow?.unit ?? ""}`} color="var(--color-danger)" />
+            {queueOn ? (
+              <>
+                <FlowMetric label="7d queue in" value={`${tokenAmount(weekly.queueIn)} ${flow?.unit ?? ""}`} color="#fbbf24" />
+                <FlowMetric label="7d finalized" value={`${tokenAmount(weekly.queueOut)} ${flow?.unit ?? ""}`} color="#60a5fa" />
+                <FlowMetric label="queue net" value={`${weekly.queueNet >= 0 ? "+" : ""}${tokenAmount(weekly.queueNet)} ${flow?.unit ?? ""}`} color={weekly.queueNet > 0 ? "#fbbf24" : "#60a5fa"} span />
+                {flow?.queueNow?.amount != null && (
+                  <FlowMetric
+                    label="queue now"
+                    value={`${tokenAmount(flow.queueNow.amount)} ${flow?.unit ?? ""}${flow.queueNow.requests != null ? ` · ${tokenAmount(flow.queueNow.requests)} req` : ""}`}
+                    color="var(--color-text-primary)"
+                    span
+                  />
+                )}
+              </>
+            ) : (
+              <FlowMetric label="queue" value="어댑터 대기" color="var(--color-text-muted)" span />
+            )}
+          </div>
+
+          <div className="mt-3">
+            <div className="mb-1 flex items-center justify-between text-[9px] uppercase tracking-wider text-[var(--color-text-muted)]">
+              <span>daily · last {flow?.windowDays ?? 14}d</span>
+              <span>UTC · {flow?.unit ?? "token"}</span>
+            </div>
+            <div className="flex h-[72px] items-end gap-1 rounded-md border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-1.5 py-1.5">
+              {daily.map((d) => {
+                const title = `${d.date}\nmint ${tokenAmount(d.mint)}\nredeem ${tokenAmount(d.redeem)}${queueOn ? `\nqueue in ${tokenAmount(d.queueIn)}\nfinalized ${tokenAmount(d.queueOut)}` : ""}`;
+                return (
+                  <div key={d.date} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-0.5" title={title}>
+                    <div className="flex h-[54px] w-full items-end justify-center gap-[2px]">
+                      <FlowBar value={d.mint} max={max} color="var(--color-healthy)" />
+                      <FlowBar value={d.redeem} max={max} color="var(--color-danger)" />
+                      {queueOn && <FlowBar value={d.queueIn} max={max} color="#fbbf24" />}
+                      {queueOn && <FlowBar value={d.queueOut} max={max} color="#60a5fa" />}
+                    </div>
+                    <span className="text-[8px] text-[var(--color-text-muted)]">{d.date.slice(8)}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[9px] text-[var(--color-text-muted)]">
+              <LegendDot color="var(--color-healthy)" label="mint" />
+              <LegendDot color="var(--color-danger)" label="redeem" />
+              {queueOn && <LegendDot color="#fbbf24" label="queue in" />}
+              {queueOn && <LegendDot color="#60a5fa" label="finalized" />}
+            </div>
+          </div>
+
+          {flow?.notes?.length ? (
+            <p className="mt-2 text-[9px] leading-snug text-[var(--color-text-muted)]">
+              {flow.notes.slice(0, 2).join(" ")}
+            </p>
+          ) : null}
+        </>
+      ) : (
+        <div className="text-[11px] text-[var(--color-text-muted)]">발행·상환 데이터 없음</div>
+      )}
+    </section>
+  );
+}
+
+function FlowMetric({ label, value, color, span }: { label: string; value: string; color: string; span?: boolean }) {
+  return (
+    <div className={span ? "col-span-2" : undefined}>
+      <div className="text-[10px] text-[var(--color-text-muted)]">{label}</div>
+      <div className="font-mono text-[13px] font-medium" style={{ color }}>{value}</div>
+    </div>
+  );
+}
+
+function FlowBar({ value, max, color }: { value: number; max: number; color: string }) {
+  const h = value > 0 ? Math.max(2, Math.round((value / max) * 52)) : 1;
+  return <div className="w-[4px] rounded-t" style={{ height: h, backgroundColor: color, opacity: value > 0 ? 0.88 : 0.16 }} />;
+}
+
+function LegendDot({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1">
+      <span className="size-1.5 rounded-full" style={{ backgroundColor: color }} />
+      {label}
     </span>
   );
 }

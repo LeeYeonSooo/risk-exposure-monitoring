@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { toFunctionSelector } from "viem";
+import type { DetailCounterparty, RelationDetailMetrics } from "@/lib/api";
 
 /**
  * GET /api/breadth/[symbol]  — 토큰 하나의 "전 체인 익스포저" 라이브 수집 (으아아악).
@@ -14,30 +16,21 @@ import { NextResponse } from "next/server";
 
 export const revalidate = 1800;
 
-// DeFiLlama 체인명 → 우리 체인 키. 신규/L2/비-EVM 까지 폭넓게 — 신토큰일수록 비-이더리움
-// 체인(MegaETH·Plasma·Hyperliquid·Solana 등)에 TVL 이 쏠려서, 안 매핑하면 익스포저를 통째로 놓침.
-// 매핑 없는 체인만 제외(완전 듣보 체인 dust 컷). EVM 아닌 체인도 익스포저 정직성 위해 포함(토큰 로고만 폴백).
+// DeFiLlama 체인명 → 우리 체인 키.
+// 2026-06-12 스코프 축소: 이더리움·베이스·아비트럼 3체인 완성 우선 — 머니레고 관계맵 개편 동안
+// 다른 체인은 의도적으로 제외. 다른 EVM 체인은 3체인 완성 후 여기에 다시 추가 (비EVM 은 제외).
 const CHAIN_MAP: Record<string, string> = {
-  Ethereum: "ethereum", Arbitrum: "arbitrum", Base: "base", "OP Mainnet": "optimism", Optimism: "optimism",
-  Polygon: "polygon", "Polygon zkEVM": "polygon-zkevm", Avalanche: "avalanche", BSC: "bsc", Gnosis: "gnosis",
-  Linea: "linea", Scroll: "scroll", "ZKsync Era": "zksync", Mantle: "mantle", Mode: "mode", Blast: "blast",
-  Sonic: "sonic", Fraxtal: "fraxtal", Unichain: "unichain", Ink: "ink", Soneium: "soneium", "World Chain": "wc",
-  Taiko: "taiko", Manta: "manta", Celo: "celo", Cronos: "cronos", Kava: "kava", Bob: "bob", Flare: "flare",
-  Berachain: "berachain", Sei: "sei", Katana: "katana", Plasma: "plasma", "Hyperliquid L1": "hyperliquid",
-  HyperEVM: "hyperliquid", Monad: "monad", MegaETH: "megaeth", "Plume Mainnet": "plume", Plume: "plume",
-  Pharos: "pharos", Hemi: "hemi", Swellchain: "swell", Corn: "corn", Lisk: "lisk", Metis: "metis",
-  Rootstock: "rootstock", Opbnb: "opbnb", Abstract: "abstract",
-  // 비-EVM (익스포저 완결성 — 토큰 로고는 폴백). Solana/Sui 는 USDC/USDe 의 핵심 체인.
-  Solana: "solana", Sui: "sui", Aptos: "aptos", Starknet: "starknet", Osmosis: "osmosis", Tron: "tron",
-  Stellar: "stellar", Stacks: "stacks", Near: "near", TON: "ton",
+  Ethereum: "ethereum", Arbitrum: "arbitrum", Base: "base",
 };
 
-// 검증된 정식주소 오버라이드 — DeFiLlama 풀 메타로 주소를 못 얻는 비-EVM 핵심 배포분
-// (USDT@tron ~$89B 등 무한민팅 감시 필수 체인). 전부 해당 체인 RPC totalSupply 직독으로 검증된 주소만 등재.
+// 검증된 정식주소 오버라이드 — DeFiLlama 풀 메타로 주소를 못 얻는 핵심 배포분만
+// (해당 체인 RPC totalSupply 직독으로 검증된 주소만 등재). 3체인 스코프에선 현재 비어 있음.
 const ADDR_OVERRIDES: Record<string, Record<string, string>> = {
-  USDT: { tron: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", solana: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB" },
-  USDC: { solana: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", sui: "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC" },
-  USDE: { solana: "DEkqHyPN7GMRJ5cArtQFAWefqbZb33Hyf6s5iCwjEonT" },
+  WEETH: {
+    ethereum: "0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee",
+    base: "0x04c0599ae5a44757c0af6f9ec3b93da8976c150a",
+    arbitrum: "0x35751007a407ca6fefffE80b3cB397736D2cf4dbe",
+  },
 };
 
 const CHAIN_TVL_MIN = 250_000;   // 체인 단위 dust 컷 (낮춤 — 더 많은 체인)
@@ -50,30 +43,43 @@ interface Pool {
   apy?: number | null; apyBase?: number | null; apyReward?: number | null;
   exposure?: string | null; ilRisk?: string | null; poolMeta?: string | null;
   stablecoin?: boolean; underlyingTokens?: string[] | null; category?: string | null;
+  pool?: string | null; volumeUsd1d?: number | null; volumeUsd7d?: number | null;
 }
 export interface BreadthPool {
   symbol: string; tvlUsd: number; apy: number | null; apyBase: number | null; apyReward: number | null;
   exposure: string | null; ilRisk: string | null; poolMeta: string | null; stablecoin: boolean;
+  underlyingTokens: string[] | null; poolId: string | null; volumeUsd1d: number | null; volumeUsd7d: number | null;
 }
 export interface BreadthItem { chain: string; project: string; tvlUsd: number; category: string | null; pools: BreadthPool[] }
-export interface MorphoMkt { loan: string; collateral: string; lltv: number | null; supplyUsd: number; utilization: number | null; ouroboros: boolean; vaults: string[]; role: "collateral" | "supply" }
+export interface MorphoMkt {
+  marketKey: string;
+  loan: string;
+  collateral: string;
+  lltv: number | null;
+  supplyUsd: number;
+  supplyAssetsUsd: number;
+  collateralAssetsUsd: number;
+  borrowAssetsUsd: number;
+  utilization: number | null;
+  ouroboros: boolean;
+  vaults: string[];
+  role: "collateral" | "supply";
+}
 export interface EulerVault { name: string; curator: string | null; allocationUsd: number }
 
 // chainId → 우리 체인 키 (Morpho chain.id 가 가장 확실 — network 는 "OP Mainnet" 같은 표시명이라 매칭 깨짐)
+// 2026-06-12 스코프 축소: 3체인 외 Morpho 마켓은 버림 (다른 체인 키를 지어내지 않음 → null = 제외)
 const CHAINID_KEY: Record<number, string> = {
-  1: "ethereum", 10: "optimism", 56: "bsc", 100: "gnosis", 130: "unichain", 137: "polygon", 143: "monad",
-  146: "sonic", 252: "fraxtal", 480: "wc", 1135: "lisk", 1868: "soneium", 5000: "mantle", 8453: "base",
-  34443: "mode", 42161: "arbitrum", 43114: "avalanche", 57073: "ink", 59144: "linea", 60808: "bob",
-  80094: "berachain", 534352: "scroll", 747474: "katana", 999: "hyperliquid", 21000000: "corn",
+  1: "ethereum", 8453: "base", 42161: "arbitrum",
 };
-const NAME_KEY: Record<string, string> = { "OP Mainnet": "optimism", "Arbitrum One": "arbitrum" };
+const NAME_KEY: Record<string, string> = { "Arbitrum One": "arbitrum" };
 const morphoChainKey = (id?: number, net?: string) =>
-  (id != null && CHAINID_KEY[id]) || (net && NAME_KEY[net]) || (net || "").toLowerCase().split(" ")[0] || null;
+  (id != null && CHAINID_KEY[id]) || (net && NAME_KEY[net]) || null;
 // (sameFamily 제거 — ouroboros 신호 전면 제외)
 
-type MItem = { lltv?: string; loanAsset?: { symbol?: string }; collateralAsset?: { symbol?: string }; state?: { supplyAssetsUsd?: number; collateralAssetsUsd?: number; utilization?: number }; chain?: { id?: number; network?: string }; supplyingVaults?: { name?: string }[] };
+type MItem = { marketId?: string; lltv?: string; loanAsset?: { symbol?: string }; collateralAsset?: { symbol?: string }; state?: { supplyAssetsUsd?: number; collateralAssetsUsd?: number; borrowAssetsUsd?: number; utilization?: number }; chain?: { id?: number; network?: string }; supplyingVaults?: { name?: string }[] };
 async function morphoQuery(filter: string, addrs: string[], revalidateS: number): Promise<MItem[]> {
-  const query = `{ markets(first: 300, orderBy: SupplyAssetsUsd, orderDirection: Desc, where: { ${filter}: ${JSON.stringify(addrs)} }) { items { lltv loanAsset { symbol } collateralAsset { symbol } state { supplyAssetsUsd collateralAssetsUsd utilization } chain { id network } supplyingVaults { name } } } }`;
+  const query = `{ markets(first: 300, orderBy: SupplyAssetsUsd, orderDirection: Desc, where: { ${filter}: ${JSON.stringify(addrs)} }) { items { marketId lltv loanAsset { symbol } collateralAsset { symbol } state { supplyAssetsUsd collateralAssetsUsd borrowAssetsUsd utilization } chain { id network } supplyingVaults { name } } } }`;
   try {
     const r = await fetch("https://blue-api.morpho.org/graphql", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query }), next: { revalidate: revalidateS } });
     if (!r.ok) return [];
@@ -94,11 +100,16 @@ async function fetchMorphoMarkets(addrs: string[], revalidateS: number): Promise
   const push = (m: MItem, role: "collateral" | "supply") => {
     const chain = morphoChainKey(m.chain?.id, m.chain?.network);
     const loan = m.loanAsset?.symbol ?? "?", coll = m.collateralAsset?.symbol ?? "?";
-    const size = role === "collateral" ? (m.state?.collateralAssetsUsd ?? 0) : (m.state?.supplyAssetsUsd ?? 0);
+    const supplyAssetsUsd = m.state?.supplyAssetsUsd ?? 0;
+    const collateralAssetsUsd = m.state?.collateralAssetsUsd ?? 0;
+    const borrowAssetsUsd = m.state?.borrowAssetsUsd ?? 0;
+    const size = role === "collateral" ? collateralAssetsUsd : supplyAssetsUsd;
     if (!chain || size <= 0) return;
     (out[chain] ??= []).push({
+      marketKey: m.marketId ?? `${coll}/${loan}/${m.lltv ?? ""}`,
       loan, collateral: coll, lltv: m.lltv ? Number(m.lltv) / 1e18 : null,
-      supplyUsd: size, utilization: m.state?.utilization ?? null, ouroboros: false, role,
+      supplyUsd: size, supplyAssetsUsd, collateralAssetsUsd, borrowAssetsUsd,
+      utilization: m.state?.utilization ?? null, ouroboros: false, role,
       vaults: (m.supplyingVaults ?? []).map((v) => v.name ?? "").filter(Boolean).slice(0, 5),
     });
   };
@@ -106,7 +117,7 @@ async function fetchMorphoMarkets(addrs: string[], revalidateS: number): Promise
   for (const m of asLoan) push(m, "supply");
   for (const k of Object.keys(out)) { // 같은 마켓 양쪽 매칭 dedupe + 규모순
     const seen = new Set<string>();
-    out[k] = out[k].filter((m) => { const key = `${m.collateral}/${m.loan}/${m.lltv}`; if (seen.has(key)) return false; seen.add(key); return true; }).sort((a, b) => b.supplyUsd - a.supplyUsd);
+    out[k] = out[k].filter((m) => { const key = m.marketKey || `${m.collateral}/${m.loan}/${m.lltv}`; if (seen.has(key)) return false; seen.add(key); return true; }).sort((a, b) => b.supplyUsd - a.supplyUsd);
   }
   return out;
 }
@@ -117,19 +128,11 @@ async function fetchMorphoMarkets(addrs: string[], revalidateS: number): Promise
 const eulerSub = (slug: string) => `https://api.goldsky.com/api/public/project_cm4iagnemt1wp01xn4gh1agft/subgraphs/euler-v2-${slug}/latest/gn`;
 const EULER_ENDPOINTS: Record<string, string> = {
   ethereum: eulerSub("mainnet"), base: eulerSub("base"), arbitrum: eulerSub("arbitrum"),
-  sonic: eulerSub("sonic"), avalanche: eulerSub("avalanche"), bsc: eulerSub("bsc"),
-  berachain: eulerSub("berachain"), unichain: eulerSub("unichain"), swell: eulerSub("swell"),
-  bob: eulerSub("bob"), gnosis: eulerSub("gnosis"), optimism: eulerSub("optimism"),
-  linea: eulerSub("linea"), ink: eulerSub("ink"), hyperliquid: eulerSub("hyperevm"),
-  plasma: eulerSub("plasma"), wc: eulerSub("worldchain"),
 };
 
 // DeFiLlama coins API — 토큰 가격+소수점 (Euler totalAssets 토큰단위 → USD 환산용)
-// 비-EVM 도 llama coins 가 지원하는 체인 슬러그(solana:mint, sui:0x…::t::T, tron:T…, starknet, aptos)는
-// 같이 조회 — 체인별 supplyUsd 환산에 쓰임. 모르는 키는 응답에서 빠질 뿐(무해).
-const NONEVM_PRICE_CHAINS = new Set(["solana", "sui", "tron", "starknet", "aptos"]);
 async function fetchTokenPrices(addrByChain: Record<string, string>, revalidateS: number): Promise<Record<string, { price: number; decimals: number }>> {
-  const keys = Object.entries(addrByChain).filter(([c, a]) => /^0x[0-9a-fA-F]{40}$/.test(a) || NONEVM_PRICE_CHAINS.has(c)).map(([c, a]) => `${c}:${a}`);
+  const keys = Object.entries(addrByChain).filter(([, a]) => /^0x[0-9a-fA-F]{40}$/.test(a)).map(([c, a]) => `${c}:${a}`);
   if (!keys.length) return {};
   try {
     const r = await fetch(`https://coins.llama.fi/prices/current/${keys.join(",")}`, { next: { revalidate: revalidateS } });
@@ -170,33 +173,21 @@ async function fetchEulerVaults(addrByChain: Record<string, string>, prices: Rec
 
 // ── 체인별 온체인 총공급(eth_call totalSupply) — Alchemy 우선(신뢰도/레이트), publicnode 폴백 ──
 // 토큰의 *모든* 체인 supply 를 직접 읽어야 크로스체인 무담보/무한민팅을 잡는다(DeFiLlama 추정 아님, 면담 #1 신호).
-// 체인 발견(어디 있나·주소)=DeFiLlama, 값=on-chain. 비-EVM(Sui/Solana/Tron 등)은 eth_call 불가 → 생략(별도 RPC 필요).
+// 2026-06-12 스코프 축소: 이더리움·베이스·아비트럼 3체인 (비EVM supply 리더 제거).
 const ALCHEMY_KEY = process.env.ALCHEMY_API_KEY ?? "";
-// Alchemy 지원 EVM 체인 → 네트워크 서브도메인 (실키로 eth_chainId 응답 전수 검증됨). 한 키로 전부 커버.
+const DUNE_API_KEY = process.env.DUNE_API_KEY ?? "";
 const ALCHEMY_SLUG: Record<string, string> = {
-  ethereum: "eth-mainnet", base: "base-mainnet", arbitrum: "arb-mainnet", optimism: "opt-mainnet",
-  polygon: "polygon-mainnet", avalanche: "avax-mainnet", bsc: "bnb-mainnet", gnosis: "gnosis-mainnet",
-  linea: "linea-mainnet", scroll: "scroll-mainnet", zksync: "zksync-mainnet", mantle: "mantle-mainnet",
-  blast: "blast-mainnet", berachain: "berachain-mainnet", unichain: "unichain-mainnet", sonic: "sonic-mainnet",
-  soneium: "soneium-mainnet", ink: "ink-mainnet", wc: "worldchain-mainnet",
-  metis: "metis-mainnet", celo: "celo-mainnet", sei: "sei-mainnet", fraxtal: "frax-mainnet",
-  "polygon-zkevm": "polygonzkevm-mainnet", monad: "monad-mainnet", rootstock: "rootstock-mainnet",
-  opbnb: "opbnb-mainnet", abstract: "abstract-mainnet",
+  ethereum: "eth-mainnet", base: "base-mainnet", arbitrum: "arb-mainnet",
 };
-// publicnode 폴백(무료, 키 불요) — Alchemy 미지원 체인 + Alchemy 일시 실패 시.
+const DUNE_BALANCE_TABLE: Record<string, string> = {
+  ethereum: "tokens_ethereum.balances",
+  base: "tokens_base.balances",
+  arbitrum: "tokens_arbitrum.balances",
+};
+// publicnode 폴백(무료, 키 불요) — Alchemy 일시 실패 시.
 const PUBLIC_RPC: Record<string, string> = {
   ethereum: "https://ethereum-rpc.publicnode.com", base: "https://base-rpc.publicnode.com",
-  arbitrum: "https://arbitrum-one-rpc.publicnode.com", optimism: "https://optimism-rpc.publicnode.com",
-  polygon: "https://polygon-bor-rpc.publicnode.com", gnosis: "https://gnosis-rpc.publicnode.com",
-  bsc: "https://bsc-rpc.publicnode.com", avalanche: "https://avalanche-c-chain-rpc.publicnode.com",
-  linea: "https://linea-rpc.publicnode.com", scroll: "https://scroll-rpc.publicnode.com",
-  mantle: "https://mantle-rpc.publicnode.com", sonic: "https://sonic-rpc.publicnode.com",
-  unichain: "https://unichain-rpc.publicnode.com", berachain: "https://berachain-rpc.publicnode.com",
-  blast: "https://blast-rpc.publicnode.com", zksync: "https://zksync-evm-rpc.publicnode.com",
-  mode: "https://mode-rpc.publicnode.com", fraxtal: "https://fraxtal-rpc.publicnode.com",
-  metis: "https://metis-rpc.publicnode.com", celo: "https://celo-rpc.publicnode.com",
-  // 신규/누락 EVM (실키/엔드포인트로 검증). megaeth·plasma·hyperliquid 는 신토큰 쏠림 체인.
-  hyperliquid: "https://rpc.hyperliquid.xyz/evm", plasma: "https://rpc.plasma.to", megaeth: "https://carrot.megaeth.com/rpc",
+  arbitrum: "https://arbitrum-one-rpc.publicnode.com",
 };
 /** 체인 RPC 후보 — Alchemy(키 있으면) 우선, publicnode 폴백. 순서대로 시도. */
 function rpcUrlsFor(chain: string): string[] {
@@ -204,6 +195,14 @@ function rpcUrlsFor(chain: string): string[] {
   if (ALCHEMY_KEY && ALCHEMY_SLUG[chain]) urls.push(`https://${ALCHEMY_SLUG[chain]}.g.alchemy.com/v2/${ALCHEMY_KEY}`);
   if (PUBLIC_RPC[chain]) urls.push(PUBLIC_RPC[chain]);
   return urls;
+}
+async function rpcCall(url: string, method: string, params: unknown[], revalidateS: number): Promise<string | null> {
+  try {
+    const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }), next: { revalidate: revalidateS } });
+    if (!r.ok) return null;
+    const j = (await r.json()) as { result?: string };
+    return j.result ?? null;
+  } catch { return null; }
 }
 async function callTotalSupply(url: string, token: string, revalidateS: number): Promise<string | null> {
   try {
@@ -224,195 +223,465 @@ async function callDecimals(url: string, token: string, revalidateS: number): Pr
     return Number.isFinite(d) && d >= 0 && d <= 36 ? d : null;
   } catch { return null; }
 }
-// ── 비-EVM supply — eth_call 안 되는 체인은 체인별 RPC·메서드로 직접 (면담 "전 체인" 요구: Solana/Sui) ──
-const SOLANA_RPC = ALCHEMY_KEY ? `https://solana-mainnet.g.alchemy.com/v2/${ALCHEMY_KEY}` : "https://api.mainnet-beta.solana.com";
-// Alchemy 가 Sui 도 지원(suix_* JSON-RPC 검증됨) → 같은 키로. 공개 풀노드는 폴백.
-const SUI_RPC = ALCHEMY_KEY ? `https://sui-mainnet.g.alchemy.com/v2/${ALCHEMY_KEY}` : "https://fullnode.mainnet.sui.io:443";
-const SUI_RPC_FALLBACK = "https://fullnode.mainnet.sui.io:443";
-
-/** Solana SPL totalSupply — getTokenSupply(mint). uiAmount = decimals 반영된 값. Alchemy→public 폴백. */
-async function solanaSupply(mint: string, revalidateS: number): Promise<number | null> {
-  for (const url of [SOLANA_RPC, "https://api.mainnet-beta.solana.com"]) {
-    try {
-      const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getTokenSupply", params: [mint] }), next: { revalidate: revalidateS } });
-      if (!r.ok) continue;
-      const j = (await r.json()) as { result?: { value?: { uiAmount?: number | null } } };
-      const ui = j.result?.value?.uiAmount;
-      if (ui != null && ui > 0) return ui;
-    } catch { /* try next */ }
-  }
-  return null;
-}
-
-/** Sui coin totalSupply — suix_getTotalSupply(coinType) raw + suix_getCoinMetadata decimals. */
-async function suiSupply(coinType: string, revalidateS: number): Promise<number | null> {
-  for (const url of [SUI_RPC, SUI_RPC_FALLBACK]) {
-    try {
-      const tot = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "suix_getTotalSupply", params: [coinType] }), next: { revalidate: revalidateS } });
-      if (!tot.ok) continue;
-      const tj = (await tot.json()) as { result?: { value?: string } };
-      const raw = tj.result?.value;
-      if (raw == null) continue;
-      let decimals = 9;
-      try {
-        const meta = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "suix_getCoinMetadata", params: [coinType] }), next: { revalidate: revalidateS } });
-        const mj = (await meta.json()) as { result?: { decimals?: number } };
-        if (mj.result?.decimals != null) decimals = mj.result.decimals;
-      } catch { /* default 9 */ }
-      const supply = Number(BigInt(raw)) / Math.pow(10, decimals);
-      if (supply > 0) return supply;
-    } catch { /* try next */ }
-  }
-  return null;
-}
-
-/** Tron TRC20 totalSupply — TronGrid triggerconstantcontract(EVM 셀렉터 totalSupply()/decimals(), visible:true 로 base58 직접).
- *  Tron USDT(~$89B)는 최대 단일 스테이블 배포 → 무한민팅 감시 필수. 값=온체인(EVM 과 동일 원칙). */
-async function tronSupply(contract: string, revalidateS: number): Promise<number | null> {
-  const call = async (selector: string): Promise<bigint | null> => {
-    try {
-      const r = await fetch("https://api.trongrid.io/wallet/triggerconstantcontract", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ owner_address: contract, contract_address: contract, function_selector: selector, visible: true }),
-        next: { revalidate: revalidateS },
-      });
-      if (!r.ok) return null;
-      const j = (await r.json()) as { constant_result?: string[] };
-      const hex = j.constant_result?.[0];
-      return hex && /^[0-9a-fA-F]+$/.test(hex) ? BigInt("0x" + hex) : null;
-    } catch { return null; }
-  };
-  const [rawSupply, rawDec] = await Promise.all([call("totalSupply()"), call("decimals()")]);
-  if (rawSupply == null) return null;
-  const decimals = rawDec != null ? Number(rawDec) : 6; // Tron USDT/USDC = 6
-  const supply = Number(rawSupply) / Math.pow(10, decimals);
-  return supply > 0 ? supply : null;
-}
-
-/** Aptos totalSupply — view 콜. Alchemy(키, /v1 REST 검증됨) 우선, 공개 풀노드 폴백.
- *  FA 표준(fungible_asset::supply, 0x64hex object) + 레거시 coin 표준(coin::supply<T>, 0x…::mod::T). */
-const APTOS_VIEW_URLS = [
-  ...(ALCHEMY_KEY ? [`https://aptos-mainnet.g.alchemy.com/v2/${ALCHEMY_KEY}/v1/view`] : []),
-  "https://fullnode.mainnet.aptoslabs.com/v1/view",
-];
-async function aptosSupply(token: string, revalidateS: number): Promise<number | null> {
-  const view = async (fn: string, typeArgs: string[], args: string[]): Promise<unknown[] | null> => {
-    for (const NODE of APTOS_VIEW_URLS) {
-      try {
-        const r = await fetch(NODE, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ function: fn, type_arguments: typeArgs, arguments: args }), next: { revalidate: revalidateS } });
-        if (!r.ok) continue;
-        return (await r.json()) as unknown[];
-      } catch { /* 다음 노드 */ }
-    }
-    return null;
-  };
-  const isCoin = token.includes("::");
-  const [supFn, decFn, ta, ar]: [string, string, string[], string[]] = isCoin
-    ? ["0x1::coin::supply", "0x1::coin::decimals", [token], []]
-    : ["0x1::fungible_asset::supply", "0x1::fungible_asset::decimals", ["0x1::fungible_asset::Metadata"], [token]];
-  const [sup, dec] = await Promise.all([view(supFn, ta, ar), view(decFn, ta, ar)]);
-  const rawSupply = (sup?.[0] as { vec?: string[] } | undefined)?.vec?.[0] ?? null;
-  if (rawSupply == null) return null;
-  const decimals = dec?.[0] != null ? Number(dec[0]) : 6;
-  const supply = Number(BigInt(rawSupply)) / Math.pow(10, decimals);
-  return supply > 0 ? supply : null;
-}
-
-// ── Starknet ERC20 totalSupply — starknet_call(Alchemy 지원·실키 검증: ETH/USDC 응답 확인) ──
-// sn_keccak(이름) = keccak256 하위 250비트. 라이브 검증값을 상수로 고정(camelCase·snake_case 둘 다 존재).
-const STARKNET_RPCS = [
-  ...(ALCHEMY_KEY ? [`https://starknet-mainnet.g.alchemy.com/v2/${ALCHEMY_KEY}`] : []),
-  "https://free-rpc.nethermind.io/mainnet-juno",
-];
-const SN_SEL = {
-  totalSupply: "0x80aa9fdbfaf9615e4afc7f5f722e265daca5ccc655360fa5ccacf9c267936d",
-  total_supply: "0x1557182e4359a1f0c6301278e8f5b35a776ab58d39892581e357578fb287836",
-  decimals: "0x4c4fb1ab068f6039d5780c68dd0fa2f8742cceb3426d19667778ca7f3518a9",
-};
-async function starknetCall(url: string, token: string, selector: string, revalidateS: number): Promise<string[] | null> {
-  try {
-    const r = await fetch(url, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "starknet_call", params: [{ contract_address: token, entry_point_selector: selector, calldata: [] }, "latest"] }),
-      next: { revalidate: revalidateS },
-    });
-    if (!r.ok) return null;
-    const j = (await r.json()) as { result?: string[] };
-    return Array.isArray(j.result) ? j.result : null;
-  } catch { return null; }
-}
-/** Starknet ERC20 totalSupply — 반환 Uint256 = [low, high] 2펠트. */
-async function starknetSupply(token: string, revalidateS: number): Promise<number | null> {
-  for (const url of STARKNET_RPCS) {
-    for (const sel of [SN_SEL.totalSupply, SN_SEL.total_supply]) {
-      const res = await starknetCall(url, token, sel, revalidateS);
-      if (!res?.length) continue;
-      const raw = BigInt(res[0] ?? "0x0") + (BigInt(res[1] ?? "0x0") << 128n);
-      if (raw <= 0n) continue;
-      const dec = await starknetCall(url, token, SN_SEL.decimals, revalidateS);
-      const decimals = dec?.[0] ? Number(BigInt(dec[0])) : 18;
-      const supply = Number(raw) / Math.pow(10, decimals);
-      if (supply > 0) return supply;
-    }
-  }
-  return null;
-}
-
-// (TON supply 리더 없음 — Alchemy 가 TON 을 지원하지 않음(대시보드 전수 확인). TON 익스포저는
-//  DeFiLlama 풀 매핑(CHAIN_MAP)으로만 표시, 온체인 supply 검증은 비대상.)
-
-export interface ChainSupply { supply: number; supplyUsd: number }
+export interface ChainSupply { supply: number; supplyUsd: number | null }
 async function fetchChainSupplies(addrByChain: Record<string, string>, prices: Record<string, { price: number; decimals: number }>, revalidateS: number): Promise<Record<string, ChainSupply>> {
   const out: Record<string, ChainSupply> = {};
-  // 토큰 가격은 체인 불문 ≈동일 → 비-EVM/미가격 EVM 은 레퍼런스 가격·소수점으로 USD 환산(supply 자체는 정확).
-  const priced = Object.values(prices).filter((p) => p.price > 0);
-  const refPrice = prices.ethereum?.price ?? (priced.length ? [...priced].map((p) => p.price).sort((a, b) => a - b)[Math.floor(priced.length / 2)] : 0);
-  const refDecimals = prices.ethereum?.decimals ?? (priced[0]?.decimals ?? 18);
-  const usd = (chain: string, supply: number) => supply * (prices[chain]?.price ?? refPrice);
+  // ⚠️ USD/decimals 를 레퍼런스 체인에서 "위조"하지 않는다(2026-06 온체인근거 감사):
+  //   · 가격 없는 체인의 supplyUsd 는 **null**(supply 자체는 온체인 정확치 — USD 만 미상). 종전 refPrice 환산은
+  //     변동토큰에서 체인별 가격차로 가짜 value_drift 를 만들었다(소비처 snapshot-chain-supply 는 null 처리).
+  //   · decimals 는 llama 메타 → 온체인 decimals() 까지만. 둘 다 실패면 체인 skip(레퍼런스 decimals 로 추정하면
+  //     체인별 차이(ETH USDT=6 vs BSC=18)로 supply 가 1e12 배 튄다 — 위조 supply 보다 미관측이 안전).
+  const usd = (chain: string, supply: number): number | null => {
+    const p = prices[chain]?.price;
+    return p != null && p > 0 ? supply * p : null;
+  };
 
   await Promise.all(Object.keys(addrByChain).map(async (chain) => {
     const addr = addrByChain[chain];
-    // ① Solana (SPL mint = base58)
-    if (chain === "solana" && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(addr)) {
-      const s = await solanaSupply(addr, revalidateS);
-      if (s) out[chain] = { supply: s, supplyUsd: usd(chain, s) };
-      return;
-    }
-    // ② Sui (coin type = 0x…::module::TYPE)
-    if (chain === "sui" && addr.includes("::")) {
-      const s = await suiSupply(addr, revalidateS);
-      if (s) out[chain] = { supply: s, supplyUsd: usd(chain, s) };
-      return;
-    }
-    // ②' Starknet (felt 주소 — EVM 40hex 보다 김)
-    if (chain === "starknet" && /^0x[0-9a-fA-F]{10,64}$/.test(addr)) {
-      const s = await starknetSupply(addr, revalidateS);
-      if (s) out[chain] = { supply: s, supplyUsd: usd(chain, s) };
-      return;
-    }
-    // ③ Tron (TRC20, base58 T…) — USDT $89B 최대 체인
-    if (chain === "tron") {
-      const s = await tronSupply(addr, revalidateS);
-      if (s) out[chain] = { supply: s, supplyUsd: usd(chain, s) };
-      return;
-    }
-    // ④ Aptos (FA object 0x64hex 또는 coin type 0x…::mod::T)
-    if (chain === "aptos") {
-      const s = await aptosSupply(addr, revalidateS);
-      if (s) out[chain] = { supply: s, supplyUsd: usd(chain, s) };
-      return;
-    }
-    // ⑤ EVM (eth_call totalSupply) — Alchemy→publicnode 폴백.
-    // decimals: llama 메타 → 온체인 decimals() → 레퍼런스 순. ⚠️ 같은 심볼도 체인별 decimals 가 다름
-    // (ETH USDT=6, BSC/opBNB/Rootstock USDT=18) — 레퍼런스만 믿으면 supply 가 1e12 배 튄다.
     if (!/^0x[0-9a-fA-F]{40}$/.test(addr) || rpcUrlsFor(chain).length === 0) return;
     for (const url of rpcUrlsFor(chain)) {
       const hex = await callTotalSupply(url, addr, revalidateS);
       if (!hex) continue;
-      const decimals = prices[chain]?.decimals ?? (await callDecimals(url, addr, revalidateS)) ?? refDecimals;
+      const decimals = prices[chain]?.decimals ?? (await callDecimals(url, addr, revalidateS));
+      if (decimals == null) return; // decimals 미상 → supply 위조 위험, 이 체인 미관측(skip)
       const supply = Number(BigInt(hex)) / Math.pow(10, decimals);
       if (supply > 0) { out[chain] = { supply, supplyUsd: usd(chain, supply) }; return; }
     }
+  }));
+  return out;
+}
+
+const SEL_GET_RESERVE_DATA = toFunctionSelector("function getReserveData(address)");
+const SEL_BASE_TOKEN = toFunctionSelector("function baseToken()");
+const SEL_GET_OWNERS = toFunctionSelector("function getOwners()");
+const AAVE_V3_POOL: Record<string, string> = {
+  ethereum: "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+  base: "0xa238dd80c259a72e81d7e4664a9801593f98d1c5",
+  arbitrum: "0x794a61358d6845594f94dc1db02a252b5b4814ad",
+};
+const SPARK_POOL: Record<string, string> = {
+  ethereum: "0xc13e21b648a5ee794902342038ff3adab66be987",
+};
+const COMPOUND_V3_COMETS: Record<string, string[]> = {
+  ethereum: [
+    "0xc3d688b66703497daa19211eedff47f25384cdc3", // cUSDCv3
+    "0xa17581a9e3356d9a858b789d68b4d866e593ae94", // cWETHv3
+    "0x3afdc9bca9213a35503b077a6072f3d0d5ab0840", // cUSDTv3
+  ],
+  base: [
+    "0xb125e6687d4313864e53df431d5425969c15eb2f", // cUSDCv3
+    "0x46e6b214b524310239732d51387075e0e70970bf", // cWETHv3
+    "0x9c4ec768c28520b50860ea7a15bd7213a9ff58bf", // cUSDbCv3
+  ],
+  arbitrum: [
+    "0xa5edbdd9646f8dff606d7448e414884c7d905dca", // cUSDC.e v3
+  ],
+};
+const COMPOUND_V3_DUNE_EVENT_PREFIXES: Record<string, string[]> = {
+  ethereum: ["cusdcv3", "cwethv3", "cusdtv3"],
+};
+const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
+
+function decodeAddressWord(hex: string | null, wordIdx: number): string | null {
+  if (!hex || !hex.startsWith("0x")) return null;
+  const start = 2 + wordIdx * 64;
+  if (hex.length < start + 64) return null;
+  const word = hex.slice(start, start + 64);
+  if (word.slice(0, 24) !== "0".repeat(24)) return null;
+  const addr = `0x${word.slice(24).toLowerCase()}`;
+  return /^0x[0-9a-f]{40}$/.test(addr) && addr !== ZERO_ADDR ? addr : null;
+}
+
+function canonProject(project: string): string {
+  const p = project.replace(/_/g, "-").toLowerCase();
+  if (p === "sparklend") return "spark";
+  if (p === "morphoblue") return "morpho-blue";
+  return p;
+}
+
+async function readAaveReserveTokens(chain: string, project: string, asset: string, revalidateS: number): Promise<{ aToken: string | null; variableDebtToken: string | null }> {
+  const key = canonProject(project);
+  const poolAddr = key === "spark" ? SPARK_POOL[chain] : key === "aave-v3" ? AAVE_V3_POOL[chain] : null;
+  if (!poolAddr || !/^0x[0-9a-fA-F]{40}$/.test(asset)) return { aToken: null, variableDebtToken: null };
+  const data = SEL_GET_RESERVE_DATA + asset.slice(2).padStart(64, "0");
+  for (const rpc of rpcUrlsFor(chain)) {
+    const hex = await rpcCall(rpc, "eth_call", [{ to: poolAddr, data }, "latest"], revalidateS);
+    const aToken = decodeAddressWord(hex, 8);
+    const variableDebtToken = decodeAddressWord(hex, 10);
+    if (aToken || variableDebtToken) return { aToken, variableDebtToken };
+  }
+  return { aToken: null, variableDebtToken: null };
+}
+
+const compoundBaseTokenCache = new Map<string, string | null>();
+async function readCompoundBaseToken(chain: string, comet: string, revalidateS: number): Promise<string | null> {
+  const addr = comet.toLowerCase();
+  const cacheKey = `${chain}:${addr}`;
+  if (compoundBaseTokenCache.has(cacheKey)) return compoundBaseTokenCache.get(cacheKey) ?? null;
+  for (const rpc of rpcUrlsFor(chain)) {
+    const hex = await rpcCall(rpc, "eth_call", [{ to: addr, data: SEL_BASE_TOKEN }, "latest"], revalidateS);
+    const base = decodeAddressWord(hex, 0);
+    if (base) {
+      compoundBaseTokenCache.set(cacheKey, base);
+      return base;
+    }
+  }
+  compoundBaseTokenCache.set(cacheKey, null);
+  return null;
+}
+
+async function classifyAddress(chain: string, address: string, revalidateS: number): Promise<DetailCounterparty["kind"]> {
+  const rpc = rpcUrlsFor(chain)[0];
+  if (!rpc || !/^0x[0-9a-f]{40}$/.test(address)) return "unknown";
+  const code = await rpcCall(rpc, "eth_getCode", [address, "latest"], revalidateS);
+  if (!code || code === "0x") return "eoa";
+  const owners = await rpcCall(rpc, "eth_call", [{ to: address, data: SEL_GET_OWNERS }, "latest"], revalidateS);
+  if (owners && owners.length >= 2 + 128) {
+    try {
+      const len = Number(BigInt(`0x${owners.slice(2 + 64, 2 + 128)}`));
+      if (len > 0 && len <= 100) return "safe";
+    } catch { /* not a Safe-shaped response */ }
+  }
+  return "contract";
+}
+
+interface DuneExecutionResp {
+  execution_id?: string;
+  state?: string;
+  is_execution_finished?: boolean;
+  error?: { message?: string };
+}
+interface DuneRowsResp {
+  result?: { rows?: Array<{ address?: string; balance?: number | string | null; amount?: number | string | null; balance_raw?: string | null; block_number?: number | null; share_pct?: number | string | null }> };
+  state?: string;
+  error?: { message?: string };
+}
+
+const duneHolderCache = new Map<string, { ts: number; rows: DetailCounterparty[] }>();
+
+async function fetchDuneJson<T>(path: string, init?: RequestInit): Promise<T | null> {
+  if (!DUNE_API_KEY) return null;
+  try {
+    const r = await fetch(`https://api.dune.com/api/v1${path}`, {
+      ...init,
+      headers: { "Content-Type": "application/json", "X-Dune-Api-Key": DUNE_API_KEY, ...(init?.headers ?? {}) },
+    });
+    if (!r.ok) return null;
+    return (await r.json()) as T;
+  } catch { return null; }
+}
+
+async function cancelDuneExecution(executionId: string) {
+  try {
+    await fetchDuneJson(`/execution/${executionId}/cancel`, { method: "POST" });
+  } catch { /* best effort */ }
+}
+
+async function topHoldersDune(
+  chain: string,
+  tokenAddress: string | null,
+  price: number,
+  revalidateS: number,
+  source: string,
+): Promise<DetailCounterparty[]> {
+  const table = DUNE_BALANCE_TABLE[chain];
+  const token = tokenAddress?.toLowerCase();
+  if (!DUNE_API_KEY || !table || !token || !/^0x[0-9a-f]{40}$/.test(token) || !(price > 0)) return [];
+  const cacheKey = `${chain}:${token}:${source}`;
+  const cached = duneHolderCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < revalidateS * 1000) return cached.rows;
+
+  const sql = `with latest as (
+  select address,
+         max_by(balance, block_number) as balance,
+         max_by(balance_raw, block_number) as balance_raw,
+         max(block_number) as block_number
+  from ${table}
+  where token_address = ${token}
+  group by 1
+),
+positive as (
+  select address, balance, balance_raw, block_number
+  from latest
+  where balance > 0
+),
+totals as (
+  select sum(balance) as total_balance
+  from positive
+)
+select p.address,
+       p.balance,
+       p.balance_raw,
+       p.block_number,
+       case when t.total_balance > 0 then p.balance / t.total_balance end as share_pct
+from positive p
+cross join totals t
+order by p.balance desc
+limit 5`;
+  const exec = await fetchDuneJson<DuneExecutionResp>("/sql/execute", {
+    method: "POST",
+    body: JSON.stringify({ sql, performance: "small" }),
+  });
+  const executionId = exec?.execution_id;
+  if (!executionId) return [];
+
+  let finished = false;
+  for (let i = 0; i < 40; i++) {
+    await new Promise((r) => setTimeout(r, 1000));
+    const status = await fetchDuneJson<DuneExecutionResp>(`/execution/${executionId}/status`);
+    if (status?.is_execution_finished) { finished = true; break; }
+    if (status?.state?.includes("FAILED") || status?.error) break;
+  }
+  if (!finished) {
+    await cancelDuneExecution(executionId);
+    return [];
+  }
+  const result = await fetchDuneJson<DuneRowsResp>(`/execution/${executionId}/results?limit=10`);
+  const rows: DetailCounterparty[] = (result?.result?.rows ?? [])
+    .map((h) => {
+      const address = (h.address ?? "").toLowerCase();
+      const amount = Number(h.balance ?? 0);
+      const sharePct = Number(h.share_pct ?? 0);
+      return { address, amount, amountUsd: amount * price, sharePct: Number.isFinite(sharePct) && sharePct > 0 ? sharePct : null, source };
+    })
+    .filter((h) => /^0x[0-9a-f]{40}$/.test(h.address) && (h.amountUsd ?? 0) > 0);
+  const classified = await Promise.all(rows.map(async (h) => ({ ...h, kind: await classifyAddress(chain, h.address, revalidateS) })));
+  duneHolderCache.set(cacheKey, { ts: Date.now(), rows: classified });
+  return classified;
+}
+
+async function topCompoundCollateralDune(
+  chain: string,
+  tokenAddress: string | null,
+  decimals: number,
+  price: number,
+  revalidateS: number,
+): Promise<DetailCounterparty[]> {
+  const token = tokenAddress?.toLowerCase();
+  const prefixes = COMPOUND_V3_DUNE_EVENT_PREFIXES[chain] ?? [];
+  if (!DUNE_API_KEY || !prefixes.length || !token || !/^0x[0-9a-f]{40}$/.test(token) || !(price > 0)) return [];
+  const safeDecimals = Number.isFinite(decimals) && decimals >= 0 && decimals <= 36 ? decimals : 18;
+  const cacheKey = `${chain}:${token}:compound-v3:collateralEvents`;
+  const cached = duneHolderCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < revalidateS * 1000) return cached.rows;
+
+  const schema = `compound_v3_${chain}`;
+  const scale = `1e${safeDecimals}`;
+  const deltas = prefixes.map((prefix) => `
+  select dst as address, cast(amount as double) / ${scale} as balance
+  from ${schema}.${prefix}_evt_supplycollateral
+  where asset = ${token}
+  union all
+  select src as address, -cast(amount as double) / ${scale} as balance
+  from ${schema}.${prefix}_evt_withdrawcollateral
+  where asset = ${token}`).join("\n  union all\n");
+  const sql = `with deltas as (
+${deltas}
+),
+net as (
+  select address, sum(balance) as balance
+  from deltas
+  group by 1
+),
+totals as (
+  select sum(balance) as total_balance
+  from net
+  where balance > 0
+)
+select address,
+       balance,
+       case when total_balance > 0 then balance / total_balance end as share_pct
+from net
+cross join totals
+where balance > 0
+order by balance desc
+limit 5`;
+  const exec = await fetchDuneJson<DuneExecutionResp>("/sql/execute", {
+    method: "POST",
+    body: JSON.stringify({ sql, performance: "small" }),
+  });
+  const executionId = exec?.execution_id;
+  if (!executionId) return [];
+
+  let finished = false;
+  for (let i = 0; i < 35; i++) {
+    await new Promise((r) => setTimeout(r, 1000));
+    const status = await fetchDuneJson<DuneExecutionResp>(`/execution/${executionId}/status`);
+    if (status?.is_execution_finished) { finished = true; break; }
+    if (status?.state?.includes("FAILED") || status?.error) break;
+  }
+  if (!finished) {
+    await cancelDuneExecution(executionId);
+    return [];
+  }
+  const result = await fetchDuneJson<DuneRowsResp>(`/execution/${executionId}/results?limit=10`);
+  const rows: DetailCounterparty[] = (result?.result?.rows ?? [])
+    .map((h) => {
+      const address = (h.address ?? "").toLowerCase();
+      const amount = Number(h.balance ?? 0);
+      const sharePct = Number(h.share_pct ?? 0);
+      return { address, amount, amountUsd: amount * price, sharePct: Number.isFinite(sharePct) && sharePct > 0 ? sharePct : null, source: "compound-v3:collateralEvents:dune" };
+    })
+    .filter((h) => /^0x[0-9a-f]{40}$/.test(h.address) && (h.amountUsd ?? 0) > 0);
+  const classified = await Promise.all(rows.map(async (h) => ({ ...h, kind: await classifyAddress(chain, h.address, revalidateS) })));
+  duneHolderCache.set(cacheKey, { ts: Date.now(), rows: classified });
+  return classified;
+}
+
+
+function mergeCounterparties(into: Map<string, DetailCounterparty>, rows: DetailCounterparty[]) {
+  for (const r of rows) {
+    const key = r.address.toLowerCase();
+    const cur = into.get(key);
+    if (!cur) { into.set(key, { ...r, address: key }); continue; }
+    cur.amount = (cur.amount ?? 0) + (r.amount ?? 0);
+    cur.amountUsd = (cur.amountUsd ?? 0) + (r.amountUsd ?? 0);
+    if (cur.source && r.source && cur.source !== r.source) cur.sharePct = null;
+    else if (cur.sharePct != null || r.sharePct != null) cur.sharePct = (cur.sharePct ?? 0) + (r.sharePct ?? 0);
+  }
+}
+
+function topCounterpartyRows(map: Map<string, DetailCounterparty>): DetailCounterparty[] {
+  return [...map.values()].sort((a, b) => (b.amountUsd ?? 0) - (a.amountUsd ?? 0)).slice(0, 5);
+}
+
+async function fetchAaveLikeDetails(
+  items: BreadthItem[],
+  tokenAddrByChain: Record<string, string>,
+  prices: Record<string, { price: number; decimals: number }>,
+  revalidateS: number,
+): Promise<Record<string, RelationDetailMetrics>> {
+  const out: Record<string, RelationDetailMetrics> = {};
+  await Promise.all(items.map(async (it) => {
+    const key = canonProject(it.project);
+    if (key !== "aave-v3" && key !== "spark") return;
+    // Dune top-holder queries are useful but slow; keep the request bounded to the dominant L1 markets.
+    if (it.chain !== "ethereum") return;
+    const token = tokenAddrByChain[it.chain];
+    const price = prices[it.chain]?.price ?? 0;
+    const reserve = await readAaveReserveTokens(it.chain, key, token, revalidateS);
+    const [topDepositors, topBorrowers] = await Promise.all([
+      topHoldersDune(it.chain, reserve.aToken, price, revalidateS, `${key}:aToken:dune`),
+      topHoldersDune(it.chain, reserve.variableDebtToken, price, revalidateS, `${key}:variableDebtToken:dune`),
+    ]);
+    if (topDepositors.length || topBorrowers.length) out[`${it.chain}|${key}`] = { topDepositors, topBorrowers };
+  }));
+  return out;
+}
+
+async function fetchCompoundDetails(
+  items: BreadthItem[],
+  tokenAddrByChain: Record<string, string>,
+  prices: Record<string, { price: number; decimals: number }>,
+  revalidateS: number,
+): Promise<Record<string, RelationDetailMetrics>> {
+  const out: Record<string, RelationDetailMetrics> = {};
+  await Promise.all(items.map(async (it) => {
+    const key = canonProject(it.project);
+    if (key !== "compound-v3") return;
+    const chain = it.chain;
+    const token = tokenAddrByChain[chain]?.toLowerCase();
+    const priceInfo = prices[chain];
+    const price = priceInfo?.price ?? 0;
+    const comets = COMPOUND_V3_COMETS[chain] ?? [];
+    if (!token || !/^0x[0-9a-f]{40}$/.test(token) || !(price > 0) || !comets.length) {
+      out[`${chain}|${key}`] = { dataGaps: ["top_depositors", "top_borrowers"] };
+      return;
+    }
+
+    const baseComets = (await Promise.all(comets.map(async (comet) => {
+      const base = await readCompoundBaseToken(chain, comet, revalidateS);
+      return base?.toLowerCase() === token ? comet.toLowerCase() : null;
+    }))).filter((x): x is string => !!x);
+
+    const dep = new Map<string, DetailCounterparty>();
+    const [baseRows, collateralRows] = await Promise.all([
+      Promise.all(baseComets.map((comet) => topHoldersDune(chain, comet, price, revalidateS, `${key}:comet:${comet}:dune`))),
+      topCompoundCollateralDune(chain, token, priceInfo?.decimals ?? 18, price, revalidateS),
+    ]);
+    for (const rows of baseRows) mergeCounterparties(dep, rows);
+    mergeCounterparties(dep, collateralRows);
+    const topDepositors = topCounterpartyRows(dep);
+    const dataGaps = ["top_borrowers"];
+    if (!topDepositors.length) dataGaps.push("top_depositors");
+    out[`${chain}|${key}`] = { topDepositors, topBorrowers: null, dataGaps };
+  }));
+  return out;
+}
+
+interface MorphoPosition {
+  user?: { address?: string };
+  state?: { collateralUsd?: number | null; supplyAssetsUsd?: number | null; borrowAssetsUsd?: number | null };
+}
+async function morphoPositions(chainId: number, market: string, order: "Collateral" | "SupplyShares" | "BorrowShares", revalidateS: number): Promise<MorphoPosition[]> {
+  const query = `query P($chainId:Int!, $market:String!, $order:MarketPositionOrderBy!) { marketPositions(first:5, where:{chainId_in:[$chainId], marketUniqueKey_in:[$market]}, orderBy:$order, orderDirection:Desc) { items { user { address } state { collateralUsd supplyAssetsUsd borrowAssetsUsd } } } }`;
+  try {
+    const r = await fetch("https://blue-api.morpho.org/graphql", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query, variables: { chainId, market, order } }), next: { revalidate: revalidateS } });
+    if (!r.ok) return [];
+    const j = await r.json();
+    return (j?.data?.marketPositions?.items ?? []) as MorphoPosition[];
+  } catch { return []; }
+}
+
+async function fetchMorphoRelationDetails(marketsByChain: Record<string, MorphoMkt[]>, revalidateS: number): Promise<Record<string, RelationDetailMetrics>> {
+  const out: Record<string, RelationDetailMetrics> = {};
+  await Promise.all(Object.entries(marketsByChain).map(async ([chain, markets]) => {
+    const chainId = Number(Object.entries(CHAINID_KEY).find(([, k]) => k === chain)?.[0] ?? 0);
+    if (!chainId || !markets.length) return;
+    const dep = new Map<string, DetailCounterparty>();
+    const bor = new Map<string, DetailCounterparty>();
+    const topMarkets = markets.slice(0, 50);
+    const depositorDenomUsd = topMarkets.reduce((s, m) => s + (m.supplyUsd || 0), 0);
+    await Promise.all(topMarkets.map(async (m) => {
+      const marketDep = new Map<string, DetailCounterparty>();
+      const marketBor = new Map<string, DetailCounterparty>();
+      const depOrder = m.role === "collateral" ? "Collateral" : "SupplyShares";
+      const [depRows, borRows] = await Promise.all([
+        morphoPositions(chainId, m.marketKey, depOrder, revalidateS),
+        morphoPositions(chainId, m.marketKey, "BorrowShares", revalidateS),
+      ]);
+      const mappedDepositors = depRows.map((p) => ({
+        address: (p.user?.address ?? "").toLowerCase(),
+        amountUsd: m.role === "collateral" ? p.state?.collateralUsd ?? 0 : p.state?.supplyAssetsUsd ?? 0,
+        source: "morpho:marketPositions",
+      })).filter((p) => /^0x[0-9a-f]{40}$/.test(p.address) && (p.amountUsd ?? 0) > 0);
+      const mappedBorrowers = borRows.map((p) => ({
+        address: (p.user?.address ?? "").toLowerCase(),
+        amountUsd: p.state?.borrowAssetsUsd ?? 0,
+        source: "morpho:marketPositions",
+      })).filter((p) => /^0x[0-9a-f]{40}$/.test(p.address) && (p.amountUsd ?? 0) > 0);
+      mergeCounterparties(dep, mappedDepositors);
+      mergeCounterparties(bor, mappedBorrowers);
+      mergeCounterparties(marketDep, mappedDepositors);
+      mergeCounterparties(marketBor, mappedBorrowers);
+      const [marketTopDepositors, marketTopBorrowers] = await Promise.all([
+        Promise.all(topCounterpartyRows(marketDep).map(async (r) => ({ ...r, sharePct: m.supplyUsd > 0 && (r.amountUsd ?? 0) > 0 ? (r.amountUsd ?? 0) / m.supplyUsd : null, kind: await classifyAddress(chain, r.address, revalidateS) }))),
+        Promise.all(topCounterpartyRows(marketBor).map(async (r) => ({ ...r, sharePct: m.borrowAssetsUsd > 0 && (r.amountUsd ?? 0) > 0 ? (r.amountUsd ?? 0) / m.borrowAssetsUsd : null, kind: await classifyAddress(chain, r.address, revalidateS) }))),
+      ]);
+      const gaps: string[] = [];
+      if (!marketTopDepositors.length) gaps.push("top_depositors");
+      if (!marketTopBorrowers.length) gaps.push("top_borrowers");
+      out[`${chain}|morpho-blue|${m.marketKey}`] = {
+        tokenAmountUsd: m.supplyUsd,
+        tvlUsd: m.supplyUsd,
+        ltv: m.collateralAssetsUsd > 0 && m.borrowAssetsUsd > 0 ? m.borrowAssetsUsd / m.collateralAssetsUsd : null,
+        lltv: m.lltv,
+        utilization: m.utilization,
+        topDepositors: marketTopDepositors,
+        topBorrowers: marketTopBorrowers,
+        marketRows: [
+          { label: "담보량", count: 1, amountUsd: m.collateralAssetsUsd },
+          { label: "예치량", count: 1, amountUsd: m.supplyAssetsUsd },
+          { label: "차입량", count: 1, amountUsd: m.borrowAssetsUsd },
+        ],
+        dataGaps: gaps,
+      };
+    }));
+    const [topDepositors, topBorrowers] = await Promise.all([
+      Promise.all(topCounterpartyRows(dep).map(async (r) => ({ ...r, sharePct: depositorDenomUsd > 0 && (r.amountUsd ?? 0) > 0 ? (r.amountUsd ?? 0) / depositorDenomUsd : null, kind: await classifyAddress(chain, r.address, revalidateS) }))),
+      Promise.all(topCounterpartyRows(bor).map(async (r) => ({ ...r, kind: await classifyAddress(chain, r.address, revalidateS) }))),
+    ]);
+    if (topDepositors.length || topBorrowers.length) out[`${chain}|morpho-blue`] = { topDepositors, topBorrowers };
   }));
   return out;
 }
@@ -450,6 +719,7 @@ export async function GET(
   for (const p of singles) {
     const chain = CHAIN_MAP[p.chain ?? ""]; if (!chain) continue;
     const addr = p.underlyingTokens![0]!;
+    if (norm(addr) === ZERO_ADDR) continue;
     if (!canonByChain.has(chain)) canonByChain.set(chain, new Set());
     canonByChain.get(chain)!.add(norm(addr));
     if (!tokenAddrByChain[chain]) tokenAddrByChain[chain] = addr; // TVL 내림차순 정렬 → 첫 주소 = 최대 풀의 주소
@@ -462,13 +732,14 @@ export async function GET(
   for (const p of oneUnderlying) {
     const chain = CHAIN_MAP[p.chain ?? ""]; if (!chain || tokenAddrByChain[chain]) continue;
     const addr = p.underlyingTokens![0]!;
+    if (norm(addr) === ZERO_ADDR) continue;
     if (!canonByChain.has(chain)) canonByChain.set(chain, new Set());
     canonByChain.get(chain)!.add(norm(addr));
     tokenAddrByChain[chain] = addr;
   }
   // 3차: 검증된 오버라이드 — 풀 메타로 끝내 못 얻은 핵심 배포분만 채움 (USDT@tron 등).
   for (const [chain, addr] of Object.entries(ADDR_OVERRIDES[want] ?? {})) {
-    if (tokenAddrByChain[chain]) continue;
+    if (tokenAddrByChain[chain] && norm(tokenAddrByChain[chain]) !== ZERO_ADDR) continue;
     tokenAddrByChain[chain] = addr;
     if (!canonByChain.has(chain)) canonByChain.set(chain, new Set());
     canonByChain.get(chain)!.add(norm(addr));
@@ -505,6 +776,8 @@ export async function GET(
         symbol: p.symbol ?? "?", tvlUsd: p.tvlUsd ?? 0,
         apy: p.apy ?? null, apyBase: p.apyBase ?? null, apyReward: p.apyReward ?? null,
         exposure: p.exposure ?? null, ilRisk: p.ilRisk ?? null, poolMeta: p.poolMeta ?? null, stablecoin: !!p.stablecoin,
+        underlyingTokens: p.underlyingTokens ?? null, poolId: p.pool ?? null,
+        volumeUsd1d: p.volumeUsd1d ?? null, volumeUsd7d: p.volumeUsd7d ?? null,
       }));
     return { chain: g.chain, project: g.project, category: g.category, tvlUsd, pools };
   }).filter((x) => x.tvlUsd >= PROTO_TVL_MIN);
@@ -531,6 +804,12 @@ export async function GET(
     fetchEulerVaults(tokenAddrByChain, prices, revalidate),
     fetchChainSupplies(tokenAddrByChain, prices, revalidate),
   ]);
+  const [aaveLikeDetails, morphoDetails, compoundDetails] = await Promise.all([
+    fetchAaveLikeDetails(items, tokenAddrByChain, prices, revalidate),
+    fetchMorphoRelationDetails(morphoMarkets, revalidate),
+    fetchCompoundDetails(items, tokenAddrByChain, prices, revalidate),
+  ]);
+  const relationDetailsByKey = { ...aaveLikeDetails, ...morphoDetails, ...compoundDetails };
 
-  return NextResponse.json({ symbol: want, items, chains, tokenAddrByChain, morphoMarkets, eulerVaults, supplyByChain, totalPools: matches.length });
+  return NextResponse.json({ symbol: want, items, chains, tokenAddrByChain, morphoMarkets, eulerVaults, supplyByChain, relationDetailsByKey, totalPools: matches.length });
 }

@@ -1,4 +1,4 @@
-import type { GraphEdge, GraphNode, TopologyResponse } from "@/lib/api";
+import type { GraphEdge, GraphNode, RelationDetailMetrics, RelationMarketRow, TopologyResponse } from "@/lib/api";
 import { formatUsd } from "@/lib/api";
 import { classifyBridge, MECH_LABEL, type BridgeMechanism } from "@/lib/bridge-meta";
 import { protoShareDiameterPx } from "@/lib/node-size";
@@ -29,8 +29,25 @@ export interface PoolLike {
   symbol: string; tvlUsd: number;
   apy: number | null; apyBase: number | null; apyReward: number | null;
   exposure: string | null; ilRisk: string | null; poolMeta: string | null; stablecoin: boolean;
+  underlyingTokens?: string[] | null;
+  poolId?: string | null;
+  volumeUsd1d?: number | null;
+  volumeUsd7d?: number | null;
 }
-export interface MorphoMkt { loan: string; collateral: string; lltv: number | null; supplyUsd: number; utilization: number | null; ouroboros: boolean; vaults: string[]; role: "collateral" | "supply" }
+export interface MorphoMkt {
+  marketKey?: string;
+  loan: string;
+  collateral: string;
+  lltv: number | null;
+  supplyUsd: number;
+  supplyAssetsUsd?: number;
+  collateralAssetsUsd?: number;
+  borrowAssetsUsd?: number;
+  utilization: number | null;
+  ouroboros: boolean;
+  vaults: string[];
+  role: "collateral" | "supply";
+}
 export interface EulerVault { name: string; curator: string | null; allocationUsd: number }
 
 const CAP_PROTO = 20, CAP_VAULT = 3;
@@ -43,11 +60,9 @@ const RING_STEP_V = 186;   // 링2→링3 (220→186: 볼트 부채꼴 호 길�
 const NODE_ARC = 150;      // 프로토콜 1개 호 길이(px)→링1 반경 (215→150: 노드를 토큰에 더 가깝게)
 const VAULT_STAGGER = 52;  // 같은 마켓 큐레이터를 바깥으로 계단식 배치(겹침 원천 차단)
 const MARKET_ROW_STEP = 116; // 한 호에 안 들어가는 마켓은 바깥 줄로 계단식(겹침 원천 차단)
-// Chain Spiral — 프로토콜을 동심원 링 대신 아르키메데스 스파이럴로 감음.
-//   각 프로토콜이 SWEEP/N 각도 wedge 를 소유(마켓이 그 안에 부채꼴) → 반경이 달라도 겹침 0.
-//   SWEEP<2π 로 wrap(첫↔끝) 충돌 방지. 큰 프로토콜=안쪽, 바깥으로 갈수록 작아지며 감김.
-const SPIRAL_SWEEP = Math.PI * 1.9; // 프로토콜이 도는 총 각도(≈342°, 한 바퀴 가까이) — 스파이럴 winding 가시화.
-const SPIRAL_SPAN = 230;            // 반경 범위: 안쪽(작은 TVL) ~ 바깥(큰 TVL). 순위 선형 증가 = 매끄러운 스파이럴. (컴팩트)
+// 동심원(사용자 2026-06-13: "동심원으로 해라, 암모나이트(나선) 말고") — 프로토콜은 모두 같은 반경 R1 링에
+//   360°/N 균등 배치. 각 프로토콜이 2π/N 각폭(wedge)을 소유 → 마켓이 그 안에서 같은 반경 R2 링에 부채꼴(겹침 0).
+//   예전엔 반경을 순위로 키워(winding) 아르키메데스 스파이럴로 감았으나, 사용자 요청대로 동심원으로 되돌림.
 
 const usdOf = (r: ConcRelation) => r.edge.attrs?.core?.amountUsd ?? r.edge.weight ?? 0;
 
@@ -70,6 +85,278 @@ function poolLabel(sym: string): string {
 
 interface VaultLike { curator?: string | null; vault?: string | null; vaultAddress?: string | null; allocationUsd?: number | null; depositAsset?: string | null; market: string }
 interface MEntry { label: string; sizeUsd: number; ouroboros: boolean; payload: Record<string, unknown>; edgeType: string; category: string; vaults: VaultLike[] }
+type EdgeRoleLike = NonNullable<GraphEdge["attrs"]>["classification"]["roles"][number];
+
+function numberOrNull(v: unknown): number | null {
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+function avg(xs: number[]): number | null {
+  return xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : null;
+}
+
+function addMarketRow(rows: RelationMarketRow[], label: string, amountUsd: number | null | undefined, count = 1) {
+  if (count <= 0) return;
+  rows.push({ label, count, amountUsd: amountUsd ?? null });
+}
+
+function mergeMarketRows(rows: RelationMarketRow[]): RelationMarketRow[] {
+  const merged = new Map<string, { label: string; count: number; amountUsd: number | null }>();
+  for (const r of rows) {
+    const cur = merged.get(r.label);
+    if (!cur) {
+      merged.set(r.label, { label: r.label, count: r.count, amountUsd: r.amountUsd ?? null });
+      continue;
+    }
+    cur.count += r.count;
+    if (r.amountUsd != null) cur.amountUsd = (cur.amountUsd ?? 0) + r.amountUsd;
+  }
+  return [...merged.values()];
+}
+
+function lendingMarketRows(protocolKey: string, roles: EdgeRoleLike[], attrs: GraphEdge["attrs"], totalUsd: number): RelationMarketRow[] {
+  const k = protocolKey.toLowerCase();
+  const rows: RelationMarketRow[] = [];
+  const roleUsd = (role: string) => roles.filter((r) => r.edge_type === role).reduce((s, r) => s + r.amount_usd, 0);
+  const topMarketCount = attrs?.topMarkets?.length ?? 0;
+
+  if (k.includes("aave") || k.includes("spark") || k.includes("sparklend")) {
+    const suppliedUsd = roleUsd("collateral") + roleUsd("deposit_supply");
+    const borrowUsd = roleUsd("loan_asset");
+    if (suppliedUsd > 0) addMarketRow(rows, "예치 리저브", suppliedUsd);
+    if (suppliedUsd > 0 && ((attrs?.lendingRisk?.ltv ?? 0) > 0 || (attrs?.lendingRisk?.lt ?? 0) > 0)) addMarketRow(rows, "담보 허용 리저브", suppliedUsd);
+    if (borrowUsd > 0) addMarketRow(rows, "차입 리저브", borrowUsd);
+    return rows;
+  }
+
+  if (k.includes("morpho")) {
+    const collateralUsd = roleUsd("collateral_isolated") + roleUsd("collateral");
+    const loanUsd = roleUsd("loan_asset");
+    if (collateralUsd > 0) addMarketRow(rows, "담보 마켓", collateralUsd, Math.max(1, topMarketCount));
+    if (loanUsd > 0) addMarketRow(rows, "차입자산 마켓", loanUsd);
+    return rows;
+  }
+
+  if (k.includes("compound")) {
+    const collateralUsd = roleUsd("collateral");
+    const supplyUsd = roleUsd("deposit_supply");
+    const borrowUsd = roleUsd("loan_asset");
+    if (collateralUsd > 0) addMarketRow(rows, "담보 Comet", collateralUsd);
+    if (supplyUsd > 0) addMarketRow(rows, "Base 공급 Comet", supplyUsd);
+    if (borrowUsd > 0) addMarketRow(rows, "Base 차입 Comet", borrowUsd);
+    return rows;
+  }
+
+  if (k.includes("euler")) {
+    const supplyUsd = roleUsd("deposit_supply") + roleUsd("collateral");
+    const borrowUsd = roleUsd("loan_asset");
+    if (supplyUsd > 0) addMarketRow(rows, "Euler 예치 볼트", supplyUsd);
+    if (borrowUsd > 0) addMarketRow(rows, "Euler 차입 마켓", borrowUsd);
+    return rows;
+  }
+
+  for (const role of roles) {
+    if (role.edge_type === "collateral" || role.edge_type === "collateral_isolated") addMarketRow(rows, "담보 마켓", role.amount_usd);
+    else if (role.edge_type === "deposit_supply") addMarketRow(rows, "예치 마켓", role.amount_usd);
+    else if (role.edge_type === "loan_asset") addMarketRow(rows, "차입 마켓", role.amount_usd);
+    else if (role.edge_type === "cdp_collateral") addMarketRow(rows, "CDP 담보", role.amount_usd);
+    else if (role.edge_type === "mint_backing") addMarketRow(rows, "민팅 백킹", role.amount_usd);
+  }
+  if (!rows.length && totalUsd > 0) addMarketRow(rows, "프로토콜 노출", totalUsd);
+  return mergeMarketRows(rows);
+}
+
+function edgeMarketRows(edge: GraphEdge, totalUsd: number, protocolKey: string): RelationMarketRow[] {
+  const attrs = edge.attrs;
+  const roles = attrs?.classification?.roles ?? [];
+  if (attrs?.protocolClass === "dex") {
+    return [{
+      label: "DEX 풀",
+      count: attrs.dex?.poolCount ?? attrs.topPools?.length ?? 1,
+      amountUsd: attrs.dex?.liquidityUsd ?? totalUsd,
+    }];
+  }
+  if (attrs?.protocolClass === "lending") return lendingMarketRows(protocolKey, roles, attrs, totalUsd);
+  if (attrs?.protocolClass === "cdp") {
+    const cdpUsd = roles.filter((r) => r.edge_type === "cdp_collateral").reduce((s, r) => s + r.amount_usd, 0);
+    return cdpUsd > 0 ? [{ label: "CDP 담보", count: 1, amountUsd: cdpUsd }] : [];
+  }
+  if (attrs?.protocolClass === "wrapper") {
+    const backingUsd = roles.filter((r) => r.edge_type === "mint_backing" || r.edge_type === "deposit_supply").reduce((s, r) => s + r.amount_usd, 0);
+    return backingUsd > 0 ? [{ label: "볼트/백킹", count: 1, amountUsd: backingUsd }] : [];
+  }
+  return [];
+}
+
+function entryMarketRows(entry: MEntry): RelationMarketRow[] {
+  const p = entry.payload;
+  const kind = String(p.kind ?? "");
+  if (kind === "lending") {
+    const protocol = String(p.protocol ?? "").toLowerCase();
+    const role = String(p.role ?? "");
+    const rows: RelationMarketRow[] = [];
+    const collateralUsd = numberOrNull(p.collateralAssetsUsd);
+    const supplyUsd = numberOrNull(p.supplyAssetsUsd);
+    const borrowUsd = numberOrNull(p.borrowAssetsUsd);
+    if (protocol.includes("morpho")) {
+      rows.push({ label: "담보량", count: 1, amountUsd: collateralUsd ?? 0 });
+      rows.push({ label: "예치량", count: 1, amountUsd: supplyUsd ?? 0 });
+      rows.push({ label: "차입량", count: 1, amountUsd: borrowUsd ?? 0 });
+      return rows;
+    }
+    if (collateralUsd != null && collateralUsd > 0) rows.push({ label: "담보량", count: 1, amountUsd: collateralUsd });
+    if (supplyUsd != null && supplyUsd > 0) rows.push({ label: "예치량", count: 1, amountUsd: supplyUsd });
+    if (borrowUsd != null && borrowUsd > 0) rows.push({ label: "차입량", count: 1, amountUsd: borrowUsd });
+    if (rows.length) return rows;
+    if (protocol.includes("morpho") || role === "collateral" || p.collateralAsset != null) {
+      return [{ label: role === "supply" ? "차입자산 마켓" : "담보 마켓", count: 1, amountUsd: entry.sizeUsd }];
+    }
+    return [{ label: "대출 마켓", count: 1, amountUsd: entry.sizeUsd }];
+  }
+  if (kind === "pool" && p.exposure === "multi") return [{ label: "DEX 풀", count: 1, amountUsd: entry.sizeUsd }];
+  if (kind === "pool" && String(p.poolMeta ?? "").toLowerCase().includes("euler")) return [{ label: "Euler Earn 큐레이터 볼트", count: 1, amountUsd: entry.sizeUsd }];
+  if (kind === "pool") return [{ label: "예치 풀", count: 1, amountUsd: entry.sizeUsd }];
+  return [];
+}
+
+function metricDataGaps(kind: "protocol" | "pool" | "market", hasTokenAmount: boolean): string[] {
+  const gaps = hasTokenAmount ? ["top_depositors"] : ["token_amount", "top_depositors"];
+  if (kind !== "pool") gaps.push("top_borrowers");
+  if (kind === "pool") gaps.push("weekly_swap");
+  return gaps;
+}
+
+function edgeMetrics(edge: GraphEdge, totalUsd: number, protocolKey: string): RelationDetailMetrics {
+  const attrs = edge.attrs;
+  const roles = attrs?.classification?.roles ?? [];
+  const tokenRoles = roles.filter((r) => r.edge_type !== "loan_asset");
+  const borrowRoles = roles.filter((r) => r.edge_type === "loan_asset");
+  const counted = tokenRoles.length ? tokenRoles : roles;
+  const tokenAmount = counted.length ? counted.reduce((s, r) => s + r.amount_token, 0) : null;
+  const tokenAmountUsd = counted.length ? counted.reduce((s, r) => s + r.amount_usd, 0) : null;
+  const collateralCount = roles.filter((r) => r.edge_type === "collateral" || r.edge_type === "collateral_isolated" || r.edge_type === "cdp_collateral").length;
+  const depositCount = roles.filter((r) => r.edge_type === "collateral" || r.edge_type === "collateral_isolated" || r.edge_type === "deposit_supply" || r.edge_type === "cdp_collateral" || r.edge_type === "mint_backing").length;
+  const dexLiquidity = attrs?.dex?.liquidityUsd ?? null;
+  const gaps = new Set(metricDataGaps(attrs?.protocolClass === "dex" ? "pool" : "protocol", tokenAmount != null));
+  if (attrs?.protocolClass !== "lending") gaps.delete("top_borrowers");
+  if (attrs?.protocolClass !== "dex") gaps.delete("weekly_swap");
+  return {
+    tokenAmount,
+    tokenAmountUsd,
+    tvlUsd: tokenAmountUsd ?? totalUsd,
+    dexLiquidityUsd: dexLiquidity,
+    weeklySwapTokenAmount: null,
+    weeklySwapUsd: null,
+    depositCount: depositCount || null,
+    collateralCount: collateralCount || null,
+    borrowCount: borrowRoles.length || null,
+    poolCount: attrs?.dex?.poolCount ?? attrs?.topPools?.length ?? null,
+    marketRows: edgeMarketRows(edge, totalUsd, protocolKey),
+    ltv: attrs?.lendingRisk?.ltv ?? null,
+    lltv: attrs?.lendingRisk?.lt ?? null,
+    utilization: attrs?.lendingRisk?.utilization ?? null,
+    topDepositors: null,
+    topBorrowers: null,
+    dataGaps: [...gaps],
+  };
+}
+
+function mergeMetrics(base: RelationDetailMetrics, extra?: RelationDetailMetrics | null): RelationDetailMetrics {
+  if (!extra) return base;
+  const gaps = new Set(base.dataGaps ?? []);
+  const out: RelationDetailMetrics = { ...base };
+  if (extra.tokenAmount != null) out.tokenAmount = extra.tokenAmount;
+  if (extra.tokenAmountUsd != null) out.tokenAmountUsd = extra.tokenAmountUsd;
+  if (extra.tvlUsd != null) out.tvlUsd = extra.tvlUsd;
+  if (extra.depositCount != null) out.depositCount = extra.depositCount;
+  if (extra.collateralCount != null) out.collateralCount = extra.collateralCount;
+  if (extra.borrowCount != null) out.borrowCount = extra.borrowCount;
+  if (extra.marketRows != null) out.marketRows = extra.marketRows;
+  if (extra.ltv != null) out.ltv = extra.ltv;
+  if (extra.lltv != null) out.lltv = extra.lltv;
+  if (extra.utilization != null) out.utilization = extra.utilization;
+  if (extra.weeklySwapTokenAmount != null) out.weeklySwapTokenAmount = extra.weeklySwapTokenAmount;
+  if (extra.weeklySwapUsd != null) out.weeklySwapUsd = extra.weeklySwapUsd;
+  if (extra.topDepositors != null) out.topDepositors = extra.topDepositors;
+  if (extra.topBorrowers != null) out.topBorrowers = extra.topBorrowers;
+  if (extra.weeklySwapTokenAmount != null || extra.weeklySwapUsd != null) gaps.delete("weekly_swap");
+  if (extra.topDepositors?.length) gaps.delete("top_depositors");
+  if (extra.topBorrowers?.length) gaps.delete("top_borrowers");
+  for (const g of extra.dataGaps ?? []) gaps.add(g);
+  out.dataGaps = [...gaps];
+  return out;
+}
+
+function marketMetrics(entry: MEntry): RelationDetailMetrics {
+  const p = entry.payload;
+  const kind = String(p.kind ?? "");
+  const lltv = numberOrNull(p.lltv);
+  const isDexPool = kind === "pool" && p.exposure === "multi";
+  const hasTokenAmount = !isDexPool && entry.sizeUsd > 0;
+  const weeklySwapUsd = numberOrNull(p.weeklySwapUsd);
+  const gaps = new Set(metricDataGaps(isDexPool ? "pool" : "market", hasTokenAmount));
+  const collateralUsd = numberOrNull(p.collateralAssetsUsd);
+  const borrowUsd = numberOrNull(p.borrowAssetsUsd);
+  if (weeklySwapUsd != null) gaps.delete("weekly_swap");
+  return {
+    tokenAmount: null,
+    tokenAmountUsd: hasTokenAmount ? entry.sizeUsd : null,
+    tvlUsd: numberOrNull(p.marketSizeUsd) ?? numberOrNull(p.sizeUsd) ?? entry.sizeUsd,
+    dexLiquidityUsd: isDexPool ? entry.sizeUsd : null,
+    weeklySwapTokenAmount: null,
+    weeklySwapUsd,
+    depositCount: 1,
+    collateralCount: kind === "lending" && (p.role === "collateral" || lltv != null) ? 1 : 0,
+    borrowCount: kind === "lending" && p.role === "supply" ? 1 : 0,
+    poolCount: 1,
+    marketRows: entryMarketRows(entry),
+    ltv: numberOrNull(p.aggLtv) ?? (collateralUsd != null && collateralUsd > 0 && borrowUsd != null && borrowUsd > 0 ? borrowUsd / collateralUsd : null),
+    lltv,
+    utilization: numberOrNull(p.utilization),
+    topDepositors: null,
+    topBorrowers: null,
+    dataGaps: [...gaps],
+  };
+}
+
+function protocolMetrics(edge: GraphEdge, entries: MEntry[], totalUsd: number, protocolKey: string): RelationDetailMetrics {
+  const base = edgeMetrics(edge, totalUsd, protocolKey);
+  const entryMetrics = entries.map(marketMetrics);
+  const sum = (pick: (m: RelationDetailMetrics) => number | null | undefined) =>
+    entryMetrics.reduce((s, m) => s + (pick(m) ?? 0), 0);
+  const lltvs = entryMetrics.map((m) => m.lltv).filter((v): v is number => v != null);
+  const ltvs = entryMetrics.map((m) => m.ltv).filter((v): v is number => v != null);
+  const utils = entryMetrics.map((m) => m.utilization).filter((v): v is number => v != null);
+  const gaps = new Set<string>(base.dataGaps ?? []);
+  gaps.add("top_depositors");
+  if (edge.attrs?.protocolClass === "lending") gaps.add("top_borrowers");
+  if (entries.some((e) => e.payload.kind === "pool" && e.payload.exposure === "multi")) gaps.add("weekly_swap");
+  if (base.tokenAmount != null) gaps.delete("token_amount");
+  const entryRows = entryMetrics.flatMap((m) => m.marketRows ?? []);
+  const baseRows = base.marketRows ?? [];
+  const marketRows = baseRows.length ? baseRows : mergeMarketRows(entryRows);
+  const weeklySwapUsd = base.weeklySwapUsd ?? (sum((m) => m.weeklySwapUsd) || null);
+  if (weeklySwapUsd != null) gaps.delete("weekly_swap");
+  return {
+    tokenAmount: base.tokenAmount,
+    tokenAmountUsd: base.tokenAmountUsd ?? totalUsd,
+    tvlUsd: totalUsd,
+    dexLiquidityUsd: base.dexLiquidityUsd ?? sum((m) => m.dexLiquidityUsd),
+    weeklySwapTokenAmount: null,
+    weeklySwapUsd,
+    depositCount: base.depositCount ?? entries.length,
+    collateralCount: base.collateralCount ?? sum((m) => m.collateralCount),
+    borrowCount: base.borrowCount ?? sum((m) => m.borrowCount),
+    poolCount: entries.length || base.poolCount,
+    marketRows,
+    ltv: base.ltv ?? avg(ltvs),
+    lltv: base.lltv ?? (lltvs.length ? Math.max(...lltvs) : null),
+    utilization: base.utilization ?? avg(utils),
+    topDepositors: null,
+    topBorrowers: null,
+    dataGaps: [...gaps],
+  };
+}
 
 interface ChainPlan {
   chain: string;
@@ -107,11 +394,12 @@ export function applyConcentricLayout(opts: {
   morphoByChain?: Record<string, MorphoMkt[]>;
   eulerByChain?: Record<string, EulerVault[]>;
   supplyByChain?: Record<string, { supply: number; supplyUsd: number }>;
+  relationDetailsByKey?: Record<string, RelationDetailMetrics>;
   /** 온체인 검증된 브릿지 mint 권한 (chain → 항목들). /api/bridge-authority. */
   bridgeAuthByChain?: Record<string, { bridgeAddr: string; authType: string; mintLimit: number | null; note: string | null }[]>;
   bridgeHub?: boolean;
 }): { topology: TopologyResponse; ouroborosMarketIds: Set<string> } {
-  const { symbol, tokenIds, relations, dbNodes, hiddenChains, poolsByKey = new Map<string, PoolLike[]>(), tokenAddrByChain = {}, morphoByChain = {}, eulerByChain = {}, supplyByChain = {}, bridgeAuthByChain = {}, bridgeHub = false } = opts;
+  const { symbol, tokenIds, relations, dbNodes, hiddenChains, poolsByKey = new Map<string, PoolLike[]>(), tokenAddrByChain = {}, morphoByChain = {}, eulerByChain = {}, supplyByChain = {}, relationDetailsByKey = {}, bridgeAuthByChain = {}, bridgeHub = false } = opts;
   // 검증된 mint 권한 → 그 체인 브릿지 노드를 "추정"에서 "검증"으로 (가장 강한 권한 우선).
   const AUTH_MAP: Record<string, { mechanism: BridgeMechanism; protocol: string; tag: string }> = {
     xerc20: { mechanism: "burn_mint", protocol: "xERC20", tag: "xERC20" },
@@ -127,14 +415,10 @@ export function applyConcentricLayout(opts: {
     l2_canonical: { mechanism: "lock_mint", protocol: "L2 Canonical", tag: "L2" },
     polygon_pos: { mechanism: "lock_mint", protocol: "Polygon PoS", tag: "POS" },
     xerc20_lockbox: { mechanism: "lock_mint", protocol: "xERC20 Lockbox", tag: "xERC20-LB" },
-    // 비-EVM 표준 브릿지 (bridge_detections — 파이썬 8계열 탐지기, 표준 인터페이스/금고 검증분만)
-    wormhole: { mechanism: "lock_mint", protocol: "Wormhole", tag: "WH" },
-    ibc: { mechanism: "lock_mint", protocol: "IBC Transfer", tag: "IBC" },
-    starkgate: { mechanism: "lock_mint", protocol: "StarkGate", tag: "SG" },
-    sui_bridge: { mechanism: "lock_mint", protocol: "Sui Bridge", tag: "SUI-B" },
-    layerzero: { mechanism: "burn_mint", protocol: "LayerZero", tag: "LZ" },
+    mint_event: { mechanism: "lock_mint", protocol: "추정(민트 이벤트)", tag: "추정" }, // Method E view-probe 추정 — verifiedFor 에선 제외, 표시 전용
   };
-  const AUTH_ORDER: Record<string, number> = { xerc20: 0, ccip_pool: 1, oft_peer: 2, minter_role: 3, cctp: 4, wormhole_ntt: 5, axelar_its: 6, hyperlane: 7, op_bridge: 8, l2_canonical: 9, polygon_pos: 10, xerc20_lockbox: 11, ccip_remote: 12, wormhole: 13, ibc: 14, starkgate: 15, sui_bridge: 16, layerzero: 17 };
+  // mint_event 는 맨 뒤(가장 약한 근거) — verifiedFor 가 best 후보로 절대 안 뽑게(어차피 사전 필터됨).
+  const AUTH_ORDER: Record<string, number> = { xerc20: 0, ccip_pool: 1, oft_peer: 2, minter_role: 3, cctp: 4, wormhole_ntt: 5, axelar_its: 6, hyperlane: 7, op_bridge: 8, l2_canonical: 9, polygon_pos: 10, xerc20_lockbox: 11, ccip_remote: 12, mint_event: 99 };
   const verifiedFor = (chain: string) => {
     // mint_event 는 추정(view-probe fallback)이라 "검증"으로 안 침 — 제외.
     const list = (bridgeAuthByChain[chain] ?? []).filter((x) => x.authType !== "mint_event");
@@ -178,8 +462,8 @@ export function applyConcentricLayout(opts: {
     const ra = CHAIN_ORDER.indexOf(a), rb = CHAIN_ORDER.indexOf(b);
     return (ra === -1 ? 99 : ra) - (rb === -1 ? 99 : rb);
   });
-  // 단일 체인만 보일 땐 마켓 깊게(10), 여러 체인이면 개요(4)
-  const mcap = chains.length === 1 ? 10 : 4;
+  // 단일 체인만 보일 땐 마켓 깊게(7), 여러 체인이면 개요(4). (10→7: 큐레이터 링까지 컴팩트하게)
+  const mcap = chains.length === 1 ? 7 : 4;
 
   // 2a) 체인별 dedup(정밀 우선) + protos + totalUsd
   const pre = chains.map((chain) => {
@@ -227,12 +511,12 @@ export function applyConcentricLayout(opts: {
     const mNodeAngP = 56 / R2;
     const maxWedgeP = Math.max(mNodeAngP, slotP - mNodeAngP * 1.3);
     const perRowP = Math.max(1, Math.floor(maxWedgeP / mNodeAngP) + 1);
-    const marketRows = hasMkts ? Math.ceil((chains.length === 1 ? 10 : 4) / perRowP) : 0;
+    const marketRows = hasMkts ? Math.ceil((chains.length === 1 ? 7 : 4) / perRowP) : 0;
     // 볼트 있는 체인은 줄 간격을 안쪽 줄 볼트 끝까지 띄움(겹침 0). 없으면 컴팩트.
     const rowStep = hasVaults ? RING_STEP_V + 2 * VAULT_STAGGER + 44 : MARKET_ROW_STEP;
     const lastMktR = R2 + Math.max(0, marketRows - 1) * rowStep; // 가장 바깥 마켓 줄 반경
-    // 스파이럴: 가장 큰 TVL 프로토콜이 R1+SPAN 까지 나가므로 그만큼 extent 가 더 큼.
-    const outer = (hasVaults ? lastMktR + RING_STEP_V + 2 * VAULT_STAGGER + 30 : marketRows > 0 ? lastMktR + 30 : R1) + SPIRAL_SPAN;
+    // 동심원: 가장 바깥 = 마켓 줄 + (볼트 링). 프로토콜 반경은 모두 R1 로 동일(스파이럴 SPAN 가산 제거).
+    const outer = hasVaults ? lastMktR + RING_STEP_V + 2 * VAULT_STAGGER + 30 : marketRows > 0 ? lastMktR + 30 : R1;
     return { chain, protos, N, R1, R2, outer, rowStep, totalUsd, cx: 0, cy: 0, outward: -Math.PI / 2 };
   });
 
@@ -288,24 +572,37 @@ export function applyConcentricLayout(opts: {
       active: true, position: { x: cx - tokDia / 2, y: cy - tokDia / 2 },
     } as GraphNode);
 
-    // 프로토콜 노드 지름 = 이 토큰 맵 내 노출 share(분포 비율) 상대 스케일 → 큰 프로토콜이 직관적으로 큼.
+    // 프로토콜 노드 지름 = 노출 규모의 log 위치(min~max) → 큰/작은 프로토콜 지름 차이 압축(사용자 2026-06-13).
     const maxProtoExp = Math.max(1, ...protos.map(usdOf));
-    // 스파이럴 배치 — 작은 TVL=안쪽, 큰 TVL=바깥(TVL 클수록 멀리). 반경을 순위에 따라 **매끄럽게
-    //   선형 증가** + 일정 각도로 winding → 아르키메데스 스파이럴이 또렷이 보임. 각 프로토콜이
-    //   angStep 각폭을 소유 → 마켓이 그 안에 부채꼴(반경 달라도 겹침 0).
-    const spiralProtos = [...protos].sort((a, b) => usdOf(a) - usdOf(b)); // 작은 TVL 먼저(안쪽)
-    const angStep = SPIRAL_SWEEP / N;
-    spiralProtos.forEach((p, i) => {
-      const angP = -Math.PI / 2 + angStep * i;                       // 일정 각도 winding
-      const rP = R1 + (N <= 1 ? 0 : (i / (N - 1)) * SPIRAL_SPAN);    // 순위 선형 반경 = 매끄러운 스파이럴
-      const R2p = rP + RING_STEP_M;          // 그 프로토콜의 마켓 링 반경
-      const slotW = angStep;                 // 이 프로토콜의 각폭(마켓 부채꼴 한계)
+    const minProtoExp = Math.min(...protos.map(usdOf).filter((v) => v > 0)) || 1;
+    // 동심원 배치 — 프로토콜을 모두 같은 반경 R1 링에 360°/N 균등 각도로. 각 프로토콜이 2π/N 각폭(wedge)을
+    //   소유 → 마켓이 그 안에서 같은 반경 R2 링에 부채꼴. 반경을 순위로 키우던 스파이럴(winding) 제거(동심원).
+    const ringProtos = [...protos].sort((a, b) => usdOf(b) - usdOf(a)); // 큰 TVL 먼저(시각 순서만; 반경은 동일)
+    const angStep = (2 * Math.PI) / N;       // 360° 균등 분할 → 동심원 링1
+    ringProtos.forEach((p, i) => {
+      const angP = -Math.PI / 2 + angStep * i;   // 균등 각도
+      const rP = R1;                              // 모든 프로토콜 동일 반경(동심원 링1)
+      const R2p = rP + RING_STEP_M;               // 마켓 링2(전 프로토콜 공통 반경)
+      const slotW = angStep;                      // 이 프로토콜의 각폭(마켓 부채꼴 한계)
       const protoNode = dbNodes.get(p.otherId);
       const pExp = usdOf(p);
       const pid = `c:${chain}:${p.otherId}`;
+      const protocolMetadata: GraphNode["metadata"] = {
+        ...(protoNode?.metadata ?? {}),
+        address: protoNode?.metadata.address ?? protoNode?.metadata.coreContract ?? null,
+        sizeUsd: pExp,
+        chain,
+        venue: protoNode?.metadata.venue,
+        protocolClass: p.edge.attrs?.protocolClass ?? protoNode?.metadata.protocolClass ?? null,
+        symbol: protoNode?.metadata.symbol,
+        brandSlug: canonProto(p.otherId),
+        diameterPx: protoShareDiameterPx(pExp, maxProtoExp, minProtoExp),
+        distributionPct: pExp / grandTotalUsd,
+        distributionScope: "전체 분포",
+      };
       nodes.push({
         id: pid, type: (protoNode?.type ?? "DefiProtocol") as GraphNode["type"], label: p.otherLabel,
-        metadata: { ...(protoNode?.metadata ?? {}), address: protoNode?.metadata.address ?? protoNode?.metadata.coreContract ?? null, sizeUsd: pExp, chain, venue: protoNode?.metadata.venue, symbol: protoNode?.metadata.symbol, brandSlug: canonProto(p.otherId), diameterPx: protoShareDiameterPx(pExp, maxProtoExp), distributionPct: pExp / grandTotalUsd, distributionScope: "전체 분포" },
+        metadata: protocolMetadata,
         active: true, position: { x: cx + Math.cos(angP) * rP, y: cy + Math.sin(angP) * rP },
       } as GraphNode);
       edges.push({ id: `e:${chainTokenId}:${pid}`, source: `c:${chain}:token`, target: pid, type: p.edge.type, weight: pExp, attrs: p.edge.attrs });
@@ -326,7 +623,11 @@ export function applyConcentricLayout(opts: {
           return {
             label: lbl, sizeUsd: m.supplyUsd, ouroboros: m.ouroboros, edgeType: "collateral_isolated",
             category: `${roleTxt}${m.lltv != null ? ` · LLTV ${(m.lltv * 100).toFixed(0)}%` : ""}`,
-            payload: { kind: "lending", role: m.role, lltv: m.lltv, sizeUsd: m.supplyUsd, utilization: m.utilization, ouroboros: m.ouroboros, protocol: p.otherLabel },
+            payload: { kind: "lending", role: m.role, marketKey: m.marketKey, collateralAsset: m.collateral, loanAsset: m.loan, lltv: m.lltv,
+              marketSizeUsd: m.supplyUsd, sizeUsd: m.supplyUsd, supplyAssetsUsd: m.supplyAssetsUsd ?? null,
+              collateralAssetsUsd: m.collateralAssetsUsd ?? null, borrowAssetsUsd: m.borrowAssetsUsd ?? null,
+              aggLtv: (m.collateralAssetsUsd ?? 0) > 0 && (m.borrowAssetsUsd ?? 0) > 0 ? (m.borrowAssetsUsd ?? 0) / (m.collateralAssetsUsd ?? 1) : null,
+              utilization: m.utilization, ouroboros: m.ouroboros, protocol: p.otherLabel },
             vaults: m.vaults.slice(0, CAP_VAULT).map((name) => ({ curator: name, vault: name, market: lbl })),
           };
         });
@@ -350,7 +651,9 @@ export function applyConcentricLayout(opts: {
           edgeType: pool.exposure === "multi" ? "dex" : "collateral_isolated",
           category: `${pool.exposure === "multi" ? "LP 풀" : "담보/예치"}${pool.poolMeta ? ` · ${pool.poolMeta}` : ""}`,
           payload: { kind: "pool", sizeUsd: pool.tvlUsd, apy: pool.apy, apyBase: pool.apyBase, apyReward: pool.apyReward,
-            exposure: pool.exposure, ilRisk: pool.ilRisk, poolMeta: pool.poolMeta, stablecoin: pool.stablecoin, protocol: p.otherLabel },
+            exposure: pool.exposure, ilRisk: pool.ilRisk, poolMeta: pool.poolMeta, stablecoin: pool.stablecoin,
+            underlyingTokens: pool.underlyingTokens ?? null, poolId: pool.poolId ?? null,
+            weeklySwapUsd: pool.volumeUsd7d ?? null, protocol: p.otherLabel },
           vaults: [],
         }));
       }
@@ -368,6 +671,7 @@ export function applyConcentricLayout(opts: {
           });
         }
       }
+      protocolMetadata.relationMetrics = mergeMetrics(protocolMetrics(p.edge, entries, pExp, canonProto(p.otherId)), relationDetailsByKey[`${chain}|${canonProto(p.otherId)}`]);
 
       // 마켓 배치 — 프로토콜의 스파이럴 wedge(angStep) 안의 한 호(R2p)에 부채꼴. 슬롯이 좁아 다 안 들어가면
       //   바깥 줄(rowStep)로 계단식 → 인접 프로토콜과도, 자기 마켓끼리도 안 겹침(반경 달라도 wedge 소유).
@@ -383,9 +687,12 @@ export function applyConcentricLayout(opts: {
         const angM = entries.length <= 1 ? angP : angP - rWedge / 2 + (inRow <= 1 ? 0 : (rWedge * col) / (inRow - 1));
         const mR = R2p + row * rowStep;                                   // 줄마다 바깥으로(rowStep=볼트 여유 반영)
         const mid = `${pid}:m${j}`;
+        const marketKey = typeof e.payload.marketKey === "string" ? e.payload.marketKey : null;
+        const detailMetrics = mergeMetrics(marketMetrics(e), marketKey ? relationDetailsByKey[`${chain}|morpho-blue|${marketKey}`] : null);
         nodes.push({
           id: mid, type: "DefiProtocol", label: e.label,
-          metadata: { category: e.category, sizeUsd: e.sizeUsd, chain, _market: e.payload, distributionPct: e.sizeUsd / grandTotalUsd, distributionScope: "전체 분포" },
+          metadata: { category: e.category, sizeUsd: e.sizeUsd, chain, relationMetrics: detailMetrics,
+            _market: { ...e.payload, relationMetrics: detailMetrics }, distributionPct: e.sizeUsd / grandTotalUsd, distributionScope: "전체 분포" },
           active: true, position: { x: cx + Math.cos(angM) * mR, y: cy + Math.sin(angM) * mR },
         } as GraphNode);
         if (e.ouroboros) ouroborosMarketIds.add(mid);
@@ -464,6 +771,12 @@ export function applyConcentricLayout(opts: {
     // (c) 나머지 체인 = canonical(추정, 양 = 온체인 공급)
     const restChains = chainSet.has("ethereum") ? [...chainSet].filter((c) => c !== "ethereum" && !covered.has(c)) : [];
 
+    // E20 "락만 된" 필터 (멘토 §2: rsETH LayerZero→CCIP 이동, Wormhole 소액 락 오탐) —
+    //   브릿지에 잠긴/공급된 양이 총공급 대비 소액이면 "이동(미사용)"으로 표시(노드 흐리게 + 라벨).
+    const totalSupplyUnits = Object.values(supplyByChain).reduce((s, v) => s + (v.supply || 0), 0);
+    const INACTIVE_FRAC = 0.003; // 총공급 0.3% 미만 잠김 = 비주력(소액) — 자금이 사실상 그 브릿지에 없음/미미
+    const bridgeInactive = (amountUnits: number) => totalSupplyUnits > 0 && amountUnits < totalSupplyUnits * INACTIVE_FRAC;
+
     // 브릿지 노드 = 도착 체인 원 "바로 바깥"(소스 쪽을 향해). 중점에 두면 사이 체인 토큰과 겹쳐서 →
     // 도착 체인에 붙여 연관 명확 + 다른 체인 위에 안 올라감. 같은 도착이 여러 개면 바깥으로 계단.
     // 브릿지들을 중앙에 "둥근 원"(반경 ringR)으로 균등 배치 — 체인 원들 사이 중앙 허브.
@@ -484,7 +797,8 @@ export function applyConcentricLayout(opts: {
       const eff = v ?? cls;
       const et = mechEdge(eff.mechanism);
       const limTxt = v?.mintLimit != null ? ` · mint한도 ${formatUsd(v.mintLimit)}` : "";
-      nodes.push({ id: bid, type: "Bridge", label: `${srcS} → ${b.dest ?? "멀티체인"}`, metadata: { category: `${eff.protocol} · ${MECH_LABEL[eff.mechanism]}${v ? " · ✓ 검증" : ""}${limTxt} · ${fmtAmt(b.amount)} ${symbol} 잠김`, chain: b.src, bridgeKind: v ? "verified" : "named", bridgeMechanism: eff.mechanism, bridgeProtocol: eff.protocol, bridgeTag: eff.tag, bridgeWeak: cls.weak, bridgeVerified: !!v, bridgeMintLimit: v?.mintLimit ?? null }, active: true, position: ringXY() } as GraphNode);
+      const inactive = bridgeInactive(b.amount); // E20: 소액 잠김 = 이동(미사용)
+      nodes.push({ id: bid, type: "Bridge", label: `${srcS} → ${b.dest ?? "멀티체인"}`, metadata: { category: `${eff.protocol} · ${MECH_LABEL[eff.mechanism]}${v ? " · ✓ 검증" : ""}${limTxt} · ${fmtAmt(b.amount)} ${symbol} ${inactive ? "잠김 ⚠️ 비주력(소액)" : "잠김"}`, chain: b.src, bridgeKind: v ? "verified" : "named", bridgeMechanism: eff.mechanism, bridgeProtocol: eff.protocol, bridgeTag: eff.tag, bridgeWeak: cls.weak, bridgeVerified: !!v, bridgeMintLimit: v?.mintLimit ?? null, bridgeInactive: inactive }, active: !inactive, position: ringXY() } as GraphNode);
       if (chainSet.has(b.src)) edges.push({ id: `br:${bid}:s`, source: `c:${b.src}:token`, target: bid, type: et, weight: b.amount } as GraphEdge);
       if (b.dest) edges.push({ id: `br:${bid}:d`, source: bid, target: `c:${b.dest}:token`, type: et, weight: b.amount } as GraphEdge);
     }
@@ -498,7 +812,8 @@ export function applyConcentricLayout(opts: {
       const protoName = v ? v.protocol : cls.protocol === "Canonical" ? `${c} 캐노니컬` : cls.protocol;
       const et = mechEdge(eff.mechanism);
       const limTxt = v?.mintLimit != null ? ` · mint한도 ${formatUsd(v.mintLimit)}` : "";
-      nodes.push({ id: bid, type: "Bridge", label: `ETH → ${c}`, metadata: { category: `${protoName} · ${MECH_LABEL[eff.mechanism]}${v ? " · ✓ 검증" : "(추정)"}${limTxt}${usd ? ` · 공급 ${formatUsd(usd)}` : ""}`, chain: c, bridgeKind: v ? "verified" : "canonical", bridgeMechanism: eff.mechanism, bridgeProtocol: protoName, bridgeTag: eff.tag, bridgeWeak: cls.weak, bridgeVerified: !!v, bridgeMintLimit: v?.mintLimit ?? null }, active: true, position: ringXY() } as GraphNode);
+      const inactive = bridgeInactive(supplyByChain[c]?.supply ?? 0); // E20: 도착 체인 공급이 소액 = 이동(미사용)
+      nodes.push({ id: bid, type: "Bridge", label: `ETH → ${c}`, metadata: { category: `${protoName} · ${MECH_LABEL[eff.mechanism]}${v ? " · ✓ 검증" : "(추정)"}${limTxt}${usd ? ` · 공급 ${formatUsd(usd)}` : ""}${inactive ? " · ⚠️ 비주력(소액)" : ""}`, chain: c, bridgeKind: v ? "verified" : "canonical", bridgeMechanism: eff.mechanism, bridgeProtocol: protoName, bridgeTag: eff.tag, bridgeWeak: cls.weak, bridgeVerified: !!v, bridgeMintLimit: v?.mintLimit ?? null, bridgeInactive: inactive }, active: !inactive, position: ringXY() } as GraphNode);
       edges.push({ id: `cb:${c}:i`, source: `c:ethereum:token`, target: bid, type: et, weight: usd || 1 } as GraphEdge);
       edges.push({ id: `cb:${c}:o`, source: bid, target: `c:${c}:token`, type: et, weight: usd || 1 } as GraphEdge);
     }

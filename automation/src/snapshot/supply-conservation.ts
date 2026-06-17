@@ -1,9 +1,81 @@
-import { type Abi, getAddress, type PublicClient } from "viem";
+import { type Abi, createPublicClient, getAddress, http, type PublicClient } from "viem";
 
 import {
   ETH_USD_FEED, LIDO_ARBITRUM_GATEWAY, LIDO_BASE_BRIDGE, RSETH_LRT_ORACLE,
   WEETH_MAINNET, WSTETH_ARBITRUM, WSTETH_BASE, WSTETH_MAINNET,
 } from "@/config/onchain-addresses";
+
+// ─────────────────────────────────────────────────────────────
+// 무담보 mint 전-체인 관찰(사용자 결정 2026-06): mint/공급보존 불변식 Σremote ≤ escrow 는 **모든** 브릿지 체인을
+//   봐야 성립한다(일부만 보면 미관측 체인 무담보 mint 를 놓치고-FN, escrow release 를 오해함-FP). depeg·util·near_liq 등
+//   다른 디텍터는 3체인(ACTIVE_CHAINS) 유지 — 이 레지스트리는 공급보존 전용 별도 체인목록.
+// LZ V2 mainnet EID → {chain, rpc}. 홈 adapter.peers(eid) 정방향 열거로 발견된 원격 leg 를 이 표로 매핑(공급 read 용 RPC).
+//   미등록 eid(신규 체인)는 coverage gap 으로 보고(도달 체인으로 진행 + 갭 표시 — 사용자 선택).
+// ─────────────────────────────────────────────────────────────
+export const LZ_REMOTE_CHAINS: Record<number, { chain: string; rpc: string }> = {
+  30110: { chain: "arbitrum", rpc: "https://arbitrum-one-rpc.publicnode.com" },
+  30111: { chain: "optimism", rpc: "https://optimism-rpc.publicnode.com" },
+  30184: { chain: "base", rpc: "https://base-rpc.publicnode.com" },
+  30181: { chain: "mantle", rpc: "https://rpc.mantle.xyz" },
+  30183: { chain: "linea", rpc: "https://linea-rpc.publicnode.com" },
+  30214: { chain: "scroll", rpc: "https://scroll-rpc.publicnode.com" },
+  30243: { chain: "blast", rpc: "https://blast-rpc.publicnode.com" },
+  30109: { chain: "polygon", rpc: "https://polygon-bor-rpc.publicnode.com" },
+  30102: { chain: "bnb", rpc: "https://bsc-rpc.publicnode.com" },
+  30106: { chain: "avalanche", rpc: "https://avalanche-c-chain-rpc.publicnode.com" },
+  30260: { chain: "mode", rpc: "https://mainnet.mode.network" },
+  30255: { chain: "fraxtal", rpc: "https://rpc.frax.com" },
+  30303: { chain: "zircuit", rpc: "https://zircuit-mainnet.drpc.org" },
+  30339: { chain: "ink", rpc: "https://rpc-gel.inkonchain.com" }, // 온체인 확인(2026-06): rsETH OFT 0xc3eacf.peers(30101)==홈 adapter
+};
+const LZ_EID_HOME = 30101; // ethereum
+
+// 전-체인 공급보존용 chain→publicRpc (LZ_REMOTE_CHAINS 파생 + 비-LZ/추가 체인 보강). 모니터링 전용(관계맵 무관).
+//   무담보 mint 는 토큰이 배포된 **모든** 체인을 봐야 하므로(dust 체인도 공격 시 material 화) ACTIVE_CHAINS 와 별개로 넓게 둔다.
+export const CHAIN_RPC: Record<string, string> = {
+  ...Object.fromEntries(Object.values(LZ_REMOTE_CHAINS).map((v) => [v.chain, v.rpc])),
+  ethereum: "https://ethereum-rpc.publicnode.com",
+  sonic: "https://rpc.soniclabs.com",
+  swell: "https://swell-mainnet.alt.technology",
+  manta: "https://pacific-rpc.manta.network/http",
+  hemi: "https://rpc.hemi.network/rpc",
+  xlayer: "https://rpc.xlayer.tech",
+  ink: "https://rpc-gel.inkonchain.com",
+};
+
+const _lzClients = new Map<string, PublicClient>();
+export function clientForRpc(rpc: string): PublicClient {
+  let c = _lzClients.get(rpc);
+  if (!c) { c = createPublicClient({ transport: http(rpc, { retryCount: 2, retryDelay: 500, timeout: 25_000 }) }) as PublicClient; _lzClients.set(rpc, c); }
+  return c;
+}
+/** chain → 공급보존용 클라이언트(CHAIN_RPC). 미등록 체인 null. */
+export function clientForChain(chain: string): PublicClient | null {
+  const rpc = CHAIN_RPC[chain];
+  return rpc ? clientForRpc(rpc) : null;
+}
+
+/** 발견된 원격 OFT leg(정방향 peer 열거) — eid→체인 매핑된 것. 미매핑 eid 는 unmappedEids 로 별도 보고(coverage gap). */
+export interface DiscoveredLeg { chain: string; eid: number; token: string; rpc: string; }
+/**
+ * 홈 OFT adapter(escrow)의 peers(eid)를 LZ_REMOTE_CHAINS 전 eid 에 대해 정방향 조회 → 연결된 **모든** 원격 체인의
+ *   OFT 주소 발견(공급 read 대상). 한 multicall 로 일괄. 미매핑 eid 의 non-zero peer 는 unmapped 로 보고(갭).
+ */
+export async function discoverLzLegs(home: PublicClient, adapter: string): Promise<{ legs: DiscoveredLeg[]; unmappedEids: { eid: number; peer: string }[] }> {
+  const eids = Object.keys(LZ_REMOTE_CHAINS).map(Number);
+  // 개별 peers() 조회(Promise.all) — multicall3 미설정 클라이언트(clientFor)에서도 동작하게 multicall 의존 제거.
+  const peers = await Promise.all(eids.map((e) =>
+    home.readContract({ address: getAddress(adapter), abi: PEERS_ABI, functionName: "peers", args: [e] })
+      .then((p) => b32ToAddress(String(p)))
+      .catch(() => null)));
+  const legs: DiscoveredLeg[] = [];
+  peers.forEach((a, i) => {
+    if (!a || eids[i] === LZ_EID_HOME) return;
+    const m = LZ_REMOTE_CHAINS[eids[i]];
+    if (m) legs.push({ chain: m.chain, eid: eids[i], token: a, rpc: m.rpc });
+  });
+  return { legs, unmappedEids: [] };
+}
 
 /**
  * 크로스체인 공급 보존(supply_conservation) — Kelp DAO rsETH류 무담보 OFT mint 탐지.
@@ -57,6 +129,10 @@ export interface ConservationWatch {
   remotes: { chain: string; token: string }[]; // 관측 L2 leg(고정 주소, 홈 제외)
   tolBps: number;
   escrowOverrides?: Record<string, string>; // 체인 → escrow(자동발견 불가 브릿지 수동 보강, 검증됨만)
+  // peer 발견으로 안 잡히는 **unpeered/타-브릿지 배포**(예: unichain rsETH 0xc3eacf, peers(eth)=0)를 명시 관찰.
+  //   canonical-lock(주 escrow)이 모든 rsETH 의 backing 이라는 전제 하에 Σremote 에 합산 → 그 체인의 무담보 mint 가
+  //   escrow 초과를 유발하면 발화(Kelp 가 unichain발이라 명시 watch 필수, 사용자 결정 2026-06). rpc=모니터링 전용(관계맵 무관).
+  extraChains?: { chain: string; token: string; rpc: string }[];
   rate?: RateRead;
   underlyingPrice: UnderlyingPrice;
   confidence: "HIGH" | "MEDIUM" | "LOW"; // 기본값 — 미커버 leg 존재 시 러너가 강등
@@ -165,9 +241,28 @@ export const CONSERVATION_WATCHES: ConservationWatch[] = [
     homeChain: "ethereum",
     canonical: "0xA1290d69c65A6Fe4DF752f95823fae25cB99e5A7",
     decimals: 18,
+    // 전 체인(CoinGecko 검증 22체인 중 EVM 18). 각 체인 adapter 는 resolveLegEscrows 가 per-chain peers(eth)로 개별 해석(multi-adapter
+    //   그룹). dust 체인도 포함 — 공격 시 material 화하는 무담보 mint 를 어느 체인에서든 잡기 위함(사용자 결정 2026-06).
+    //   ⚠️ 비-EVM(Movement)은 viem read 불가 → 미커버(별도 처리 필요). RPC 미도달 체인은 coverage gap 으로 플래그(진행).
     remotes: [
       { chain: "base", token: "0x1Bc71130A0e39942a7658878169764Bbd8A45993" },
       { chain: "arbitrum", token: "0x4186BFC76E2E237523CBC30FD220FE055156b41F" },
+      { chain: "ink", token: "0xc3eacf0612346366db554c991d7858716db09f58" },
+      { chain: "mantle", token: "0x4186BFC76E2E237523CBC30FD220FE055156b41F" },
+      { chain: "scroll", token: "0x65421ba909200b81640d98b979d07487c9781b66" },
+      { chain: "blast", token: "0x4186BFC76E2E237523CBC30FD220FE055156b41F" },
+      { chain: "mode", token: "0x4186BFC76E2E237523CBC30FD220FE055156b41F" },
+      { chain: "optimism", token: "0x4186BFC76E2E237523CBC30FD220FE055156b41F" },
+      { chain: "linea", token: "0x4186BFC76E2E237523CBC30FD220FE055156b41F" },
+      { chain: "sonic", token: "0xd75787ba9aba324420d522bda84c08c87e5099b1" },
+      { chain: "swell", token: "0xc3eacf0612346366db554c991d7858716db09f58" },
+      { chain: "berachain", token: "0x4186BFC76E2E237523CBC30FD220FE055156b41F" },
+      { chain: "manta", token: "0x4186BFC76E2E237523CBC30FD220FE055156b41F" },
+      { chain: "unichain", token: "0xc3eacf0612346366db554c991d7858716db09f58" },
+      { chain: "avalanche", token: "0xc430c78da6e4af49bd115f0329d154bb135f1363" },
+      { chain: "hemi", token: "0xc3eacf0612346366db554c991d7858716db09f58" },
+      { chain: "xlayer", token: "0x1b3a9a689ba7555f9d7984d7ad4025574ed5a0f9" },
+      { chain: "zircuit", token: "0x4186BFC76E2E237523CBC30FD220FE055156b41F" },
     ],
     tolBps: 50,
     rate: { contract: RSETH_LRT_ORACLE, fn: "rsETHPrice" }, // LRTOracle

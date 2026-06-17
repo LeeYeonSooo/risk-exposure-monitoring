@@ -22,7 +22,7 @@ import { closePool, query } from "@/db/client";
 import { insertAlert, loadActiveAlertKeys, resolveStaleAlerts } from "@/db/upsert";
 import { clientFor, fmtToken as fmt, publicClientFor } from "@/snapshot/scanner-kit";
 import {
-  CONSERVATION_WATCHES, readRate, readUnderlyingUsd, resolveLegEscrows, type ConservationWatch,
+  clientForChain, clientForRpc, CONSERVATION_WATCHES, discoverLzLegs, readRate, readUnderlyingUsd, resolveLegEscrows, type ConservationWatch,
 } from "@/snapshot/supply-conservation";
 import { evaluateBacking, readBacking, readTotalSupply } from "@/snapshot/supply-backing";
 
@@ -43,7 +43,7 @@ async function corroborated(symbol: string): Promise<string[]> {
   const r = await query<{ kind: string }>(
     `SELECT DISTINCT kind FROM alerts
      WHERE kind IN ('supply_single_mint','chain_supply_spike','supply_spike')
-       AND token = $1 AND resolved_at IS NULL AND created_at > now() - interval '48 hours'`,
+       AND upper(token) = upper($1) AND resolved_at IS NULL AND created_at > now() - interval '48 hours'`,
     [symbol],
   ).catch(() => ({ rows: [] as { kind: string }[] }));
   return r.rows.map((x) => x.kind);
@@ -101,23 +101,44 @@ async function processWatch(
   const home = clientFor(w.homeChain);
   if (!home) { console.log(`[supplycons] ${w.symbol}: 홈 ${w.homeChain} RPC 없음 — skip(보존)`); skipped.add(key); return; }
 
-  // ── 1) leg 별 escrow 역산(브릿지 무관: LZ peers / Arbitrum gateway / OP L1Bridge / override) ──
-  const legs = await resolveLegEscrows({ home, homeChain: w.homeChain, canonical: w.canonical, remotes: w.remotes, clientFor, overrides: w.escrowOverrides });
+  // ── 1) leg escrow 역산 — 전 체인 clientFor(active=Alchemy, 그외=CHAIN_RPC). 각 remote 의 home adapter 를 per-chain
+  //   peers(eth)로 개별 해석 → multi-adapter 그룹(체인마다 다른 브릿지/adapter 도 정확 귀속). ──
+  const chainClient = (chain: string) => clientFor(chain) ?? clientForChain(chain);
+  const cfgLegs = await resolveLegEscrows({ home, homeChain: w.homeChain, canonical: w.canonical, remotes: w.remotes, clientFor: chainClient, overrides: w.escrowOverrides });
 
-  // ── 2) leg 별 live 공급 read(Σ-integrity: 하나라도 실패 시 watch skip) + escrow 별 그룹화 ──
-  //   ★ 네이티브 게이트웨이=체인 전용 escrow → 1:1 tight 비교 · LZ 공유풀=그룹 loose 비교(타 체인 backing 포함).
+  // ── 1b) 무담보 mint 전-체인 관찰(2026-06): LZ 홈 adapter 면 peers(eid) **정방향 열거**로 연결된 모든 원격 체인 발견.
+  //   종전엔 config remotes(base+arb)만 봐 미관측 체인(mantle 등)의 무담보 mint 를 놓치고(FN) escrow release 를 오해함(FP).
+  //   이제 escrow 가 백킹하는 전 체인을 합산 → Σremote ≤ escrow 불변식이 완전. (다른 디텍터는 ACTIVE_CHAINS 3체인 유지.)
+  const byChain = new Map<string, { token: string; escrow: string | null; bridge: string; rpc?: string }>();
+  for (const l of cfgLegs) byChain.set(l.chain, { token: l.token, escrow: l.escrow, bridge: l.bridge });
+  const lzAdapter = cfgLegs.find((l) => l.bridge === "layerzero" && l.escrow)?.escrow ?? null;
+  if (lzAdapter) {
+    const disc = await discoverLzLegs(home, lzAdapter);
+    for (const d of disc.legs) byChain.set(d.chain, { token: d.token, escrow: lzAdapter, bridge: "layerzero", rpc: d.rpc }); // 발견된 LZ leg(전 체인)
+  }
+  // extraChains — peer 발견으로 안 잡히는 unpeered/타-브릿지 배포(unichain 등). canonical-lock(주 escrow=lzAdapter)이 모든
+  //   rsETH backing 이라는 전제로 Σ 에 합산 → 그 체인 무담보 mint 가 escrow 초과 유발 시 발화. lzAdapter 없으면 escrow=null(갭 플래그).
+  for (const ec of w.extraChains ?? []) {
+    if (!byChain.has(ec.chain)) byChain.set(ec.chain, { token: ec.token, escrow: lzAdapter, bridge: lzAdapter ? "layerzero" : "unresolved", rpc: ec.rpc });
+  }
+
+  // ── 2) leg 별 live 공급 read — **도달 체인으로 진행 + 미도달은 coverage gap**(사용자 결정: Σ-integrity skip 폐기).
+  //   active(eth/base/arb)=liveSupply(Alchemy+public 폴백) · 그 외=레지스트리 RPC. read 실패 leg 는 uncoveredLegs(갭) 로 보고하되
+  //   watch 전체를 skip 하지 않는다 — 도달 체인의 Σremote 가 이미 escrow 초과면 그 자체로 breach(타 체인 도달여부 무관). FN 최소화.
   const supplyByLeg: Record<string, string> = {};
   const uncoveredLegs: string[] = [];
   const groups = new Map<string, { chains: string[]; supply: bigint; bridge: string }>();
-  for (const leg of legs) {
-    if (!isActiveChain(leg.chain)) continue;
-    const s = await liveSupply(leg.chain, leg.token);
-    if (s === null) { console.log(`[supplycons] ${w.symbol}: ${leg.chain} totalSupply 실패(live+public) — Σ-integrity skip(보존)`); skipped.add(key); return; }
-    supplyByLeg[leg.chain] = s.toString();
-    if (!leg.escrow) { uncoveredLegs.push(leg.chain); continue; } // escrow 미해결 = 그 leg 미감시(FN, FP 아님)
-    const k = leg.escrow.toLowerCase();
-    const g = groups.get(k) ?? { chains: [], supply: 0n, bridge: leg.bridge };
-    g.chains.push(leg.chain); g.supply += s;
+  for (const [chain, info] of byChain) {
+    const cl = isActiveChain(chain) ? null : (info.rpc ? clientForRpc(info.rpc) : clientForChain(chain));
+    const s = isActiveChain(chain)
+      ? await liveSupply(chain, info.token)
+      : (cl ? await readTotalSupply(cl, info.token).catch(() => null) : null);
+    if (s === null) { uncoveredLegs.push(chain); continue; } // RPC 미도달/미해결 = coverage gap(진행, 비-skip)
+    supplyByLeg[chain] = s.toString();
+    if (!info.escrow) { uncoveredLegs.push(chain); continue; }
+    const k = info.escrow.toLowerCase();
+    const g = groups.get(k) ?? { chains: [], supply: 0n, bridge: info.bridge };
+    g.chains.push(chain); g.supply += s;
     groups.set(k, g);
   }
   if (groups.size === 0) { console.log(`[supplycons] ${w.symbol}: escrow 해결된 leg 0 — skip(보존; override 필요?)`); skipped.add(key); return; }
@@ -155,9 +176,14 @@ async function processWatch(
     if (f) { totalExcess += (g.supply - bal); worstBps = Math.max(worstBps, f.overageBps); breachGroups.push({ escrow: addr, bridge: g.bridge, chains: g.chains, supply: g.supply.toString(), escrowBal: bal.toString(), overageBps: f.overageBps }); }
 
     // (b) escrow 급락 delta — armed 그룹에서 escrow 가 관측공급 하락 동반 없이 급락 = 무단 release(Kelp 실제 메커니즘).
-    //   정상 redeem 은 L2 burn(공급↓)+escrow unlock(↓) 동반이라 unexplained≈0. 미관측 체인 redeem 은 noise(→WATCH).
+    //   정상 redeem 은 L2 burn(공급↓)+escrow unlock(↓) 동반이라 unexplained≈0. 이제 supTok 은 **전 LZ 체인 합**(1b 발견)이라
+    //   커버된 체인 redeem 은 자동으로 supTok↓로 설명됨(FP 해소). 잔여 미커버(미매핑 eid·미도달 RPC)만 unexplained 로 남는다.
     const unexplained = (prevBal - balTok) - (prevSup - supTok);
-    if ((prevBal - balTok) > 0 && unexplained / prevBal >= T.releaseDropPct) {
+    // ★ 잔여 갭 버퍼 가드(FP #726): 전 체인 발견 후에도 **미도달/미매핑** 체인이 남으면 그 공급분이 overBackBuffer(=escrow−Σ관측)
+    //   에 들어간다. unexplained 방출이 이 버퍼 안이면 그 미커버 체인의 redeem 일 뿐(관측 체인 백킹 무손상) → 억제.
+    //   방출이 버퍼를 **초과**해 관측 체인 백킹을 잠식할 때만 발화(진짜 drain 선행신호; 완전 breach 는 (a) mint 메커니즘 백업).
+    const overBackBuffer = balTok - supTok;
+    if ((prevBal - balTok) > 0 && unexplained / prevBal >= T.releaseDropPct && unexplained > Math.max(0, overBackBuffer)) {
       releaseGroups.push({ escrow: addr, bridge: g.bridge, chains: g.chains, unexplainedTok: unexplained, dropPct: unexplained / prevBal });
     }
   }
@@ -165,14 +191,22 @@ async function processWatch(
   const effConfidence: "HIGH" | "MEDIUM" | "LOW" = uncoveredLegs.length > 0 && w.confidence === "HIGH" ? "MEDIUM" : w.confidence;
   console.log(`[supplycons] ${w.symbol}: 그룹 ${groups.size} [${Object.entries(groupSummary).map(([k, v]) => `${k} ${v}`).join(" · ")}]${uncoveredLegs.length ? ` · 미커버=${uncoveredLegs.join(",")}` : ""}`);
 
-  if (breachGroups.length === 0 && releaseGroups.length === 0) {
-    return; // 전 그룹 over-backed + escrow 급락 없음 → clean → resolveStaleAlerts 가 기존 active 해소
-  }
-
-  // ── 4) USD 사이징(토큰 DEX 가격 금지 — underlying×rate; const:0=가격미상→null) ──
+  // ── 4) USD 사이징(토큰 DEX 가격 금지 — underlying×rate; const:0=가격미상→null) — early-return 전(material 미커버 판정에 필요) ──
   const rate = w.rate ? await readRate(home, w.rate) : 1;
   const underlyingUsd = await readUnderlyingUsd(home, w.underlyingPrice);
   const px = rate != null && underlyingUsd != null && underlyingUsd > 0 ? rate * underlyingUsd : null; // 토큰 1개 USD
+
+  // (c) material 미커버 leg — 백킹 링크(escrow) 미해석 체인의 공급이 floor 초과 = '백킹 미확인 대형 공급'(unbacked 의심).
+  //   전-체인 관찰(2026-06): dust 체인(대부분)은 무시하되, 공격이 dust 체인을 material 로 부풀리는 무담보 mint 를 어느
+  //   체인에서든 포착(FN 차단). 미해석은 '미탐지 브릿지'일 수도 있어 critical 금지·warning(검토 요)로 한정.
+  const uncoveredTok = uncoveredLegs.reduce((s, c) => s + (Number(supplyByLeg[c] ?? "0") / 10 ** w.decimals), 0);
+  const uncoveredUsd = px != null ? uncoveredTok * px : null;
+  const materialUncovered = uncoveredUsd != null && uncoveredUsd >= T.warnUsd;
+
+  if (breachGroups.length === 0 && releaseGroups.length === 0 && !materialUncovered) {
+    return; // 전 그룹 over-backed + escrow 급락 없음 + material 미커버 없음 → clean → resolveStaleAlerts 가 기존 active 해소
+  }
+
   const excessTok = Number(totalExcess) / 10 ** w.decimals;
   const releaseTok = releaseGroups.reduce((s, r) => s + r.unexplainedTok, 0);
   const usd = px != null ? (excessTok + releaseTok) * px : null;
@@ -190,6 +224,7 @@ async function processWatch(
     const relUsd = px != null ? releaseTok * px : null;
     if (relUsd == null || relUsd >= T.releaseDropUsd) sev = "warning"; // 미설명 급락 = 최소 WATCH(redeem/release 확인)
   }
+  if (materialUncovered && sev === "info") sev = "warning"; // 백킹 미확인 대형 공급 = 최소 WATCH(미탐지 브릿지 or 무담보 — 검토 요)
 
   // ── 6) persistence(1폴) — 첫 관측 info(WATCH), 다음 폴 지속 시 escalate. corroboration 동반 시 즉시 승격 ──
   const corrob = await corroborated(w.symbol);
@@ -199,10 +234,11 @@ async function processWatch(
 
   asserted.add(key);
   const usdStr = usd != null ? ` / $${usd >= 1e6 ? `${(usd / 1e6).toFixed(1)}M` : usd.toFixed(0)}` : "";
-  const mech = breachGroups.length && releaseGroups.length ? "mint+release" : breachGroups.length ? "mint" : "release";
+  const mech = [breachGroups.length ? "mint" : "", releaseGroups.length ? "release" : "", materialUncovered ? "uncovered" : ""].filter(Boolean).join("+") || "uncovered";
   const parts: string[] = [];
   if (breachGroups.length) parts.push(`mint초과 ${fmt(totalExcess, w.decimals)} ${worstBps}bps`);
   if (releaseGroups.length) parts.push(`escrow급락 ${(worstReleasePct * 100).toFixed(1)}%`);
+  if (materialUncovered) parts.push(`백킹미확인 ${uncoveredTok.toFixed(0)}토큰(${uncoveredLegs.length}체인)`);
   const msg = `${w.symbol} — ${parts.join(" · ")}${usdStr}`;
   console.log(`[supplycons] 🚨 ${w.symbol}: ${msg}${corrob.length ? ` · 동반 ${corrob.join(",")}` : ""}`);
 
@@ -221,7 +257,8 @@ async function processWatch(
       worstOverageBps: worstBps,
       worstReleasePct,
       usd, rate, supplyByLeg, groupSummary,
-      uncoveredLegs,                         // escrow 미해결 leg(미감시 — FN, override 권장)
+      uncoveredLegs,                         // escrow 미해결 leg(전 체인 관찰하나 백킹 링크 미해석)
+      uncoveredUsd, materialUncovered,       // (c) 백킹 미확인 대형 공급(material 미커버) — 무담보 의심/미탐지 브릿지
       confidence: effConfidence,             // 대문자 — 미커버 시 강등(coverageGapVeto 호환)
       verifiableOnchain: uncoveredLegs.length === 0,
       corroboratedBy: corrob.length ? corrob : null,

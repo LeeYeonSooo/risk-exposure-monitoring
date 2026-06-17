@@ -175,8 +175,8 @@ DEBANK_HEADFUL=1 DEBANK_PROFILE_DIR=~/.debank-profile npm run snapshot:wallets -
 # (C) 차단 환경 폴백 — 온체인-매핑 가치만으로 추적+급감 알림(프로토콜 포지션 분해만 빠짐)
 WALLET_SKIP_DEBANK=1 npm run snapshot:wallets
 ```
-- 지갑 자동 발굴(선택, Dune): `DUNE_API_KEY=… npm run discover:wallets -- wstETH USDe WBTC` — 탑홀더에서 펀드/볼트/멀티시그 시드.
 - cron의 `walletLoop`이 2시간마다 `snapshot-wallets` 실행. 차단 환경이면 `WALLET_SKIP_DEBANK=1`로 cron 기동. `tracked_wallets` 비면 no-op.
+  (지갑 자동 발굴 `discover:wallets` 는 Dune 폐기와 함께 제거 — MANUAL §17 2026-06-12.)
 
 ---
 

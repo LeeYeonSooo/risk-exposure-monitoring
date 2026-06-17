@@ -12,6 +12,9 @@ import type { RiskLevel } from "@/lib/flow-types";
  * All inputs optional → defaults to the home view (top-5 ETH tokens incl stETH).
  */
 export const dynamic = "force-dynamic";
+// 그래프 구성은 DB 조회 + flow-core 의 derive-family 온체인 프로브(배치 RPC)라 콜드 시 수 초가 걸린다 —
+// 서버리스 기본 타임아웃에 잘리지 않게 상한을 올린다(상주 Node 면 무영향). (2026-06-13 감사)
+export const maxDuration = 60;
 
 const DATABASE_URL = process.env.DATABASE_URL;
 let _pool: pg.Pool | null = null;
@@ -36,6 +39,8 @@ export async function GET(req: Request) {
   const topPct = url.searchParams.get("topPct") ? Number(url.searchParams.get("topPct")) : undefined;
   const maxProto = url.searchParams.get("maxProto") ? Number(url.searchParams.get("maxProto")) : undefined;
   const maxMkt = url.searchParams.get("maxMkt") ? Number(url.searchParams.get("maxMkt")) : undefined;
+  // estimated=1 → mint_event(추정) 브릿지 권한도 노드로 포함 (브릿지 뷰 토글). 기본 제외 = 검증/탐지된 것만.
+  const estimated = url.searchParams.get("estimated") === "1";
 
   let graph;
   try {
@@ -162,9 +167,10 @@ export async function GET(req: Request) {
       }
     } catch { /* intel optional */ }
 
-    // 5) 브릿지 노드 — EVM 검증 mint 권한(bridge_authorities) + 비-EVM 표준 브릿지(bridge_detections,
-    //    파이썬 8계열 탐지기) → 토큰@체인 노드에 🌉 노드로 부착 (관계맵과 동일 데이터 근거).
-    //    mint_event(추정)는 제외 — 탐지/검증된 것만 노드가 된다.
+    // 5) 브릿지 노드 — EVM 검증 mint 권한(bridge_authorities)만 → 토큰@체인 노드에 🌉 노드로 부착.
+    //    mint_event(추정)는 제외 — 검증된 것만 노드가 된다.
+    //    비-EVM 표준 브릿지 테이블(bridge_detections — 파이썬 탐지기, solana/sui/tron/… 행만 적재)은
+    //    EVM 전용 결정(2026-06-12)에 따라 조회 자체를 제거 — "안 불러온다".
     try {
       const tokenIdBySymChain = new Map<string, string>();
       for (const n of graph.nodes) if (n.kind === "token") tokenIdBySymChain.set(`${n.token.toUpperCase()}|${n.chain}`, n.id);
@@ -174,11 +180,7 @@ export async function GET(req: Request) {
         oft_peer: "LayerZero OFT", minter_role: "MINTER_ROLE", cctp: "Circle CCTP", wormhole_ntt: "Wormhole NTT",
         axelar_its: "Axelar ITS", hyperlane: "Hyperlane", op_bridge: "OP Bridge", l2_canonical: "L2 Canonical", polygon_pos: "Polygon PoS",
       };
-      const slugOf = (st: string) =>
-        /cctp/i.test(st) ? "cctp" : /wormhole/i.test(st) ? "wormhole" : /ibc/i.test(st) ? "ibc"
-        : /starkgate/i.test(st) ? "starkgate" : /sui bridge/i.test(st) ? "sui_bridge"
-        : /layerzero|oft/i.test(st) ? "layerzero" : st.toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 24);
-      const addBridgeNode = (sym: string, chain: string, slug: string, pretty: string, addr: string, note: string | null, mintLimit: number | null) => {
+      const addBridgeNode = (sym: string, chain: string, slug: string, pretty: string, addr: string, note: string | null, mintLimit: number | null, isEstimated: boolean) => {
         const tokId = tokenIdBySymChain.get(`${sym}|${chain}`);
         if (!tokId) return;
         const id = `bridge:${chain}|${sym}|${slug}`;
@@ -187,20 +189,16 @@ export async function GET(req: Request) {
           existing.meta = { ...(existing.meta ?? {}), count: ((existing.meta?.count as number | undefined) ?? 1) + 1 };
           return;
         }
-        graph.nodes.push({ id, kind: "bridge", label: pretty, token: sym, chain, tvlUsd: 0, address: addr, risk: "safe", meta: { authType: slug, note, mintLimit, addr } });
+        graph.nodes.push({ id, kind: "bridge", label: pretty, token: sym, chain, tvlUsd: 0, address: addr, risk: "safe", meta: { authType: slug, note, mintLimit, addr, estimated: isEstimated } });
         graph.edges.push({ id: `bn:${id}`, source: tokId, target: id, kind: "bridge", tvlUsd: 0, weight: 0.2, chain, label: `${pretty} 브릿지 통로`, bridge: { fromChain: chain, toChain: chain, mechanism: slug, protocol: pretty } });
       };
+      // estimated=1 이면 mint_event(추정)도 포함, meta.estimated=true 로 표시(UI 점선·"추정"). 기본은 검증/탐지된 것만.
       const ba2 = await p.query<{ token: string; chain: string; bridge_addr: string; auth_type: string; mint_limit: number | null; note: string | null }>(
         `SELECT DISTINCT ON (upper(token), chain, auth_type) token, chain, bridge_addr, auth_type, mint_limit, note
-         FROM bridge_authorities WHERE upper(token) = ANY($1) AND auth_type <> 'mint_event' ORDER BY upper(token), chain, auth_type`,
+         FROM bridge_authorities WHERE upper(token) = ANY($1)${estimated ? "" : " AND auth_type <> 'mint_event'"} ORDER BY upper(token), chain, auth_type`,
         [syms],
       );
-      for (const r of ba2.rows) addBridgeNode(r.token.toUpperCase(), r.chain, r.auth_type, PRETTY[r.auth_type] ?? r.auth_type, r.bridge_addr, r.note, r.mint_limit);
-      const bd = await p.query<{ token: string; chain: string; standard: string; bridge_address: string; note: string | null }>(
-        `SELECT token, chain, standard, bridge_address, note FROM bridge_detections WHERE upper(token) = ANY($1)`,
-        [syms],
-      ).catch(() => ({ rows: [] as { token: string; chain: string; standard: string; bridge_address: string; note: string | null }[] }));
-      for (const r of bd.rows) addBridgeNode(r.token.toUpperCase(), r.chain, slugOf(r.standard), r.standard.split("(")[0].trim(), r.bridge_address, r.note, null);
+      for (const r of ba2.rows) addBridgeNode(r.token.toUpperCase(), r.chain, r.auth_type, PRETTY[r.auth_type] ?? r.auth_type, r.bridge_addr, r.note, r.mint_limit, r.auth_type === "mint_event");
     } catch { /* table optional */ }
 
     // Event-discovered trace edges are added in the /flow client from the live event feed.

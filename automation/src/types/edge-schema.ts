@@ -273,6 +273,8 @@ export interface TokenNodeSnapshot {
     totalSupply: number;
     holders: number | null;
     marketCapUsd: number | null;
+    /** 가격 커버리지: 온체인 DEX 또는 coins.llama 로 실가격을 구했는가. false 면 marketCapUsd=null(1로 위조 안 함) → 가격의존 알림(depeg/whale) skip. */
+    priceCovered?: boolean;
     paused: boolean;
     bridges: Record<string, Array<{ bridge: string; lockedAmount: number; destChains: string[]; mechanism?: string | null }>>;
     /** Top-N holder list (for whale-unwind alert). */

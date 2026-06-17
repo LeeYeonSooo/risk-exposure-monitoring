@@ -9,3 +9,9 @@ output/*.csv
 .DS_Store
 .vscode/
 .idea/
+
+# 백테스트 fork read 캐시(파생·재생성 가능) — 커밋 안 함. results.json(데모 출력)은 추적.
+backtest/fork-cache.json
+# FP 점검용 임시 쿼리 스크래치
+.fpq*.ts
+.fpcheck*.ts

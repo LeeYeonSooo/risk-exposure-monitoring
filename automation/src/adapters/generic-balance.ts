@@ -9,6 +9,7 @@ import {
 } from "@/types/edge-schema";
 
 import { oracleTypeForCollateral } from "@/config/alert-thresholds";
+import { getDexQuote } from "@/lib/dex-onchain";
 import type { AdapterContext, ProtocolAdapter } from "./types";
 
 const ERC20_ABI = [
@@ -71,6 +72,11 @@ export function makeGenericBalanceAdapter(opts: {
 
       if (amountToken === 0) return null;
 
+      // DEX 유동성 — 한쪽 balanceOf(amountToken×price)는 실풀 TVL 과 무관(거의 $0). **getDexQuote 의 deepest-pool TVL**(온체인 Uni V2/V3)로 교체, 폴백=종전 balanceOf.
+      const dexLiqUsd = opts.protocolClass === "dex"
+        ? ((await getDexQuote(token, ctx.chainId ?? 1, decimals, Date.now()).catch(() => null))?.liquidityUsd ?? amountToken * ctx.tokenPriceUsd)
+        : null;
+
       const role: EdgeRole = {
         edge_type: opts.edgeType,
         amount_token: amountToken,
@@ -105,7 +111,7 @@ export function makeGenericBalanceAdapter(opts: {
         } : null,
         dex: opts.protocolClass === "dex" ? {
           poolCount: opts.watchAddresses.length,
-          liquidityUsd: amountToken * ctx.tokenPriceUsd,
+          liquidityUsd: dexLiqUsd,
           depthAt1pctUsd: null,
           depthAt5pctUsd: null,
           topPairs: null,

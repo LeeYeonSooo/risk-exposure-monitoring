@@ -28,6 +28,11 @@ interface AlertRow {
   message: string;
   detail: unknown;
   acknowledged: boolean;
+  // 알림 클릭 → Etherscan 바로가기용 컨트랙트 주소(nodes JOIN). 모든 알림이 최소 하나는 가짐(tx 없는 상태형 폴백).
+  token_address: string | null;
+  token_chain: string | null;
+  protocol_address: string | null;
+  protocol_chain: string | null;
 }
 
 export async function GET(req: Request) {
@@ -45,32 +50,49 @@ export async function GET(req: Request) {
   if (!p) return NextResponse.json({ alerts: [], counts: {}, dbConnected: false });
 
   try {
+    // 컬럼은 alerts 별칭 a. 로 한정(아래 nodes JOIN 과 모호성 방지).
     const conds: string[] = [];
     const params: unknown[] = [];
     if (token) {
       params.push(token.toUpperCase());
-      conds.push(`token = $${params.length}`);
+      conds.push(`a.token = $${params.length}`);
     }
     if (severityParam) {
       const sevs = severityParam.split(",").map((s) => s.trim()).filter(Boolean);
       if (sevs.length) {
         params.push(sevs);
-        conds.push(`severity = ANY($${params.length}::text[])`);
+        conds.push(`a.severity = ANY($${params.length}::text[])`);
       }
     }
     // 활성 = 미확인(acknowledged) AND 미해소(resolved_at). 조건 해소된 상태형 알림은 자동 제외. ?includeAck=1 로 포함.
-    if (url.searchParams.get("includeAck") !== "1") conds.push(`acknowledged IS NOT TRUE AND resolved_at IS NULL`);
+    if (url.searchParams.get("includeAck") !== "1") conds.push(`a.acknowledged IS NOT TRUE AND a.resolved_at IS NULL`);
     const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
     params.push(limit);
 
     const orderBy = sortBySeverity
-      ? `ORDER BY CASE severity WHEN 'critical' THEN 3 WHEN 'warning' THEN 2 WHEN 'info' THEN 1 ELSE 0 END DESC,
-                  COALESCE(snapshot_ts, created_at) DESC, created_at DESC`
-      : `ORDER BY COALESCE(snapshot_ts, created_at) DESC, created_at DESC`;
+      ? `ORDER BY CASE a.severity WHEN 'critical' THEN 3 WHEN 'warning' THEN 2 WHEN 'info' THEN 1 ELSE 0 END DESC,
+                  COALESCE(a.snapshot_ts, a.created_at) DESC, a.created_at DESC`
+      : `ORDER BY COALESCE(a.snapshot_ts, a.created_at) DESC, a.created_at DESC`;
 
+    // 컨트랙트 주소 enrich — 알림 클릭 시 Etherscan 바로가기(tx 없는 상태형 알림 폴백). protocol_node_id 는 exact JOIN(체인 정확),
+    //   token 은 case-insensitive + 활성체인(eth/base/arb) 우선 LATERAL JOIN. 체인은 node_id 의 @suffix(없으면 ethereum).
     const r = await p.query<AlertRow>(
-      `SELECT id, created_at, snapshot_ts, severity, kind, token, protocol_node_id, message, detail, acknowledged
-       FROM alerts ${where} ${orderBy} LIMIT $${params.length}`,
+      `SELECT a.id, a.created_at, a.snapshot_ts, a.severity, a.kind, a.token, a.protocol_node_id, a.message, a.detail, a.acknowledged,
+              tn.address AS token_address,
+              CASE WHEN tn.node_id LIKE '%@%' THEN split_part(tn.node_id, '@', 2) ELSE 'ethereum' END AS token_chain,
+              pn.address AS protocol_address,
+              CASE WHEN a.protocol_node_id LIKE '%@%' THEN split_part(a.protocol_node_id, '@', 2) ELSE 'ethereum' END AS protocol_chain
+       FROM alerts a
+       LEFT JOIN LATERAL (
+         SELECT address, node_id FROM nodes
+         WHERE (node_id ILIKE 'token:' || a.token OR node_id ILIKE 'token:' || a.token || '@%')
+           AND address IS NOT NULL AND address <> ''
+         ORDER BY (lower(node_id) = lower('token:' || a.token)) DESC,
+                  (node_id NOT LIKE '%@%' OR node_id ILIKE '%@base' OR node_id ILIKE '%@arbitrum') DESC
+         LIMIT 1
+       ) tn ON true
+       LEFT JOIN nodes pn ON pn.node_id = a.protocol_node_id
+       ${where} ${orderBy} LIMIT $${params.length}`,
       params,
     );
 

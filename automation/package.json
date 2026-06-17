@@ -1,7 +1,7 @@
 {
   "name": "wbtc-mapping-automation",
   "version": "0.1.0",
-  "description": "Token-centric dependency mapping pipeline — bipartite snapshots, Multicall3 + Morpho GraphQL + Dune labels.",
+  "description": "Token-centric dependency mapping pipeline — bipartite snapshots, Multicall3 + Morpho GraphQL (RPC-first, eth·base·arb).",
   "type": "module",
   "private": true,
   "scripts": {
@@ -15,14 +15,14 @@
     "snapshot:mintburn": "tsx scripts/snapshot-mintburn.ts",
     "snapshot:valuedrift": "tsx scripts/snapshot-value-drift.ts",
     "snapshot:reflexivity": "tsx scripts/snapshot-reflexivity.ts",
-    "snapshot:nonevm": "tsx scripts/snapshot-nonevm-lending.ts",
-    "snapshot:flows": "tsx scripts/snapshot-flows.ts",
+    "snapshot:lego": "tsx scripts/snapshot-lego.ts",
+    "lego:terminal": "tsx scripts/backfill-terminal.ts",
     "snapshot:wallets": "tsx scripts/snapshot-wallets.ts",
-    "discover:wallets": "tsx scripts/discover-curator-wallets.ts",
     "snapshot:curators": "tsx scripts/snapshot-curators.ts",
     "discover": "tsx scripts/discover.ts",
     "discover:dry": "tsx scripts/discover.ts --dry-run",
     "review": "tsx scripts/review-queue.ts",
+    "classify:unknowns": "tsx scripts/classify-unknowns.ts",
     "scan:risks": "tsx scripts/scan-current-risks.ts",
     "observe": "tsx scripts/observe-alerts.ts",
     "prune": "tsx scripts/prune-snapshots.ts",
@@ -38,9 +38,6 @@
     "snapshot:bridgedetect": "tsx scripts/snapshot-bridge-detect.ts"
   },
   "dependencies": {
-    "@mrgnlabs/marginfi-client-v2": "^6.4.2",
-    "@mrgnlabs/mrgn-common": "^2.0.7",
-    "@solana/web3.js": "^1.98.4",
     "dotenv": "^16.4.5",
     "graphql": "^16.9.0",
     "graphql-request": "^7.1.0",

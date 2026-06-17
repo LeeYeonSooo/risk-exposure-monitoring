@@ -530,6 +530,34 @@ describe("checkDepeg (USD)", () => {
     const out = await checkDepeg(cur, T, null);
     assert.equal(out[0].severity, "critical");
   });
+  // 글리치가드 우회 차단(2026-06): 글리치로 warning 강등됐는데 silent-bad-debt 대형노출(ORACLE_FREE $20M)이
+  //   critical 로 재승격하던 FP — glitchDemoted 면 silent 승격을 warning 상한으로 막아야 한다.
+  test("글리치 강등 + silent-bad-debt $20M → critical 재승격 안 함(warning 상한)", async () => {
+    const cur = makeToken("USDC", { totalSupply: 1000, marketCapUsd: 900 }); // price $0.90 (−10% 단일프린트)
+    cur.edges = [
+      edge("protocol:morpho_blue", {
+        classification: cls("lending", [role("collateral")]),
+        oracle: orc("ORACLE_FREE", "0xAAA"),
+        core: { amountToken: 0, amountUsd: 20_000_000, pctOfSupply: null, pctOfProtocolTvl: null },
+      }),
+    ];
+    const out = await checkDepeg(cur, T, 1.0); // baseline peg → 글리치 강등 발동
+    assert.equal(out[0].kind, "depeg");
+    assert.equal(out[0].severity, "warning"); // silent $20M 이어도 글리치면 critical 차단
+  });
+  // 글리치 아닌 진짜 디페그(warning −5%, 글리치가드 미발동) + silent $20M → critical 정상 승격(FN 회귀 방지).
+  test("진짜 warning 디페그(−5%) + silent $20M → critical 승격(글리치가드 무관)", async () => {
+    const cur = makeToken("USDC", { totalSupply: 1000, marketCapUsd: 950 }); // price $0.95 (−5%, warning)
+    cur.edges = [
+      edge("protocol:morpho_blue", {
+        classification: cls("lending", [role("collateral")]),
+        oracle: orc("ORACLE_FREE", "0xAAA"),
+        core: { amountToken: 0, amountUsd: 20_000_000, pctOfSupply: null, pctOfProtocolTvl: null },
+      }),
+    ];
+    const out = await checkDepeg(cur, T, null); // sev=warning 이라 글리치가드(critical 한정) 미발동
+    assert.equal(out[0].severity, "critical");
+  });
 });
 
 // ─────────────────────────────────────────────────────────────

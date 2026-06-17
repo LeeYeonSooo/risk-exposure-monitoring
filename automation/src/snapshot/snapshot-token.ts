@@ -63,9 +63,14 @@ export async function snapshotToken(
   // 깨지므로(symbol=UNKNOWN, edges 0), 진입점에서 소문자로 정규화해 차단.
   const token = rawToken.toLowerCase() as Address;
   const ctx0 = await fetchTokenMeta(token);
-  // 가격: 인자 우선 → DeFiLlama 무료 API → 실패 시 1 (USD 정확도 핵심).
-  const tokenPriceUsd =
-    opts.tokenPriceUsd ?? (await getTokenPriceUsd(token).catch(() => null)) ?? 1;
+  // 가격: 인자(온체인 DEX 우선) → DeFiLlama 무료 API. 둘 다 실패면 **미커버(null)** — 1로 위조하지 않는다.
+  //   위조 1은 (a) 디페그한 스테이블을 $1 로 보고해 침묵(FN), (b) LST/BTC래퍼(NAV~$3000)를 $1 로 봐 −99.97%
+  //   catastrophic 오발화(FP)를 만든다. 미커버는 marketCapUsd=null 로 전파해 가격의존 알림(depeg/whale)이 skip 하게 한다.
+  //   tokenPriceUsd 자체는 어댑터/breadth 산술 안전을 위해 폴백 1을 유지(표시·그래프용, 알림 게이트는 priceCovered/marketCapUsd 로 분리).
+  const resolvedPriceUsd =
+    opts.tokenPriceUsd ?? (await getTokenPriceUsd(token).catch(() => null));
+  const priceCovered = resolvedPriceUsd != null && resolvedPriceUsd > 0;
+  const tokenPriceUsd = priceCovered ? resolvedPriceUsd : 1;
   const topN = opts.topN ?? 200;
   const blockNumber = Number(await rpc().getBlockNumber());
 
@@ -79,7 +84,9 @@ export async function snapshotToken(
       decimals: ctx0.decimals,
       totalSupply: ctx0.totalSupply,
       holders: null,
-      marketCapUsd: ctx0.totalSupply * tokenPriceUsd,
+      // 미커버(가격 실패)면 null — depeg.ts:94/supply.ts:104 가격게이트가 자동 skip(1 위조 금지).
+      marketCapUsd: priceCovered ? ctx0.totalSupply * tokenPriceUsd : null,
+      priceCovered,
       paused: false, // TODO: fetch from contract if function exists
       bridges: { ethereum: [] },
       topHolders: [],

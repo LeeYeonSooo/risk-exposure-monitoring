@@ -392,7 +392,7 @@ export async function resolveStaleAlerts(kinds: string[], assertedKeys: Set<stri
   ).catch(() => ({ rows: [] as { id: string; kind: string; token: string; p: string }[] }));
   const toResolve = r.rows.filter((row) => !assertedKeys.has(`${row.kind}|${row.token}|${row.p}`)).map((row) => row.id);
   if (!toResolve.length) return 0;
-  await query(`UPDATE alerts SET resolved_at = now() WHERE id = ANY($1::bigint[])`, [toResolve]).catch(() => {});
+  await query(`UPDATE alerts SET resolved_at = now(), resolution_reason = 'auto:condition_cleared' WHERE id = ANY($1::bigint[])`, [toResolve]).catch(() => {});
   return toResolve.length;
 }
 
@@ -406,7 +406,7 @@ export async function resolveExpiredEvents(
   ttlHours: { critical: number; warning: number; info: number } = { critical: 72, warning: 48, info: 24 },
 ): Promise<number> {
   const r = await query(
-    `UPDATE alerts SET resolved_at = now()
+    `UPDATE alerts SET resolved_at = now(), resolution_reason = 'auto:event_ttl'
      WHERE resolved_at IS NULL AND acknowledged IS NOT TRUE
        AND source <> ALL($1::text[])
        AND created_at < now() - make_interval(hours =>
@@ -465,6 +465,37 @@ export async function upsertLoopFinding(f: {
       f.detail ? JSON.stringify(f.detail) : null,
     ],
   ).catch((e) => console.warn("[loop_findings] upsert failed:", (e as Error).message));
+}
+
+/**
+ * 토큰 변형(래핑본/CCIP 원격) 1급 레코드 — note 텍스트가 아닌 정식 테이블에 보존.
+ * (token, chain, address) 단위 최신값 upsert. kind: 'bridged_wrapped' | 'ccip_remote'.
+ *
+ * keepBridged=true 면 이미 'bridged_wrapped' 로 박힌 행은 덮어쓰지 않음(kind 유지).
+ *   래핑본(lock&mint 확정)이 CCIP 원격 추정으로 강등되는 것 방지 — ccip_remote 적재 시 사용.
+ *   같은 PK 가 ccip_remote 끼리 재적재되는 건 그대로 갱신(snapshot_ts refresh).
+ */
+export async function upsertTokenVariant(v: {
+  token: string;
+  chain: string;
+  address: string;
+  sourceChain?: string | null;
+  via?: string | null;
+  kind: "bridged_wrapped" | "ccip_remote";
+  note?: string | null;
+  snapshotTs?: string;
+  keepBridged?: boolean;
+}): Promise<void> {
+  // keepBridged 면 기존 bridged_wrapped 행은 보존(WHERE 로 업데이트 제외 → PK 충돌 시 no-op).
+  const guard = v.keepBridged ? ` WHERE token_variants.kind <> 'bridged_wrapped'` : "";
+  await query(
+    `INSERT INTO token_variants (token, chain, address, source_chain, via, kind, note, snapshot_ts)
+     VALUES ($1,$2,$3,$4,$5,$6,$7, COALESCE($8::timestamptz, now()))
+     ON CONFLICT (token, chain, address) DO UPDATE SET
+       source_chain=EXCLUDED.source_chain, via=EXCLUDED.via, kind=EXCLUDED.kind,
+       note=EXCLUDED.note, snapshot_ts=EXCLUDED.snapshot_ts${guard}`,
+    [v.token, v.chain, v.address.toLowerCase(), v.sourceChain ?? null, v.via ?? null, v.kind, v.note ?? null, v.snapshotTs ?? null],
+  );
 }
 
 /** Persist an entire snapshot result. */

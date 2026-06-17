@@ -21,7 +21,7 @@ import { closePool, pool } from "@/db/client";
 import { recordSnapshotRun } from "@/db/upsert";
 import { selectByCoverage } from "@/discovery/coverage";
 import { fetchLlamaPoolsForChain, fetchProtocolCategories, poolContainsToken } from "@/lib/defillama";
-import { getTokenPricesUsd } from "@/lib/prices";
+import { getTokenPricesOnchainFirst } from "@/lib/prices";
 import { rpcFor } from "@/lib/rpc";
 
 const MORPHO_API = "https://blue-api.morpho.org/graphql";
@@ -30,30 +30,12 @@ const MORPHO_API = "https://blue-api.morpho.org/graphql";
 const PAP_DP_ABI = [{ inputs: [], name: "getPoolDataProvider", outputs: [{ type: "address" }], stateMutability: "view", type: "function" }] as const;
 const DP_RESERVES_ABI = [{ inputs: [], name: "getAllReservesTokens", outputs: [{ components: [{ name: "symbol", type: "string" }, { name: "tokenAddress", type: "address" }], name: "", type: "tuple[]" }], stateMutability: "view", type: "function" }] as const;
 
-// pap = Aave V3 PoolAddressesProvider (전 체인 getPoolDataProvider() 온체인 검증됨). 없으면 Morpho 만.
-// Morpho(GraphQL chainId)는 전 체인 동작 + Aave(pap)는 온체인 reserve self-discovery → eth·base·arb 방식을 전 체인 적용.
+// pap = Aave V3 PoolAddressesProvider (getPoolDataProvider() 온체인 검증됨). 없으면 Morpho 만.
+// 2026-06-12 스코프 축소: base·arbitrum 만 (이더리움은 snapshot-all 온체인 어댑터 담당).
+// 다른 EVM 체인은 3체인 완성 후 여기 + config/chains.ts EVM_CHAINS 에 추가하면 된다.
 const CHAINS: Record<string, { chainId: number; label: string; llama: string; pap?: string }> = {
-  // Morpho + Aave (둘 다)
   base: { chainId: 8453, label: "Base", llama: "Base", pap: "0xe20fCBdBfFC4Dd138cE8b2E6FBb6CB49777ad64D" },
   arbitrum: { chainId: 42161, label: "Arbitrum", llama: "Arbitrum", pap: "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb" },
-  optimism: { chainId: 10, label: "Optimism", llama: "Optimism", pap: "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb" },
-  polygon: { chainId: 137, label: "Polygon", llama: "Polygon", pap: "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb" },
-  // Morpho 전용 (Aave V3 미배포)
-  unichain: { chainId: 130, label: "Unichain", llama: "Unichain" },
-  worldchain: { chainId: 480, label: "World Chain", llama: "World Chain" },
-  // Aave 전용 (Morpho 미배포) — reserve self-discovery 로 커버
-  avalanche: { chainId: 43114, label: "Avalanche", llama: "Avalanche", pap: "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb" },
-  bsc: { chainId: 56, label: "BNB Chain", llama: "BSC", pap: "0xff75B6da14FfbbfD355Daf7a2731456b3562Ba6D" },
-  gnosis: { chainId: 100, label: "Gnosis", llama: "Gnosis", pap: "0x36616cf17557639614c1cdDb356b1B83fc0B2132" },
-  scroll: { chainId: 534352, label: "Scroll", llama: "Scroll", pap: "0x69850D0B276776781C063771b161bd8894BCdD04" },
-  metis: { chainId: 1088, label: "Metis", llama: "Metis", pap: "0xB9FABd7500B2C6781c35Dd48d54f81fc2299D7AF" },
-  // Aave 전용 추가분 — pap 는 bgd-labs aave-address-book 값을 Alchemy RPC 로 직접 검증함
-  // (getPoolDataProvider→getAllReservesTokens: linea 9 / zksync 8 / sonic 4 / celo 6 / soneium 3 reserve).
-  linea: { chainId: 59144, label: "Linea", llama: "Linea", pap: "0x89502c3731F69DDC95B65753708A07F8Cd0373F4" },
-  zksync: { chainId: 324, label: "ZKsync Era", llama: "ZKsync Era", pap: "0x2A3948BB219D6B2Fa83D64100006391a96bE6cb7" },
-  sonic: { chainId: 146, label: "Sonic", llama: "Sonic", pap: "0x5C2e738F6E27bCE0F7558051Bf90605dD6176900" },
-  celo: { chainId: 42220, label: "Celo", llama: "Celo", pap: "0x9F7Cf9417D5251C59fE94fB9147feEe1aAd9Cea5" },
-  soneium: { chainId: 1868, label: "Soneium", llama: "Soneium", pap: "0x82405D1a189bd6cE4667809C35B37fBE136A4c5B" },
 };
 
 const BREADTH_MIN_USD = 1_000_000;
@@ -386,7 +368,7 @@ async function main() {
         const evm = rpcFor(chainId);
         const dp = (await evm.readContract({ address: getAddress(chain.pap), abi: PAP_DP_ABI, functionName: "getPoolDataProvider" })) as Address;
         const reserves = (await evm.readContract({ address: dp, abi: DP_RESERVES_ABI, functionName: "getAllReservesTokens" })) as readonly { symbol: string; tokenAddress: Address }[];
-        const prices = await getTokenPricesUsd(reserves.map((r) => getAddress(r.tokenAddress)), chainArg); // DeFiLlama coins (체인별)
+        const prices = await getTokenPricesOnchainFirst(reserves.map((r) => getAddress(r.tokenAddress)), chainId, Date.now()); // 온체인 DEX 시장가 우선(coins.llama 폴백)
         const aaveId = `protocol:aave_v3@${chainArg}`;
         const aave = makeAaveV3FamilyAdapter({
           family: "aave_v3", nodeId: aaveId, label: `Aave V3 (${label})`,
@@ -405,7 +387,7 @@ async function main() {
           let attrs;
           try {
             attrs = await aave.fetchEdge(addr, {
-              chainId, tokenPriceUsd: prices.get(addr.toLowerCase()) ?? 1, tokenTotalSupply: 0, tokenSymbol: r.symbol, snapshotTs, blockNumber: null,
+              chainId, tokenPriceUsd: prices.get(addr.toLowerCase())?.priceUsd ?? 1, tokenTotalSupply: 0, tokenSymbol: r.symbol, snapshotTs, blockNumber: null,
             });
           } catch { attrs = null; }
           if (!attrs) continue;

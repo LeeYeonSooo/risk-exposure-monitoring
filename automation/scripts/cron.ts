@@ -7,6 +7,7 @@
  * Usage: npm run cron
  */
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -18,11 +19,15 @@ const __dirname = dirname(__filename);
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * ONE_HOUR_MS;
 const TWENTY_MIN_MS = 20 * 60 * 1000;
-const SCRIPT_TIMEOUT_MS = 18 * 60 * 1000;
-// 한 번에 세 체인 RPC 동시 X — 20분마다 한 체인씩 엇갈려 돌림 (각 체인 60분 주기, 부하 분산).
-// 코어 = 렌딩 TVL 최대 3체인(60분 cadence 유지). 추가 EVM 체인은 별도 루프로 순환(아래 EXTRA_CHAINS).
-const ROTATION = ["ethereum", "base", "arbitrum"];
-let rotIdx = 0;
+// 탐지 시급성 티어(2026-06): 🔴빠른파국 5분 · 🟡중간 10분 · 🟢구조 30분.
+const FIVE_MIN_MS = 5 * 60 * 1000;   // 🔴 무담보mint(conservation/mintburn/chainsupply)·로테이션(depeg·oracle·liquidity diff)
+const TEN_MIN_MS = 10 * 60 * 1000;   // 🟡 near_liq(scan)·value_drift·curator
+const SCRIPT_TIMEOUT_MS = 8 * 60 * 1000; // 18→8분: 빠른 주기서 hang 과도점유 방지(실 스냅샷 ~3-4분). 로테이션 겹침은 in-flight 가드가 차단.
+// 3체인(eth/base/arb)을 **동시 병렬**로 5분마다 스냅샷 — 각 체인 진짜 5분 갱신(사용자 요청 2026-06: "체인 동시에").
+//   ⚠️ 종전엔 RPC 부하분산 위해 엇갈렸으나(각 체인 60분), 5분/체인 위해 병렬 전환. eth/base/arb 는 서로 다른 Alchemy 엔드포인트라
+//      엔드포인트는 분산되지만 CU 는 계정 공유 — 부하·동시요청 상한 주의.
+// 2026-06-12 스코프: 이더리움·베이스·아비트럼만.
+const CHAINS_PARALLEL = ["ethereum", "base", "arbitrum"];
 // 추가 EVM 체인 — eth·base·arb 와 동일 방식(Morpho GraphQL + Aave reserve self-discovery).
 // ⚠️ 2026-06: eth/base/arb 3체인만 지원 → 추가 체인 **비활성**. 확장 시 EXTRA_CHAINS 에 아래 목록을 다시 채우면 됨.
 //   목록은 보존(삭제 X) — 코드 변경 없이 재활성 가능.
@@ -34,9 +39,18 @@ const EXTRA_CHAINS: string[] = []; // 활성: 없음(eth/base/arb 만). 확장: 
 let extraIdx = 0;
 void EXTRA_CHAINS_AVAILABLE; // 보존용 — 미사용 경고 방지
 
+const _warnedMissing = new Set<string>();
 function runScript(name: string, args: string[] = [], timeoutMs = SCRIPT_TIMEOUT_MS): Promise<void> {
   return new Promise((res, rej) => {
     const script = resolve(__dirname, name);
+    // 삭제된 스크립트(팀 리팩터로 제거된 snapshot-flows·snapshot-bridge-detect·discover-curator-wallets 등)를 cron 이
+    //   여전히 스케줄하면 매 주기 npx tsx 가 ERR_MODULE_NOT_FOUND 로 실패한다 — 무의미한 child spawn + 에러 로그 스팸.
+    //   파일 부재면 1회만 경고하고 no-op(스크립트가 복원되면 자동 재개 — 비파괴적, 기능 운명은 미결정).
+    if (!existsSync(script)) {
+      if (!_warnedMissing.has(name)) { console.warn(`[cron] 스크립트 없음, skip: ${name} (삭제됨? 복원 시 자동 재개)`); _warnedMissing.add(name); }
+      res();
+      return;
+    }
     const child = spawn("npx", ["tsx", script, ...args], { stdio: "inherit" });
     const timeout = setTimeout(() => {
       child.kill("SIGTERM");
@@ -54,17 +68,21 @@ function runScript(name: string, args: string[] = [], timeoutMs = SCRIPT_TIMEOUT
   });
 }
 
-// 20분마다 회전 체인 1개만 스냅샷 (RPC 부하 엇갈리게)
+// 5분마다 **3체인 동시(병렬)** 스냅샷 — 각 체인 5분 갱신. ⚠️ in-flight 가드 — 직전 배치 안 끝났으면 틱 skip(겹침=RPC 폭주 차단).
+//   병렬 wall-clock = 가장 느린 체인(보통 eth snapshot-all ~3-4분) ≈ 5분 안. 체인 1곳 실패는 batch 안 깨고 로그만.
+let snapshotBusy = false;
 async function loop() {
-  const chain = ROTATION[rotIdx % ROTATION.length];
-  rotIdx++;
+  if (snapshotBusy) { console.warn("[cron] 직전 스냅샷 배치 진행 중 — 이번 틱 skip(겹침 방지)"); return; }
+  snapshotBusy = true;
   const ts = new Date().toISOString();
-  console.log(`\n══════ ${ts} — snapshot: ${chain} ══════`);
+  console.log(`\n══════ ${ts} — snapshot: 3체인 동시 (${CHAINS_PARALLEL.join(" · ")}) ══════`);
   try {
-    if (chain === "ethereum") await runScript("snapshot-all.ts"); // 온체인 어댑터(Alchemy)
-    else await runScript("snapshot-chain.ts", [chain]); // Base/Arbitrum (Morpho API + Aave 공개RPC+Multicall3)
-  } catch (e) {
-    console.error(`[cron] snapshot ${chain} failed:`, (e as Error).message);
+    await Promise.all(CHAINS_PARALLEL.map((chain) =>
+      (chain === "ethereum" ? runScript("snapshot-all.ts") : runScript("snapshot-chain.ts", [chain]))
+        .catch((e) => console.error(`[cron] snapshot ${chain} failed:`, (e as Error).message)),
+    ));
+  } finally {
+    snapshotBusy = false;
   }
 }
 
@@ -90,6 +108,18 @@ async function discoveryLoop() {
     await runScript("discover.ts");
   } catch (e) {
     console.error("[cron] discover failed:", (e as Error).message);
+  }
+}
+
+// 미지주소 자동 분류(B10) — 1일마다. unknown_addresses 큐를 classify(프록시·셀렉터·Etherscan)로 추정 라벨링
+// → `npm run review` 로 사람이 확인 → 확정분 protocol-registry 반영.
+async function classifyLoop() {
+  const ts = new Date().toISOString();
+  console.log(`\n══════ ${ts} — classify unknowns ══════`);
+  try {
+    await runScript("classify-unknowns.ts");
+  } catch (e) {
+    console.error("[cron] classify failed:", (e as Error).message);
   }
 }
 
@@ -155,7 +185,7 @@ async function bridgeAuthLoop() {
   }
 }
 
-// 비-EVM 브릿지 탐지(파이썬 8계열 도구) — 6시간마다. CCTP·Wormhole·IBC·StarkGate 등 표준 브릿지.
+// 비-EVM 표준 브릿지 탐지 — 6시간마다. (관계맵·흐름맵 브릿지 노드 입력) — 머지 시 자동머지로 정의가 유실돼 복원(2026-06).
 async function bridgeDetectLoop() {
   const ts = new Date().toISOString();
   console.log(`\n══════ ${ts} — bridge detect (non-EVM) ══════`);
@@ -200,6 +230,18 @@ async function valueDriftLoop() {
     await runScript("snapshot-value-drift.ts");
   } catch (e) {
     console.error("[cron] value-drift failed:", (e as Error).message);
+  }
+}
+
+// 머니레고 구조 — 6시간마다 전체 watchlist 토큰의 파생토큰(PT/YT/LP/aToken)·수용처 마켓(Morpho 담보마켓·Convex 풀)을
+// 갱신 적재(만기 PT 자연 소멸). 관계맵 파생 레이어 입력. (멘토 §8·§9, 임의 토큰 일반화)
+async function legoLoop() {
+  const ts = new Date().toISOString();
+  console.log(`\n══════ ${ts} — money lego (전체 watchlist) ══════`);
+  try {
+    await runScript("snapshot-lego.ts"); // 인자 없음 = 전체 watchlist
+  } catch (e) {
+    console.error("[cron] lego failed:", (e as Error).message);
   }
 }
 
@@ -277,27 +319,37 @@ function kickAfter(delayMs: number, fn: () => Promise<void>) {
   setTimeout(() => { void fn(); }, delayMs);
 }
 
+// 5분 주기 루프의 in-flight 가드 — SCRIPT_TIMEOUT(8분) > 주기(5분)라 스크립트가 hang 하면 다음 틱이 두 번째 자식을
+//   spawn 해 RPC/DB 동시부하가 겹친다(loop() 의 snapshotBusy 와 동일 취지). 직전 실행 안 끝났으면 이번 틱 skip.
+const _loopBusy = new Set<string>();
+function guarded(name: string, fn: () => Promise<void>): () => void {
+  return () => {
+    if (_loopBusy.has(name)) { console.warn(`[cron] ${name} 직전 실행 진행 중 — 이번 틱 skip(겹침 방지)`); return; }
+    _loopBusy.add(name);
+    void fn().finally(() => _loopBusy.delete(name));
+  };
+}
+
 async function main() {
   const channels = activeChannels();
-  console.log("[cron] starting — 20min staggered per-chain snapshots + daily discovery");
+  console.log("[cron] starting — 5min parallel 3-chain snapshots (eth·base·arb) + tiered detectors (🔴5m/🟡10m/🟢30m+) + daily discovery");
   console.log(`[cron] 알림 채널: ${channels.length ? channels.join(", ") : "없음(DB만 — env 설정 시 활성: DISCORD_WEBHOOK_URL·TELEGRAM_BOT_TOKEN+CHAT_ID·ALERT_WEBHOOK_URL)"}`);
 
-  setInterval(loop, TWENTY_MIN_MS); // 20분마다 다음 코어 체인 (ethereum/base/arbitrum, 60분 주기)
-  // 추가 EVM 체인(optimism·polygon·avalanche·bsc·gnosis·scroll·unichain·worldchain·metis) — 코어와 10분 오프셋.
-  setTimeout(() => { void extraChainLoop(); setInterval(extraChainLoop, TWENTY_MIN_MS); }, 10 * 60 * 1000);
+  setInterval(loop, FIVE_MIN_MS); // 🔴 5분마다 **3체인 동시** 스냅샷(각 체인 5분). diff RED(depeg·oracle·liquidity·supply_spike)·GREEN(new_market 등) 동반 — in-flight 가드로 겹침 차단
   setInterval(discoveryLoop, ONE_DAY_MS);
-  setInterval(curatorLoop, THIRTY_MIN_MS); // 30분마다 디리스킹 체크
-  setInterval(chainSupplyLoop, ONE_HOUR_MS); // 1시간마다 체인별 공급 시계열 누적 (baseline 쌓기)
+  setInterval(classifyLoop, ONE_DAY_MS); // 1일마다 미지주소 자동 분류(B10) → 검토 큐 (main 병합)
+  setInterval(curatorLoop, TEN_MIN_MS); // 🟡 10분마다 디리스킹 체크(curator_derisk)
+  setInterval(guarded("chainSupply", chainSupplyLoop), FIVE_MIN_MS); // 🔴 5분마다 체인별 공급 시계열(chain_supply_spike 무단민트 감시) — in-flight 가드
   setInterval(walletSeedLoop, ONE_DAY_MS); // 하루 1회 watch-list 시드(Dune 탑홀더) — walletLoop 의 생산자
   setInterval(walletLoop, TWO_HOUR_MS); // 2시간마다 추적 지갑 밸류 (자금 이탈 감시)
   setInterval(bridgeAuthLoop, SIX_HOUR_MS); // 6시간마다 온체인 브릿지 mint 권한 검증
   setInterval(bridgeDetectLoop, SIX_HOUR_MS);
-  setInterval(supplyConservationLoop, 15 * 60 * 1000); // 15분마다 크로스체인 공급보존(escrow) — Kelp 무담보 mint/release (구 backing 흡수)
-  setInterval(mintburnLoop, ONE_HOUR_MS); // 1시간마다 mint/burn 정합 (무담보민팅 알림)
-  setInterval(valueDriftLoop, ONE_HOUR_MS); // 1시간마다 총가치 급락(밸류 유출) 감시 — chain_supply_samples 시계열 위 (P2-6)
+  setInterval(guarded("supplyConservation", supplyConservationLoop), FIVE_MIN_MS); // 🔴 5분마다(15→5) 크로스체인 공급보존(escrow) — Kelp 무담보 mint/release. 최우선 빠른 파국 — in-flight 가드
+  setInterval(guarded("mintburn", mintburnLoop), FIVE_MIN_MS); // 🔴 5분마다 mint/burn 정합 (unmatched_mint 무담보민팅) — in-flight 가드
+  setInterval(valueDriftLoop, TEN_MIN_MS); // 🟡 10분마다 총가치 급락(value_drift 리뎀션런/뱅크런) — chain_supply_samples 시계열 위
   setInterval(reflexivityLoop, ONE_HOUR_MS); // 1시간마다 reflexivity 재계산 (loop_findings → 프론트 Tier0/상세그래프 라이브)
   // setInterval(nonevmLendingLoop, ONE_HOUR_MS); // 비활성(2026-06: EVM eth/base/arb 만 지원). 재활성 시 주석 해제
-  setInterval(scanRisksLoop, ONE_HOUR_MS); // 1시간마다 EVM 상태형(reserve_frozen·high_util·high_lltv·near_liquidation·unverified) — auto-resolve 내장
+  setInterval(scanRisksLoop, TEN_MIN_MS); // 🟡 10분마다 EVM 상태형(near_liq=YELLOW 기준; reserve_frozen·high_util=GREEN 동반, 저비용 DB스캔이라 무방) — auto-resolve 내장
   setInterval(flowsLoop, ONE_DAY_MS); // 24시간마다 상위 토큰 플로우 갱신 (Dune 크레딧 보호)
 
   void loop(); // 즉시 첫 체인
@@ -315,6 +367,8 @@ async function main() {
   kickAfter(18 * 60 * 1000, observeLoop); // 즉시 1회 — 관찰 baseline
   setInterval(expireEventsLoop, ONE_HOUR_MS); // 1시간마다 이벤트형 TTL 만료 스윕(종료 이벤트 잔존 정리)
   kickAfter(20 * 60 * 1000, expireEventsLoop); // 즉시 1회
+  void legoLoop(); // 즉시 1회 — 머니레고 구조(파생토큰·수용처) baseline (main 병합)
+  setInterval(legoLoop, SIX_HOUR_MS); // 6시간마다 갱신 (만기 PT·신규 마켓 반영)
 }
 
 main().catch((e) => {

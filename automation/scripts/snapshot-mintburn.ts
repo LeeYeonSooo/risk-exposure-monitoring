@@ -19,7 +19,7 @@ import { RECOMMENDED_THRESHOLDS } from "@/config/alert-thresholds";
 import { type Address, getAddress } from "viem";
 
 import { publicClientFor } from "@/lib/public-rpc";
-import { getTokenPriceUsd } from "@/lib/prices";
+import { getTokenPriceOnchainFirst } from "@/lib/prices";
 
 const HOME = "ethereum"; // 홈 mint=발행(예치) → 매칭 불필요
 // 매칭 창은 config(mintBurn.matchWindowSeconds) 가 기본값 — env 로 override 가능.
@@ -47,6 +47,9 @@ const NATIVE_ISSUANCE_SKIP = new Set([
   // TBTC: Threshold tBTC v2 — L2 는 권한 minter(owner) 가 canonical-mint(소스 burn 없음, OP-Stack 표준 인터페이스도
   //   없어 구조탐지 불가). LBTC 와 동급 커스텀 브릿지 → 영구 미정합 FP(2026-06 검증, base 6건). PoR/backing 별도.
   "TBTC",
+  // SYRUPUSDC: Maple syrupUSDC — per-chain 풀토큰 canonical 발행(체인별 독립 mint, 소스 burn 영구 부재). OP-Stack
+  //   표준 인터페이스도 없어 구조탐지 불가 → 영구 미정합 FP(2026-06 검증, base 소액 mint). 무담보 감시는 backing·chain_supply_spike.
+  "SYRUPUSDC",
 ]);
 const A_WATCHED = new Set(BACKING_WATCHES.map((w) => w.symbol.toUpperCase()));
 
@@ -270,12 +273,19 @@ async function main() {
         // USD floor(MINT_USD_FLOOR=$10M) 배선(2026-06: 정의만 돼있고 미적용이던 죽은 게이트) — 미정합 총액이
         //   Kelp 규모일 때만 발화, 소형(정상 브릿지 잔여·테스트 mint) 컷. ⚠️ 가격 미확인 시엔 보수적으로 발화(FN 방지),
         //   backing 동반(corr)이면 규모 무관 승격.
-        const homeAddr = byChain.get(HOME);
-        let priced = false, totalUsd = 0;
-        if (homeAddr) {
-          const price = await getTokenPriceUsd(homeAddr as Address).catch(() => null);
-          if (price && price > 0) { priced = true; const dec = await readDecimals(homeAddr, HOME); totalUsd = flagged.reduce((s, f) => s + (Number(f.amount) / 10 ** dec) * price, 0); }
+        // USD 총액 — 각 미정합 mint 를 **발생 체인 가격**으로 환산(없으면 ethereum home 폴백). 단일 ethereum 가격만 보던
+        //   기존은 base-native 토큰(syrupUSDC 등)을 unpriced 로 떨어뜨려 USD floor 를 우회→소액 FP(#709). 발생 체인 가격이면
+        //   floor 가 정상 작동(syrupUSDC base mint = $8.90 ≪ $10M → 보류). 진짜 미가격 토큰은 여전히 unpriced→보수적 발화(FN 안전).
+        const CHAIN_ID: Record<string, number> = { ethereum: 1, base: 8453, arbitrum: 42161 };
+        let totalUsd = 0, pricedCount = 0;
+        for (const f of flagged) {
+          const chain = byChain.has(f.chain) ? f.chain : HOME;
+          const addr = byChain.get(chain);
+          if (!addr) continue;
+          const price = await getTokenPriceOnchainFirst(addr as Address, CHAIN_ID[chain] ?? 1, Date.now()).catch(() => null);
+          if (price && price > 0) { pricedCount++; const dec = await readDecimals(addr, chain); totalUsd += (Number(f.amount) / 10 ** dec) * price; }
         }
+        const priced = flagged.length > 0 && pricedCount === flagged.length; // 전 mint 가격확인 시에만 USD floor 신뢰
         const belowFloor = priced && totalUsd < MINT_USD_FLOOR;
         // 구조적 FP 컷: 지속(2×window) + (Kelp 규모 USD floor 또는 backing 동반)일 때만 발화.
         if ((maxAge >= 2 * WINDOW_SEC || corr) && (!belowFloor || corr)) {

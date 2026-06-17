@@ -58,6 +58,7 @@ export function checkUtilizationLiquidity(
   prev: EdgeSnapshot,
   t: AlertThresholds,
   baseline?: { lend: number[]; dex: number[]; util: number[] },
+  marketUtilBaseline?: Map<string, number[]>,
 ): DiffAlert[] {
   const out: DiffAlert[] = [];
   // 미해석 토큰(symbol=UNKNOWN) — 서로 다른 자산이 token:UNKNOWN 한 노드에 충돌 적재돼 가짜 util_jump/
@@ -83,17 +84,22 @@ export function checkUtilizationLiquidity(
       //   없어 prev-마켓 util 을 baseline 으로 — landed≥70% + Δ≥12pp 강게이트로 single-prev 노이즈 컷. (Aave 등 모노풀은
       //   topMarkets 가 비어 아래 else 의 median-baseline 헤드라인 경로.)
       const prevByKey = new Map((prev.attrs?.topMarkets ?? []).map((m) => [marketKey(m), m]));
-      const jumped: Array<{ loanAsset?: string; lltv: number; prevU: number; currU: number; delta: number; sizeUsd: number }> = [];
+      const jumped: Array<{ loanAsset?: string; lltv: number; prevU: number; currU: number; delta: number; sizeUsd: number; src: string }> = [];
       for (const m of currMarkets) {
         const sizeUsd = m.marketSizeUsd ?? 0;
         if (sizeUsd < t.utilizationLiquidity.minMarketSupplyUsd) continue;
         const pm = prevByKey.get(marketKey(m));
         const prevMU = pm?.utilization, currMU = m.utilization;
         if (prevMU == null || currMU == null) continue;
-        const delta = currMU - prevMU;
+        // baseline = marketKey 별 최근 util median(≥3, 일시 dip 평활) 우선, 없으면 직전 prev. 단일-prev 의 transient dip 이
+        //   +Δpp 를 인위 부풀려 내던 dip-recovery FP 차단(#725/#703 weETH). median 은 지속 상승은 추종해 진짜 run 보존.
+        const hist = marketUtilBaseline?.get(marketKey(m));
+        const useMedian = !!hist && hist.length >= 3;
+        const baseMU = useMedian ? median(hist!) : prevMU;
+        const delta = currMU - baseMU;
         if (delta > 0 && currMU >= t.utilizationLiquidity.jumpMinLevel
             && (!!severityForValue(delta, t.utilizationLiquidity.utilizationJumpPct) || delta >= t.utilizationLiquidity.jumpActionable)) {
-          jumped.push({ loanAsset: m.loanAsset, lltv: m.lltv, prevU: prevMU, currU: currMU, delta, sizeUsd });
+          jumped.push({ loanAsset: m.loanAsset, lltv: m.lltv, prevU: baseMU, currU: currMU, delta, sizeUsd, src: useMedian ? "market-median" : "prev-market" });
         }
       }
       if (jumped.length > 0 && !staleGap) {
@@ -106,9 +112,8 @@ export function checkUtilizationLiquidity(
           protocolNodeId: proto,
           message: `${protoLabel(proto)} ${token}/${lead.loanAsset} — +${(lead.delta * 100).toFixed(0)}pp → ${(lead.currU * 100).toFixed(0)}%${jumped.length > 1 ? ` · 외 ${jumped.length - 1}` : ""}`,
           detail: {
-            // ⚠️ baselineSource="prev-market": per-market 경로는 마켓별 median 이력이 없어 직전 마켓 util 단일-prev
-            //   기준(헤드라인 median 대비 dip-recovery FP 위험 높음). 예외룰/큐레이터가 식별하도록 태깅(2026-06).
-            perMarket: true, baselineSource: "prev-market", market: `${token}/${lead.loanAsset}`, lltv: lead.lltv,
+            // baselineSource: "market-median"(마켓별 최근 util median, dip-recovery 평활) 우선 · 이력<3 이면 "prev-market"(단일 prev).
+            perMarket: true, baselineSource: lead.src, market: `${token}/${lead.loanAsset}`, lltv: lead.lltv,
             matchedMarkets: jumped.length, scannedMarkets: currMarkets.length,
             baseUtilization: lead.prevU, currUtilization: lead.currU, deltaPp: lead.delta, landedLevel: lead.currU,
             jumpedMarkets: jumped.map((j) => ({ market: `${token}/${j.loanAsset}`, lltv: j.lltv, prevUtil: j.prevU, currUtil: j.currU, deltaPp: j.delta, sizeUsd: j.sizeUsd })),
@@ -171,9 +176,14 @@ export function checkUtilizationLiquidity(
       //   97% 드롭이라도 진짜 near-total 드레인(rug)이라 발화해야 한다(구버전은 dropPct≥95% 면 무조건 억제 → FN).
       const artifactRead = dropPct >= t.utilizationLiquidity.dexArtifactDropPct
         && currLiq < t.utilizationLiquidity.dexArtifactResidualUsd;
+      // 풀-로테이션 가드(FP #723 cbBTC): 추적 대표풀(quote-side 최심) 유동성은 떨어져도 토큰의 프로토콜 총보유
+      //   (core.amountUsd = balanceOf×price)가 안정이면, 유동성이 같은 프로토콜의 다른 풀로 이동한 것(cbBTC USDC풀→WBTC풀,
+      //   추적 안 되는 풀)이지 실 드레인이 아니다. 총보유가 함께(≥20%) 빠질 때만 발화 → 진짜 rug/대량인출은 보존(FN 안전).
+      const currHold = curr.attrs?.core?.amountUsd, prevHold = prev.attrs?.core?.amountUsd;
+      const holdingsStable = currHold != null && prevHold != null && prevHold > 0 && currHold >= prevHold * 0.8;
       // UNCERTAIN(2026-06): 청산 전조인지 정상 LP 리밸런싱/인센티브 종료인지 breadth 데이터로는 구분 못 함 →
       //   '인지용 경고' 고정(critical 금지). 발화 게이트(드롭% 티어 도달)는 노이즈 차단용으로만 유지.
-      const tier = (belowFloor && !artifactRead)
+      const tier = (belowFloor && !artifactRead && !holdingsStable)
         ? severityForValue(dropPct, t.utilizationLiquidity.dexLiquidityDropPct)
         : null;
       if (tier) {

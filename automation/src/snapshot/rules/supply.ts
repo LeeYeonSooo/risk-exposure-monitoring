@@ -99,11 +99,13 @@ export function checkWhaleUnwind(
   const currTop = current.token.metadata.topHolders ?? [];
   if (!prevTopHolders || prevTopHolders.length === 0 || currTop.length === 0) return out;
 
-  // Token price 추정 — marketCapUsd / totalSupply
+  // Token price 추정 — marketCapUsd / totalSupply.
+  // 가격 미커버(marketCapUsd=null)면 dropUsd 를 못 구해 절대 USD dust 게이트(아래 $1M)를 적용할 수 없다.
+  //   1 로 위조하면 고가토큰($64k WBTC)의 거대 인출이 dust 아래로 축소돼 미발화(FN)되거나, %만으로 소액 인출이
+  //   과발화(FP)된다 → 가격 없으면 정직하게 skip(판정불가). 가격은 통상 커버되므로 실손실 미미.
   const meta = current.token.metadata;
-  const priceUsd = meta.totalSupply > 0 && meta.marketCapUsd
-    ? meta.marketCapUsd / meta.totalSupply
-    : 1;
+  if (!(meta.totalSupply > 0) || meta.marketCapUsd == null) return out;
+  const priceUsd = meta.marketCapUsd / meta.totalSupply;
 
   const prevByAddr = new Map(prevTopHolders.map((h) => [h.address.toLowerCase(), h.amount]));
 

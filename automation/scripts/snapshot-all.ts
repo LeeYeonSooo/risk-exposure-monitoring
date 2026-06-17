@@ -10,7 +10,7 @@ import type { Address } from "viem";
 import { env } from "@/config/chains";
 import { closePool } from "@/db/client";
 import { listActiveWatchlist, markWatchlistSnapshotted, persistSnapshot, recordSnapshotRun } from "@/db/upsert";
-import { getTokenPricesUsd } from "@/lib/prices";
+import { getTokenPricesOnchainFirst, type OnchainPrice } from "@/lib/prices";
 import { diffAndAlert } from "@/snapshot/diff";
 import { snapshotToken } from "@/snapshot/snapshot-token";
 
@@ -39,11 +39,12 @@ async function main() {
   const watchlist = await listActiveWatchlist();
   console.log(`[snapshot:all] ${watchlist.length} tokens active`);
 
-  // 가격 배치 조회 — 토큰당 1콜(57번) 대신 한 번에 (rate-limit 회피 + 속도)
-  const prices = await getTokenPricesUsd(
-    watchlist.map((r) => r.token_address as Address),
-  ).catch(() => new Map<string, number>());
-  console.log(`[snapshot:all] prices: ${prices.size}/${watchlist.length} 조회됨 (batch)`);
+  // 가격 배치 조회 — **온체인 DEX 시장가 우선**(coins.llama 폴백). depeg/value_drift 가 오프체인 API 대신 온체인 기반.
+  const prices = await getTokenPricesOnchainFirst(
+    watchlist.map((r) => r.token_address as Address), 1, Date.now(),
+  ).catch(() => new Map<string, OnchainPrice>());
+  const dexN = [...prices.values()].filter((p) => p.source.startsWith("dex")).length;
+  console.log(`[snapshot:all] prices: ${prices.size}/${watchlist.length} (온체인 DEX ${dexN} · llama 폴백 ${prices.size - dexN})`);
 
   mkdirSync(env.OUTPUT_DIR, { recursive: true });
 
@@ -56,7 +57,7 @@ async function main() {
   for (const row of watchlist) {
     const start = Date.now();
     try {
-      const price = prices.get(row.token_address.toLowerCase());
+      const price = prices.get(row.token_address.toLowerCase())?.priceUsd;
       const result = await withRetry(() =>
         snapshotToken(row.token_address as Address, {
           topN: env.TOP_HOLDERS_LIMIT,

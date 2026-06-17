@@ -21,9 +21,14 @@ import { RECOMMENDED_THRESHOLDS } from "@/config/alert-thresholds";
 import { isActiveChain } from "@/config/chains";
 import { closePool, query } from "@/db/client";
 import { insertAlert } from "@/db/upsert";
-import { classifySupplyDeviation } from "@/snapshot/data-quality";
-import { recentSupplySamples } from "@/snapshot/scanner-kit";
+import { getTokenPriceOnchainFirst } from "@/lib/prices";
+import { classifySupplyDeviation, isStaleGap } from "@/snapshot/data-quality";
+import { latestSampleTs, recentSupplySamples } from "@/snapshot/scanner-kit";
 import { supplySpikeStats } from "@/snapshot/supply-spike";
+
+// 베이스라인 stale 게이트(분) — 직전 chain_supply 샘플이 이만큼 오래됐으면 단일-tick z 가 무의미(USDe 3일 stale prev 대비
+//   브릿지 유입 폭증=FP). 5분 폴 기준 6h 이상 갭이면 베이스라인 신선화 전까지 z 보류(다체인 누락/롱-아웃티지 누적 드리프트 차단).
+const SUPPLY_STALE_GAP_MIN = 6 * 60;
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
 const TS = RECOMMENDED_THRESHOLDS.totalSupply;
@@ -74,6 +79,13 @@ async function main() {
       console.warn(`[chainsupply] ${sym} breadth 실패:`, (e as Error).message);
       continue;
     }
+    // value_drift 입력(supply_usd)을 **온체인 가격**으로 — breadth(coins.llama) 대신. home(eth) 주소를 DB 에서 찾아 1회 가격(전 체인 공통 시장가). 실패 시 breadth supplyUsd 폴백.
+    let onchainPrice: number | null = null;
+    try {
+      const nr = await query<{ address: string }>(`SELECT address FROM nodes WHERE node_id = $1 AND address IS NOT NULL LIMIT 1`, [`token:${sym}`]);
+      const addr = nr.rows[0]?.address;
+      if (addr) onchainPrice = await getTokenPriceOnchainFirst(addr as `0x${string}`, 1, Date.now());
+    } catch { /* 폴백: breadth supplyUsd 유지 */ }
     const tokenNodeId = `token:${sym}`;
     let chainsForSym = 0;
     for (const [chain, s] of Object.entries(supplyByChain)) {
@@ -81,6 +93,7 @@ async function main() {
       const supply = s?.supply ?? 0;
       if (!(supply > 0)) continue;
       chainsForSym++;
+      const supplyUsd = onchainPrice != null ? supply * onchainPrice : (s.supplyUsd ?? null); // 온체인 가격 우선(폴백 breadth)
 
       // 신뢰성 가드 — 최근 중앙값 대비 >35% 벗어난 read 처리.
       //   ⚠️ FN 수정(2026-06 감사): 종전엔 >35% 이면 INSERT·탐지를 둘 다 skip 했는데, 이 디텍터의 존재 이유인
@@ -109,26 +122,36 @@ async function main() {
            VALUES ($1, $2, $3, $4, $5, $6)
            ON CONFLICT (token_node_id, chain, snapshot_ts) DO UPDATE SET
              total_supply = EXCLUDED.total_supply, supply_usd = EXCLUDED.supply_usd`,
-          [snapshotTs, tokenNodeId, chain, null, supply, s.supplyUsd ?? null],
+          [snapshotTs, tokenNodeId, chain, null, supply, supplyUsd],
         );
         samples++;
       }
 
       // robust z-score 스파이크 — diff.ts 와 공용 게이트(supplySpikeStats)로 단일화.
-      if (recent.length >= TS.minSamples) {
-        const asc = [...recent].reverse(); // 오래된→최신
+      // 연속 중복 read dedup(2026-06 FP): frozen/이중 read(소수 전체자리 동일 직전값)가 delta=0 을 만들어 MAD 를
+      //   붕괴→z 폭증시키던 #724 차단. 베이스라인 무결성만 높이므로 TP 영향 없음.
+      const dedup = recent.filter((v, i) => i === 0 || v !== recent[i - 1]);
+      if (dedup.length >= TS.minSamples) {
+        const asc = [...dedup].reverse(); // 오래된→최신
         const whitelisted = TS.autoMintWhitelist.includes(sym);
         // 체인-스파이크 relΔ 플로어 — near-flat baseline z폭발 차단. 일반 2% · whitelisted 네이티브발행(USDC/USDT
         //   Circle/Tether 가 한 폴 3~5% 정상발행) 5%. Kelp 식 무단민트(≈35%)는 둘 다 초과해 발화(info=WATCH).
         //   ⚠️ 브릿지 재분배(전체인 보존)까지 거르려면 per-chain netting 필요 — 정밀탐지는 supply_conservation 담당.
         const st = supplySpikeStats(asc, supply, TS, { whitelisted, minRel: whitelisted ? 0.05 : 0.02 });
-        if (st && st.fires) {
+        // staleGap: 직전 샘플이 폴주기를 크게 넘게 오래됐으면(다체인 누락/롱-아웃티지) 단일틱 z 는 누적 드리프트라 무의미 → 보류(#713 USDe 3일 stale).
+        const lastTs = await latestSampleTs(tokenNodeId, chain, snapshotTs);
+        const staleGap = isStaleGap(lastTs, snapshotTs, SUPPLY_STALE_GAP_MIN);
+        // dip-recovery 억제: 상승(d>0)인데 curr 가 최근 윈도 최고점을 넘지 않으면(=과거에 도달했던 레벨로의 복귀/진동) 신규 mint 아님(#724 WETH).
+        //   진짜 무단 대량 mint 는 윈도 최고점을 돌파(신규 고점)하므로 보존 — FN 안전.
+        const recentMax = dedup.length ? Math.max(...dedup) : 0;
+        const dipRecovery = !!st && st.fires && st.d > 0 && supply <= recentMax;
+        if (st && st.fires && !staleGap && !dipRecovery) {
           const last = asc[asc.length - 1];
           const ok = await insertAlert({
             snapshotTs, severity: "info", kind: "chain_supply_spike", token: sym,
             protocolNodeId: `chain:${chain}`,
             message: `${chain} ${sym} — +${st.d.toFixed(2)} · z ${st.z.toFixed(1)}`,
-            detail: { chain, supply, supplyUsd: s.supplyUsd ?? null, prev: last, delta: Number(st.d.toFixed(2)), z: Number(st.z.toFixed(2)), baselineN: recent.length },
+            detail: { chain, supply, supplyUsd, prev: last, delta: Number(st.d.toFixed(2)), z: Number(st.z.toFixed(2)), baselineN: recent.length },
             source: "chain-supply",
           });
           if (ok) alerts++;

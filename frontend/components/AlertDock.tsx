@@ -15,6 +15,7 @@ import { dragStyle, useDragPosition } from "@/lib/use-drag";
  *  · 펼침: 반투명 패널, 심각도 우선 정렬(critical 먼저). 기본은 위험·경고만(정보는 토글)
  *    → info 폭주 시 critical 이 묻히지 않게. 행마다 '확인'(ack) 버튼.
  *  · 종 버튼·패널 모두 끌어서 이동 가능 (패널은 헤더를 잡고)
+ *  ※ 백테스트는 메인 페이지 전용 — 흐름맵 등에서 쓰는 이 패널엔 두지 않는다(라이브 알림만).
  */
 
 interface AlertItem { id: number | string; created_at: string; snapshot_ts?: string | null; severity: string; kind: string; token: string; message: string; protocol_node_id?: string | null; detail?: Record<string, unknown> | null }

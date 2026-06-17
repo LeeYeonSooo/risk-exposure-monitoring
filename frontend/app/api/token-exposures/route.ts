@@ -21,17 +21,10 @@ function pool(): pg.Pool | null {
   return _pool;
 }
 
+// 2026-06-12 스코프 축소: 이더리움·베이스·아비트럼 3체인 완성 우선.
+// 다른 EVM 체인은 3체인 완성 후 여기에 다시 추가 (비EVM 은 제외).
 const CHAIN_MAP: Record<string, string> = {
-  Ethereum: "ethereum", Arbitrum: "arbitrum", Base: "base", "OP Mainnet": "optimism", Optimism: "optimism",
-  Polygon: "polygon", "Polygon zkEVM": "polygon-zkevm", Avalanche: "avalanche", BSC: "bsc", Gnosis: "gnosis",
-  Linea: "linea", Scroll: "scroll", "ZKsync Era": "zksync", Mantle: "mantle", Mode: "mode", Blast: "blast",
-  Sonic: "sonic", Fraxtal: "fraxtal", Unichain: "unichain", Ink: "ink", Soneium: "soneium", "World Chain": "wc",
-  Taiko: "taiko", Manta: "manta", Celo: "celo", Cronos: "cronos", Kava: "kava", Bob: "bob", Flare: "flare",
-  Berachain: "berachain", Sei: "sei", Katana: "katana", Plasma: "plasma", "Hyperliquid L1": "hyperliquid",
-  HyperEVM: "hyperliquid", Monad: "monad", MegaETH: "megaeth", "Plume Mainnet": "plume", Plume: "plume",
-  Pharos: "pharos", Hemi: "hemi", Swellchain: "swell", Corn: "corn", Lisk: "lisk", Metis: "metis",
-  Solana: "solana", Sui: "sui", Aptos: "aptos", Starknet: "starknet", Osmosis: "osmosis", Tron: "tron",
-  Stellar: "stellar", Stacks: "stacks", Near: "near", TON: "ton",
+  Ethereum: "ethereum", Arbitrum: "arbitrum", Base: "base",
 };
 
 const CHAIN_TVL_MIN = 250_000;
