@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search, ArrowRight, Bell, Waves, X, FlaskConical } from "lucide-react";
 
 import { BacktestPanel } from "@/components/BacktestPanel";
+import { FlowMap } from "@/components/flow/FlowMap";
 import { alertFlowHref } from "@/lib/alert-link";
 import { explorerTxUrl, explorerName, explorerBlockUrl, explorerAddrUrl } from "@/lib/explorer";
 import { kindLabel, prettyMessage, displayToken, isStaleEvent, isActiveChain } from "@/lib/alert-kinds";
@@ -187,28 +188,8 @@ export default function MainLanding() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        {/* ── 중앙: 토큰 순위 (시가총액 — 클릭 = 그 토큰의 관계맵) ── */}
-        <div className="relative min-h-0 min-w-0 flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-2xl px-4 py-6">
-            <div className="flex items-center justify-between px-1 text-[10px] font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-              <span>토큰 순위 · 시가총액</span>
-              <span className="normal-case">{tokens.length}개 추적 · 클릭 = 관계맵</span>
-            </div>
-            <div className="mt-1.5 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
-              {rankedTokens.length === 0 ? (
-                <div className="px-5 py-4 text-sm text-[var(--color-text-muted)]">로딩…</div>
-              ) : rankedTokens.map((t, i) => (
-                <button key={t} onClick={() => go(t)}
-                  className="group flex w-full items-center gap-2.5 px-5 py-2.5 text-left transition-colors hover:bg-[var(--color-surface-raised)]">
-                  <span className="w-6 shrink-0 text-right font-mono text-[11px] text-[var(--color-text-muted)]">{i + 1}</span>
-                  <span className="flex-1 truncate text-[14px] font-medium text-[var(--color-text-primary)]">{t}</span>
-                  {mcap[t] ? <span className="font-mono text-[12px] text-[var(--color-text-secondary)]" title="시가총액">{formatUsd(mcap[t])}</span> : exposure[t] ? <span className="font-mono text-[12px] text-[var(--color-text-muted)]" title="익스포저 (시총 미상)">{formatUsd(exposure[t])}</span> : null}
-                  <ArrowRight size={14} className="shrink-0 text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100" />
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+        {/* ── 중앙: 흐름맵 (origin/main 흐름맵 본체를 메인에 임베드 — 우측 모니터링 알림과 동시 표시) ── */}
+        <FlowMap />
 
         {/* ── 우: 실시간 모니터링 알림 ── */}
         <aside className="flex w-[420px] shrink-0 flex-col border-l border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
