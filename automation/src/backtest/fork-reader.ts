@@ -37,13 +37,15 @@ const _metaCache = new Map<string, { decimals: number; symbol: string }>(); // `
 const _CACHE_PATH = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "backtest", "fork-cache.json");
 let _diskCache: Record<string, string> | null = null;
 let _diskCacheDirty = false;
+const _REFETCH = process.argv.includes("--refetch");
 function _cacheStore(): Record<string, string> {
   if (_diskCache) return _diskCache;
-  if (process.argv.includes("--refetch")) { _diskCache = {}; return _diskCache; }
+  // ⚠️ --refetch 라도 기존 파일은 **항상 로드**(다른 사건 캐시 보존). 무효화는 읽기(cacheGet)에서만 — 그래야
+  //   `--refetch --only X` 가 X 만 다시 읽어 덮어쓰고, 나머지 사건 캐시는 그대로 유지된다(이전: 파일 무시→flush 시 소실).
   try { _diskCache = JSON.parse(readFileSync(_CACHE_PATH, "utf8")) as Record<string, string>; } catch { _diskCache = {}; }
   return _diskCache;
 }
-function cacheGet<T>(key: string): T | null { const s = _cacheStore()[key]; return s ? (JSON.parse(s) as T) : null; }
+function cacheGet<T>(key: string): T | null { if (_REFETCH) return null; const s = _cacheStore()[key]; return s ? (JSON.parse(s) as T) : null; }
 function cacheSet(key: string, val: unknown): void { _cacheStore()[key] = JSON.stringify(val); _diskCacheDirty = true; }
 /** 캐시를 디스크에 기록(run.ts 가 사건 처리 후 호출). */
 export function flushForkCache(): void {
@@ -390,7 +392,7 @@ export async function readConservationAtTime(
 ): Promise<ConservationRead> {
   const dec = cons.decimals;
   // 캐시 — escrow forcePrecise 이진탐색이 가장 비싼 read 라 여기 히트가 재실행을 가장 크게 줄인다. bigint 은 문자열로 저장.
-  const ckey = `cons|${cons.escrow.toLowerCase()}|${cons.canonical.toLowerCase()}|${cons.remotes.map((r) => `${r.chain}:${r.token.toLowerCase()}`).join(",")}|${tsSec}`;
+  const ckey = `cons|${cons.escrow.toLowerCase()}|${cons.canonical.toLowerCase()}|${cons.decimals}|${cons.remotes.map((r) => `${r.chain}:${r.token.toLowerCase()}`).join(",")}|${tsSec}`;
   const hit = cacheGet<{ backingRaw: string; remoteSumRaw: string; backing: number; remoteSum: number; breakdown: Record<string, number>; homeBlock: number }>(ckey);
   if (hit) return { ...hit, backingRaw: BigInt(hit.backingRaw), remoteSumRaw: BigInt(hit.remoteSumRaw) };
   // 홈(ethereum) escrow 잠금분 — ⚠️ forcePrecise: escrow 는 한 poll 내 ~100% 변하므로 산술추정 블록(±수블록)이

@@ -13,7 +13,7 @@
  *   · control: mustNotFire kind 가 어느 poll 에서도 warning+ 면 FP(실패).
  * FP 를 늘려 억지 통과하지 않도록 control 을 함께 채점한다.
  */
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -180,12 +180,16 @@ async function runIncident(inc: Incident): Promise<IncidentResult> {
           //   ⚠️ Σremote−backing(이전 방식)은 아카이브 가능한 arb+base 2체인만 세어 과소집계(58.6K)였다. OFT 메시는 더 많은
           //   체인에 퍼져 있고, 공격은 메인넷 escrow 에서 canonical 을 release 한 것이므로 **드레인 폭**이 진짜 무담보 규모(웹 확인 116.5K).
           const drain = Math.max(0, maxBacking - cons.backing);
+          // ⚠️ 드레인은 **공격 전 baseline poll**(maxBacking 이 사전 잠금분을 본 적 있음)에 의존. window/baselineAt 이 드레인 이후에
+          //   시작하면 maxBacking 이 사전치를 못 봐 drain≈0 → 헤드라인 0 으로 깨진다. 그럴 땐 Σremote−backing(아카이브 2체인 하한)으로
+          //   폴백해 최소한 유효한 무담보 하한을 표시. baseline 이 정상이면 drain(116.5K) 이 더 커서 그대로 채택.
+          const unbacked = Math.max(drain, Math.max(0, cons.remoteSum - cons.backing));
           const stablePx = median(priorPrices) ?? s.price ?? 0; // 안정 기준가(글리치 spot 대신 — USD 흔들림 방지)
-          const usd = stablePx > 0 ? ` (~${fmtM(drain * stablePx)})` : "";
-          const msg = `무담보 발행 ${fmtK(drain)} rsETH${usd}`;
+          const usd = stablePx > 0 ? ` (~${fmtM(unbacked * stablePx)})` : "";
+          const msg = `무담보 발행 ${fmtK(unbacked)} rsETH${usd}`;
           const aChain = inc.conservation.attackChain ?? "ethereum";
           fired.push({ severity: sev, kind: "supply_conservation", token: inc.token.symbol, message: msg,
-            detail: { chain: aChain, block: cons.homeBlock, tx: inc.conservation.attackTx, unbacked: drain, backing: cons.backing, drainFrom: maxBacking } });
+            detail: { chain: aChain, block: cons.homeBlock, tx: inc.conservation.attackTx, unbacked, backing: cons.backing, drainFrom: maxBacking } });
         }
         prevBacking = cons.backing;
       } catch { /* 체인 read 실패 — 이 poll 의 conservation 만 skip */ }
@@ -380,14 +384,23 @@ async function main() {
     mkdirSync(dirname(OUT_PATH), { recursive: true });
     // --only 재실행은 기존 results.json 에 **병합**(id 키) — 다른 사건 보존하며 변경 사건만 갱신(반복 수정 비용↓).
     let toWrite = results;
-    if (ONLY) {
+    if (ONLY && existsSync(OUT_PATH)) {
+      // 파일이 **있으면** 병합 시도. 파싱 실패(손상)는 "없음"과 다르다 — 손상인데 그냥 --only 서브셋으로 덮어쓰면
+      //   나머지 사건이 silent 소실되므로, --force 없이는 중단해 데이터를 보호한다.
       try {
         const prev = JSON.parse(readFileSync(OUT_PATH, "utf8")) as { results: IncidentResult[] };
         const byId = new Map((prev.results ?? []).map((r) => [r.id, r]));
         for (const r of results) byId.set(r.id, r);
         toWrite = [...byId.values()];
-      } catch { /* 기존 없음 → 새로 작성 */ }
+      } catch {
+        if (!force) {
+          console.error(`\n⚠️ ${OUT_PATH} 파싱 실패(손상 추정) — 머지 불가. 다른 사건 소실 방지를 위해 덮어쓰지 않음. 파일 점검 후 재실행하거나 --force 로 --only(${results.length}사건) 서브셋만 강제 저장.`);
+          process.exit(1);
+        }
+        console.error(`\n⚠️ ${OUT_PATH} 손상 — --force 로 --only 서브셋(${results.length}사건)만 저장(나머지 소실).`);
+      }
     }
+    // ONLY 인데 파일이 없으면 toWrite=results(서브셋) 그대로 새로 작성.
     writeFileSync(OUT_PATH, JSON.stringify({ generatedAt: new Date().toISOString(), results: toWrite }, null, 2));
     console.log(`\n결과 저장: backtest/results.json (${toWrite.length} 사건${ONLY ? `, ${results.length} 갱신` : ""})`);
   } else {
