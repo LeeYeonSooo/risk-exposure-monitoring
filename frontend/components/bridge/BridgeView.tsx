@@ -147,11 +147,31 @@ function BridgeInner({ sym, chains, active }: { sym: string; chains: string[]; a
         (burnByLabel.get(b.label) ?? burnByLabel.set(b.label, []).get(b.label)!).push(b);
       }
     }
+    // note 에서 peer 체인 추출 — "→ ethereum"(OFT) 또는 본문에 박힌 연결 체인(CCIP).
+    const peerOf = (note: string, self: string): string | null => {
+      const arrow = note.match(/→\s*([a-z]+)/i)?.[1]?.toLowerCase();
+      if (arrow && CHAIN_ORDER.includes(arrow) && arrow !== self) return arrow;
+      for (const c of CHAIN_ORDER) if (c !== self && new RegExp(`\\b${c}\\b`, "i").test(note)) return c;
+      return null;
+    };
     for (const list of burnByLabel.values()) {
       const byChain = new Map(list.map((n) => [n.chain, n] as const));
       const cs = [...byChain.keys()];
-      for (let i = 0; i < cs.length; i++)
-        for (let j = i + 1; j < cs.length; j++) addToPair(cs[i], cs[j], byChain.get(cs[i])!, false);
+      if (cs.length >= 2) {
+        for (let i = 0; i < cs.length; i++)
+          for (let j = i + 1; j < cs.length; j++) addToPair(cs[i], cs[j], byChain.get(cs[i])!, false);
+      } else if (cs.length === 1) {
+        // 한 in-scope 체인에만 있는 메커니즘 — CCIP 는 getSupportedChains 실측(meta.ccipChains), 그 외(OFT 등)는 note 의 명시 peer.
+        //   (addToPair 가 peer 체인 노드 유무 검증 → 노드 없으면 자동 스킵. 추측 아님: 실측·명시 근거만.)
+        const only = list[0];
+        const ccipChains = only.meta?.ccipChains as string[] | undefined;
+        if (ccipChains?.length) {
+          for (const peer of ccipChains) if (peer !== only.chain) addToPair(only.chain, peer, only, false);
+        } else {
+          const peer = peerOf(String(only.meta?.note ?? ""), only.chain);
+          if (peer) addToPair(only.chain, peer, only, false);
+        }
+      }
     }
 
     // 브릿지 노드를 체인쌍 엣지 위(중점, 여러 개면 수직 오프셋)에 배치 + 직선 엣지(체인→브릿지→체인).

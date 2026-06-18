@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 import pg from "pg";
+import { decodeAbiParameters } from "viem";
 
 import { buildFlowGraph } from "@/lib/flow-core";
 import { decodeString, ethCall, selectorOf } from "@/lib/onchain-read";
 import type { RiskLevel } from "@/lib/flow-types";
+
+// CCIP chain selector → 체인명 (mainnet). 단일 엔드포인트 CCIP 풀의 연결 체인 판별용.
+const CCIP_SELECTOR: Record<string, string> = {
+  "5009297550715157269": "ethereum", "4949039107694359620": "arbitrum", "15971525489660198786": "base",
+};
 
 /**
  * GET /api/flow?tokens=stETH,wstETH,…&chains=ethereum,arbitrum&topPct=0.9
@@ -196,6 +202,9 @@ export async function GET(req: Request) {
           wrappedByTC.set(`${r.token.toUpperCase()}|${r.chain}`, { sym: wsym, addr: a });
         }));
       } catch { /* token_variants optional */ }
+      // CCIP 토큰풀 연결 체인 — getSupportedChains()(uint64[] selectors) → in-scope 체인. 단일 엔드포인트 CCIP 페어링용.
+      const ccipChainsByKey = new Map<string, string[]>();
+      const SEL_SUPPORTED_CHAINS = selectorOf("function getSupportedChains()");
       const PRETTY: Record<string, string> = {
         xerc20: "xERC20", xerc20_lockbox: "xERC20 Lockbox", ccip_pool: "Chainlink CCIP", ccip_remote: "Chainlink CCIP",
         oft_peer: "LayerZero OFT", minter_role: "MINTER_ROLE", cctp: "Circle CCTP", wormhole_ntt: "Wormhole NTT",
@@ -215,6 +224,7 @@ export async function GET(req: Request) {
         const extra: Record<string, unknown> = {};
         if (w) { extra.wrappedSymbol = w.sym; extra.wrappedAddr = w.addr; extra.wrappedChain = chain; }
         if (slug === "oft_peer") extra.live = {};
+        if (slug === "ccip_pool") { const cc = ccipChainsByKey.get(`${sym}|${chain}`); if (cc?.length) extra.ccipChains = cc; }
         graph.nodes.push({ id, kind: "bridge", label: pretty, token: sym, chain, tvlUsd: 0, address: addr, risk: "safe", meta: { authType: slug, note, mintLimit, addr, estimated: isEstimated, ...extra } });
         graph.edges.push({ id: `bn:${id}`, source: tokId, target: id, kind: "bridge", tvlUsd: 0, weight: 0.2, chain, label: `${pretty} 브릿지 통로`, bridge: { fromChain: chain, toChain: chain, mechanism: slug, protocol: pretty } });
       };
@@ -224,6 +234,16 @@ export async function GET(req: Request) {
          FROM bridge_authorities WHERE upper(token) = ANY($1)${estimated ? "" : " AND auth_type <> 'mint_event'"} ORDER BY upper(token), chain, auth_type`,
         [syms],
       );
+      // CCIP 풀의 연결 체인 온체인 실측(getSupportedChains) — 단일 엔드포인트 CCIP 도 peer 와 이어지게.
+      await Promise.all(ba2.rows.filter((r) => r.auth_type === "ccip_pool").map(async (r) => {
+        try {
+          const res = await ethCall(r.chain, r.bridge_addr.toLowerCase(), SEL_SUPPORTED_CHAINS);
+          if (!res || res === "0x") return;
+          const [sels] = decodeAbiParameters([{ type: "uint64[]" }], res as `0x${string}`) as [readonly bigint[]];
+          const chains = [...new Set(sels.map((s) => CCIP_SELECTOR[s.toString()]).filter(Boolean))] as string[];
+          if (chains.length) ccipChainsByKey.set(`${r.token.toUpperCase()}|${r.chain}`, chains);
+        } catch { /* 풀 인터페이스 상이 → 스킵(노트 폴백) */ }
+      }));
       for (const r of ba2.rows) addBridgeNode(r.token.toUpperCase(), r.chain, r.auth_type, PRETTY[r.auth_type] ?? r.auth_type, r.bridge_addr, r.note, r.mint_limit, r.auth_type === "mint_event");
     } catch { /* table optional */ }
 
