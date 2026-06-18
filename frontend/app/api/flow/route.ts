@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import pg from "pg";
 
 import { buildFlowGraph } from "@/lib/flow-core";
+import { decodeString, ethCall, selectorOf } from "@/lib/onchain-read";
 import type { RiskLevel } from "@/lib/flow-types";
 
 /**
@@ -175,6 +176,26 @@ export async function GET(req: Request) {
       const tokenIdBySymChain = new Map<string, string>();
       for (const n of graph.nodes) if (n.kind === "token") tokenIdBySymChain.set(`${n.token.toUpperCase()}|${n.chain}`, n.id);
       const syms = [...new Set(graph.nodes.filter((n) => n.kind === "token").map((n) => n.token.toUpperCase()))];
+      // 락&민트 래핑본(USDC.e·USDbC 등) — token_variants(bridged_wrapped) 조회 후 온체인 symbol() 로 실제 형태명 확정.
+      const LOCK_MINT = new Set(["op_bridge", "l2_canonical", "polygon_pos"]);
+      const wrappedByTC = new Map<string, { sym: string; addr: string }>();
+      try {
+        const tv = await p.query<{ token: string; chain: string; address: string; via: string | null }>(
+          `SELECT DISTINCT ON (upper(token), chain) token, chain, address, via FROM token_variants
+            WHERE kind = 'bridged_wrapped' AND upper(token) = ANY($1)
+            ORDER BY upper(token), chain, snapshot_ts DESC`,
+          [syms],
+        );
+        const SEL_SYMBOL = selectorOf("function symbol()");
+        await Promise.all(tv.rows.map(async (r) => {
+          const a = r.address.toLowerCase();
+          const onchain = decodeString((await ethCall(r.chain, a, SEL_SYMBOL)) ?? null); // 실제 형태명(USDbC 등)
+          const fallback = /gateway|canonical|op\s*bridge|arbitrum/i.test(r.via ?? "") ? `${r.token}.e` : `${r.token} (bridged)`;
+          // 온체인 symbol 이 정규심볼과 같으면(레거시 Arbitrum USDC.e 가 "USDC" 반환) native 와 구분 불가 → 관례명(.e) 사용.
+          const wsym = onchain && onchain.toUpperCase() !== r.token.toUpperCase() ? onchain : fallback;
+          wrappedByTC.set(`${r.token.toUpperCase()}|${r.chain}`, { sym: wsym, addr: a });
+        }));
+      } catch { /* token_variants optional */ }
       const PRETTY: Record<string, string> = {
         xerc20: "xERC20", xerc20_lockbox: "xERC20 Lockbox", ccip_pool: "Chainlink CCIP", ccip_remote: "Chainlink CCIP",
         oft_peer: "LayerZero OFT", minter_role: "MINTER_ROLE", cctp: "Circle CCTP", wormhole_ntt: "Wormhole NTT",
@@ -189,7 +210,12 @@ export async function GET(req: Request) {
           existing.meta = { ...(existing.meta ?? {}), count: ((existing.meta?.count as number | undefined) ?? 1) + 1 };
           return;
         }
-        graph.nodes.push({ id, kind: "bridge", label: pretty, token: sym, chain, tvlUsd: 0, address: addr, risk: "safe", meta: { authType: slug, note, mintLimit, addr, estimated: isEstimated } });
+        // 락&민트면 래핑본 형태(USDC.e@arbitrum 등) meta 부착 · OFT 면 라이브 DVN 실측 placeholder.
+        const w = LOCK_MINT.has(slug) ? wrappedByTC.get(`${sym}|${chain}`) : undefined;
+        const extra: Record<string, unknown> = {};
+        if (w) { extra.wrappedSymbol = w.sym; extra.wrappedAddr = w.addr; extra.wrappedChain = chain; }
+        if (slug === "oft_peer") extra.live = {};
+        graph.nodes.push({ id, kind: "bridge", label: pretty, token: sym, chain, tvlUsd: 0, address: addr, risk: "safe", meta: { authType: slug, note, mintLimit, addr, estimated: isEstimated, ...extra } });
         graph.edges.push({ id: `bn:${id}`, source: tokId, target: id, kind: "bridge", tvlUsd: 0, weight: 0.2, chain, label: `${pretty} 브릿지 통로`, bridge: { fromChain: chain, toChain: chain, mechanism: slug, protocol: pretty } });
       };
       // estimated=1 이면 mint_event(추정)도 포함, meta.estimated=true 로 표시(UI 점선·"추정"). 기본은 검증/탐지된 것만.

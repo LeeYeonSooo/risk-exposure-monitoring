@@ -47,6 +47,7 @@ function BridgeInner({ sym, chains, active }: { sym: string; chains: string[]; a
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [txs, setTxs] = useState<FlowTx[]>([]);
   const [winMin, setWinMin] = useState(60);
+  const [liveByKey, setLiveByKey] = useState<Map<string, Record<string, unknown>>>(new Map()); // 브릿지별 라이브 DVN/attester 실측(meta.live)
   const { fitView } = useReactFlow();
 
   // 추정(mint_event) 브릿지가 스코프 안 몇 개 체인에 있는지 가볍게 조회 — 검증 브릿지가 0이라
@@ -70,9 +71,17 @@ function BridgeInner({ sym, chains, active }: { sym: string; chains: string[]; a
   // 체인 = 바깥 링, 브릿지 = 체인쌍 엣지 위. 직선 연결. (스코프 밖 체인·브릿지는 제외)
   const layout = useMemo(() => {
     if (!graph) return null;
-    const chainNodes = graph.nodes
-      .filter((n) => n.kind === "token" && SCOPE.has(n.chain))
-      .sort((a, b) => CHAIN_ORDER.indexOf(a.chain) - CHAIN_ORDER.indexOf(b.chain));
+    // 체인 노드 = "선택한 토큰의 체인별 인스턴스"만. /api/flow 그래프엔 연관 토큰·LP(syrupUSDC·3Crv…)가
+    //   token 노드로 다수 섞여 오므로, viewed 심볼과 일치하는 것만 골라 체인당 1개(첫 매치)로 한정한다.
+    //   (이전엔 scope 내 모든 token 노드를 잡아 "체인 29개"로 흩어졌다 — 사용자 2026-06-17.)
+    const wantSym = sym.toUpperCase();
+    const byChain = new Map<string, FlowNode>();
+    for (const n of graph.nodes) {
+      if (n.kind !== "token" || !SCOPE.has(n.chain)) continue;
+      if ((n.label || "").toUpperCase() !== wantSym) continue;
+      if (!byChain.has(n.chain)) byChain.set(n.chain, n);
+    }
+    const chainNodes = [...byChain.values()].sort((a, b) => CHAIN_ORDER.indexOf(a.chain) - CHAIN_ORDER.indexOf(b.chain));
     const chainOf = new Map(chainNodes.map((n) => [n.chain, n] as const));
 
     // 브릿지 노드 디둡 — (체인, 라벨)당 1개, ccip_remote(같은 CCIP의 원격 엔드포인트)는 제외.
@@ -93,6 +102,31 @@ function BridgeInner({ sym, chains, active }: { sym: string; chains: string[]; a
       const a = -Math.PI / 2 + (2 * Math.PI * i) / Math.max(1, chainNodes.length);
       chainPos.set(n.chain, { x: CENTER.x + Math.cos(a) * R, y: CENTER.y + Math.sin(a) * R });
     });
+
+    // 락&민트 래핑본(USDC.e@arbitrum · USDbC@base 등) — 목적지를 native 토큰이 아니라 "바뀐 형태" 노드로 그린다.
+    //   (체인, 래핑심볼)당 1개로 디둡. chainNode 아님(라벨이 래핑 심볼이어야 하므로). meta.wrapped* 는 /api/flow 가 채움.
+    const wrappedNodes = new Map<string, FlowNode>();
+    const wrappedPos = new Map<string, { x: number; y: number }>();
+    const wrappedIdFor = (b: FlowNode): string | null => {
+      const m = b.meta ?? {};
+      const wsym = m.wrappedSymbol as string | undefined;
+      const wchain = (m.wrappedChain as string | undefined) ?? b.chain;
+      if (!wsym || !chainPos.has(wchain)) return null;
+      const key = `${wchain}|${wsym}`;
+      const id = `wrap:${key}`;
+      if (!wrappedNodes.has(key)) {
+        const base = chainOf.get(wchain)!;
+        const cp = chainPos.get(wchain)!;
+        const ang = Math.atan2(cp.y - CENTER.y, cp.x - CENTER.x); // 체인 노드 바깥쪽 방사 위치
+        wrappedPos.set(id, { x: cp.x + Math.cos(ang) * 135, y: cp.y + Math.sin(ang) * 135 });
+        wrappedNodes.set(key, {
+          ...base, id, label: wsym, tvlUsd: 0, // native 체인 TVL 상속 방지(래핑본 자체 규모는 별도)
+          address: (m.wrappedAddr as string | undefined) ?? base.address,
+          meta: { ...(base.meta ?? {}), wrapped: true, wrappedOf: sym, chain: wchain },
+        });
+      }
+      return id;
+    };
 
     // 체인쌍 → 브릿지 목록 (lock&mint = eth↔L2, burn&mint = 같은 브릿지가 있는 체인쌍 모두)
     type PairEntry = { a: string; b: string; list: { node: FlowNode; lock: boolean }[] };
@@ -135,12 +169,17 @@ function BridgeInner({ sym, chains, active }: { sym: string; chains: string[]; a
         const id = `bm:${a}|${b}|${it.node.label}`; // 쌍+메커니즘 고유 id
         pos.set(id, { x: mx + px * off, y: my + py * off });
         placed.push({ ...it.node, id, _pair: [a, b], _lock: it.lock });
-        fedges.push({ id: `be:${a}->${id}`, source: chainOf.get(a)!.id, target: id, kind: "bridge" });
-        fedges.push({ id: `be:${id}->${b}`, source: id, target: chainOf.get(b)!.id, kind: "bridge" });
+        // 락&민트면 L2 쪽 끝점을 래핑 노드로(형태 변경). a/b 는 정렬된 쌍이라 실제 L2 는 it.node.chain 으로 판별.
+        const wid = it.lock ? wrappedIdFor(it.node) : null;
+        const l2 = it.node.chain;
+        const srcA = wid && a === l2 ? wid : chainOf.get(a)!.id;
+        const tgtB = wid && b === l2 ? wid : chainOf.get(b)!.id;
+        fedges.push({ id: `be:${a}->${id}`, source: srcA, target: id, kind: "bridge" });
+        fedges.push({ id: `be:${id}->${b}`, source: id, target: tgtB, kind: "bridge" });
       });
     }
 
-    return { chainNodes, chainPos, placed, pos, fedges };
+    return { chainNodes, chainPos, placed, pos, fedges, wrappedNodes, wrappedPos };
   }, [graph]);
 
   // 전용 브릿지 피드 — 브릿지 주소 to/from 직접 조회.
@@ -169,12 +208,41 @@ function BridgeInner({ sym, chains, active }: { sym: string; chains: string[]; a
     return () => { alive = false; clearInterval(iv); };
   }, [active, fetchParams, sym]);
 
+  // 라이브 온체인 실측 — OFT(LayerZero DVN)·CCTP(attester) 브릿지에 한해 /api/bridge-dvn 조회 → meta.live.
+  useEffect(() => {
+    if (!active || !layout) { setLiveByKey(new Map()); return; }
+    const targets = layout.placed.filter((b) => { const at = b.meta?.authType; return at === "oft_peer" || at === "cctp"; });
+    if (!targets.length) { setLiveByKey(new Map()); return; }
+    let alive = true;
+    (async () => {
+      const entries = await Promise.all(targets.map(async (b) => {
+        const at = b.meta?.authType as string;
+        let url: string;
+        if (at === "cctp") {
+          url = `/api/bridge-dvn?mech=cctp`;
+        } else {
+          const oapp = (b.meta?.addr as string | undefined) ?? b.address ?? "";
+          const remote = String(b.meta?.note ?? "").match(/→\s*([a-z]+)/i)?.[1]?.toLowerCase() ?? "ethereum"; // OFT peer 체인
+          url = `/api/bridge-dvn?mech=oft&chain=${encodeURIComponent(b.chain)}&oapp=${encodeURIComponent(oapp)}&remote=${encodeURIComponent(remote)}`;
+        }
+        try { const d = await fetch(url, { cache: "no-store" }).then((r) => r.json()); return [b.id, d.live] as const; }
+        catch { return [b.id, null] as const; }
+      }));
+      if (!alive) return;
+      const m = new Map<string, Record<string, unknown>>();
+      for (const [id, live] of entries) if (live) m.set(id, live as Record<string, unknown>);
+      setLiveByKey(m);
+    })();
+    return () => { alive = false; };
+  }, [active, layout]);
+
   // TxFlowLayer 입력용 positioned 노드(중심좌표 + 반경)
   const positioned = useMemo(() => {
     if (!layout) return [];
     const chainP = layout.chainNodes.map((n) => ({ ...n, x: layout.chainPos.get(n.chain)!.x, y: layout.chainPos.get(n.chain)!.y, radius: radiusOf(n) }));
     const bridgeP = layout.placed.map((node) => ({ ...node, x: layout.pos.get(node.id)!.x, y: layout.pos.get(node.id)!.y, radius: radiusOf(node) }));
-    return [...chainP, ...bridgeP];
+    const wrapP = [...layout.wrappedNodes.values()].map((node) => ({ ...node, x: layout.wrappedPos.get(node.id)!.x, y: layout.wrappedPos.get(node.id)!.y, radius: radiusOf(node) }));
+    return [...chainP, ...bridgeP, ...wrapP];
   }, [layout]);
 
   const colorByToken = useMemo(() => {
@@ -194,13 +262,20 @@ function BridgeInner({ sym, chains, active }: { sym: string; chains: string[]; a
     const bridgeRF = layout.placed.map((node) => {
       const p = layout.pos.get(node.id)!;
       const r = radiusOf(node);
-      // 메커니즘·연결 체인쌍을 메타로 → 노드 아래 "ethereum ↔ arbitrum" + 라벨로 표시
-      const meta = { ...(node.meta ?? {}), fromChain: node._pair[0], toChain: node._pair[1] };
+      // 메커니즘·연결 체인쌍 + 라이브 실측(meta.live) 을 메타로 → hover 구조특성 카드가 실측값(X-of-Y DVN 등) 표시.
+      const live = liveByKey.get(node.id);
+      const meta = { ...(node.meta ?? {}), fromChain: node._pair[0], toChain: node._pair[1], ...(live ? { live } : {}) };
       const est = node.meta?.estimated === true; // mint_event 추정 — 점선·"추정" 배지(FlowNodes)
       const label = est ? node.label : `${node.label}${node._lock ? " · 락&민트(래핑)" : " · 번&민트"}`;
       return { id: node.id, type: "flow", position: { x: p.x - r, y: p.y - r }, zIndex: 2, data: { ...node, label, meta, radius: r, risk: est || node._lock ? "caution" : "safe" }, draggable: true } as Node;
     });
-    setNodes([...chainRF, ...bridgeRF]);
+    // 래핑 형태 노드(USDC.e·USDbC 등) — chainNode 아님(라벨=래핑 심볼). 락&민트 목적지.
+    const wrapRF = [...layout.wrappedNodes.values()].map((node) => {
+      const p = layout.wrappedPos.get(node.id)!;
+      const r = radiusOf(node);
+      return { id: node.id, type: "flow", position: { x: p.x - r, y: p.y - r }, zIndex: 1, data: { ...node, radius: r, risk: "caution" }, draggable: true } as Node;
+    });
+    setNodes([...chainRF, ...bridgeRF, ...wrapRF]);
     setEdges(layout.fedges.map((e) => ({
       id: e.id, source: e.source, target: e.target, type: "flow",
       data: { kind: e.kind, weight: 0.4, tvlUsd: 0, mode: "transaction", dir: "both", straight: true },
@@ -208,7 +283,7 @@ function BridgeInner({ sym, chains, active }: { sym: string; chains: string[]; a
     } as Edge)));
     const t = setTimeout(() => fitView({ padding: 0.18, duration: 500 }).catch(() => {}), 300);
     return () => clearTimeout(t);
-  }, [layout, setNodes, setEdges, fitView]);
+  }, [layout, liveByKey, setNodes, setEdges, fitView]);
 
   if (!layout) {
     return <div className="flex h-full items-center justify-center text-sm text-[var(--color-text-muted)]">{loading ? "브릿지 데이터 로딩…" : "브릿지 데이터 없음"}</div>;

@@ -19,6 +19,11 @@ export const hasLiveTx = (chain: string) => LIVE_TX_CHAINS.has(chain.toLowerCase
 const LABELS = new Map(SUPPORTED_CHAINS.map((c) => [c.key, c.label] as const));
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
+/** 체인 키 → 표시 이름(Ethereum/Base/Arbitrum…). 미등록 키는 첫 글자 대문자 폴백. */
+export function chainLabel(key: string): string {
+  return LABELS.get(key.toLowerCase()) ?? cap(key);
+}
+
 /** comprehensive list = supported set ∪ the token's own exposure chains (so none are missing). */
 export function chainOptions(tokenChains?: string[]): { key: string; label: string }[] {
   const out = [...SUPPORTED_CHAINS];

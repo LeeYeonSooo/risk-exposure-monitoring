@@ -4,6 +4,8 @@ import { memo, useState } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 
 import { formatUsd } from "@/lib/api";
+import { bridgeStructuralProfile } from "@/lib/bridge-security";
+import { chainLabel } from "@/lib/chains-ui";
 import type { FlowNode, RiskLevel } from "@/lib/flow-types";
 
 /**
@@ -62,9 +64,20 @@ function protocolLogo(slug?: string): string | null {
 
 const FILL: Record<string, string> = { market: "#38bdf8", vault: "#a855f7", external: "#94a3b8", bridge: "#f59e0b" };
 
+/** 브릿지 구조특성 hover 카드의 한 줄(라벨: 값). */
+function Row({ k, v, hi }: { k: string; v: string; hi?: boolean }) {
+  return (
+    <div className="flex gap-1.5" style={{ whiteSpace: "normal" }}>
+      <span className="w-14 shrink-0 text-[var(--color-text-muted)]">{k}</span>
+      <span className={hi ? "font-semibold text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)]"}>{v}</span>
+    </div>
+  );
+}
+
 function NodeShell({ data, selected }: NodeProps) {
   const d = data as FlowNodeData;
   const size = d.radius * 2;
+  const [hover, setHover] = useState(false); // 브릿지 구조특성 hover 카드 토글
   // 선택하면 일시적으로 색 복귀 — 엣지(FloatingFlowEdge)의 dim 동작과 대칭
   const dimmed = !!d.dim && !selected;
   // 흐름 귀속 어댑터가 없는 노드(예: pendle·balancer·sushiswap·L2 euler 볼트) — 회색이어도
@@ -79,12 +92,15 @@ function NodeShell({ data, selected }: NodeProps) {
   const fill = d.risk === "danger" ? "#ef4444" : d.risk === "caution" ? "#f59e0b" : FILL[d.kind] ?? "#cbd5e1";
 
   // 브릿지 노드 — 토큰 사이의 🌉. 메커니즘(CCIP/LZ/락박스 등)이 라벨, 미검증=주의색 테두리.
+  //   hover 카드 = 구조특성(신뢰모델·검증자·임계·파이널리티·업그레이드 위험) 자동 산출(bridge-security).
   if (isBridge) {
     const bc = d.risk === "caution" ? "#f59e0b" : "#0d9488";
+    const prof = bridgeStructuralProfile(d.meta?.authType as string | undefined, d.meta as Record<string, unknown> | undefined);
+    const tierColor = prof.tier === "high" ? "#ef4444" : prof.tier === "med" ? "#f59e0b" : prof.tier === "low" ? "#0d9488" : "#64748b";
     return (
       <div className="relative flex items-center justify-center"
-        style={{ width: size, height: size, opacity: dimmed ? 0.35 : 1, filter: dimmed ? "grayscale(1)" : undefined, transition: "opacity .25s, filter .25s" }}
-        title={`${d.label}${d.meta?.fromChain ? ` · ${String(d.meta.fromChain)}↔${String(d.meta.toChain)}` : ""}`}>
+        style={{ width: size, height: size, opacity: dimmed ? 0.35 : 1, filter: dimmed ? "grayscale(1)" : undefined, transition: "opacity .25s, filter .25s", zIndex: hover ? 1000 : undefined }}
+        onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
         <Handle type="target" position={Position.Top} style={{ opacity: 0, width: 1, height: 1, border: 0, minWidth: 0, minHeight: 0 }} isConnectable={false} />
         <Handle type="source" position={Position.Top} style={{ opacity: 0, width: 1, height: 1, border: 0, minWidth: 0, minHeight: 0 }} isConnectable={false} />
         <div className="flex items-center justify-center rounded-full bg-[var(--color-surface)]"
@@ -95,6 +111,23 @@ function NodeShell({ data, selected }: NodeProps) {
           <div className="text-[9px] font-bold" style={{ color: bc }}>{d.label}</div>
           {d.meta?.fromChain != null && <div className="text-[8px] text-[var(--color-text-muted)]">{String(d.meta.fromChain)} ↔ {String(d.meta.toChain)}</div>}
         </div>
+        {(hover || selected) && (
+          <div className="pointer-events-none absolute bottom-full left-1/2 z-[1000] mb-2 -translate-x-1/2 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-2.5 py-2 text-left shadow-xl" style={{ width: 220, whiteSpace: "normal" }}>
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[10px] font-bold text-[var(--color-text-primary)]">{prof.mechanism}</div>
+              <span className="shrink-0 rounded px-1.5 py-0.5 text-[8px] font-bold text-white" style={{ background: tierColor }}>{prof.tierLabel}</span>
+            </div>
+            {/* 핵심만 — 누가 검증하나(검증자) + 몇으로 통과되나(임계). 임계가 '1-of-1 DVN' 신호가 뜨는 줄. */}
+            <div className="mt-1.5 space-y-1 text-[9px] leading-snug">
+              <Row k="검증자" v={prof.verifier} />
+              <Row k="임계" v={prof.threshold} hi />
+            </div>
+            {prof.tier === "high" && prof.notes[0] ? (
+              <div className="mt-1.5 border-t border-[var(--color-border-subtle)] pt-1 text-[8px] font-medium text-[#ef4444]">{prof.notes[0]}</div>
+            ) : null}
+            <div className="mt-1 text-[7px] italic text-[var(--color-text-muted)]">{prof.measured ? "● 온체인 실측" : "○ 메커니즘 분류"}</div>
+          </div>
+        )}
       </div>
     );
   }
@@ -129,6 +162,10 @@ function NodeShell({ data, selected }: NodeProps) {
           <div className={"font-semibold text-[var(--color-text-primary)] " + (isToken ? "text-[12px]" : "text-[10px]")}>
             {d.kind === "vault" ? "🏛 " : d.kind === "bridge" ? "🌉 " : ""}{d.label}
           </div>
+          {/* 브릿지 맵 체인 노드 — 같은 토큰이 체인마다 반복되므로 체인 이름으로 구분(BridgeView 가 chainNode:true 표식) */}
+          {d.chainNode === true && d.chain ? (
+            <div className="text-[10px] font-bold text-[var(--color-accent)]">{chainLabel(d.chain)}</div>
+          ) : null}
           {d.kind === "vault" && d.meta?.curator ? (
             <div className="text-[8px] text-[var(--color-text-muted)]">큐레이터 {curatorLabel(d.meta.curator)}</div>
           ) : null}
