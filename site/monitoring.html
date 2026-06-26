@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Monitoring — ChainSpiral</title>
+  <meta name="description" content="Supply spikes, liquidity drops, depegs, oracle changes and bad debt — ChainSpiral's real-time risk alerts, classified by severity." />
+  <link rel="icon" type="image/svg+xml" href="assets/img/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/styles.css?v=6" />
+</head>
+<body>
+  <header class="nav">
+    <div class="container nav__row">
+      <a class="brand" href="index.html"><img class="mark" src="assets/img/logo.svg" alt="" /> ChainSpiral <span class="ver">v0.2</span></a>
+      <nav class="nav__links"><a href="flow-map.html">Flow Map</a><a href="monitoring.html">Monitoring</a><a href="relationships.html">Relationships</a><a href="coverage.html">Coverage</a></nav>
+      <div class="nav__cta"><a class="btn btn-ghost" href="docs.html">Docs</a><a class="btn btn-accent" href="#">Launch app <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a><button class="nav__toggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button></div>
+    </div>
+  </header>
+
+  <section class="phead">
+    <div class="hero__glow"></div>
+    <div class="container hero__inner">
+      <span class="eyebrow">Monitoring · Alerts</span>
+      <h1 class="h1" style="margin-top:16px;max-width:18ch">Alerts that let you <span class="grad-text">hear risk first</span>.</h1>
+      <p class="lead">Only meaningful changes from snapshot diffs are surfaced, in real time. Each alert is classified critical / warning / info — and clicking one jumps straight to a flow map filtered to that token and chain.</p>
+      <div class="hero__actions"><a class="btn btn-accent btn-lg" href="#">Turn on alerts <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a><a class="btn btn-ghost btn-lg" href="flow-map.html">See the flow map</a></div>
+      <div class="sevlegend" style="margin-top:22px">
+        <span class="sevchip"><i style="background:var(--danger)"></i> Critical</span>
+        <span class="sevchip"><i style="background:var(--warning)"></i> Warning</span>
+        <span class="sevchip"><i style="background:var(--info)"></i> Info</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="section--tight">
+    <div class="container">
+      <div class="split">
+        <div class="split__media reveal">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><strong style="font-size:14px">Real-time monitoring alerts</strong><span class="alert__time" style="margin-left:auto">15s polling</span></div>
+          <div class="alerts">
+            <div class="alert crit"><span class="sev"></span><div class="alert__body"><div class="alert__top"><span class="tag">USDe</span><span class="tag chain">ethereum</span><span class="kind">Depeg</span><span class="alert__time">2m ago</span></div><div class="alert__msg">USDe $0.978 — price deviation, NAV-market liquidation-lag risk</div></div></div>
+            <div class="alert crit"><span class="sev"></span><div class="alert__body"><div class="alert__top"><span class="tag">DAI</span><span class="tag chain">ethereum</span><span class="kind">Bad debt threshold</span><span class="alert__time">8m ago</span></div><div class="alert__msg">morpho DAI market bad debt exceeds $1.2M</div></div></div>
+            <div class="alert warn"><span class="sev"></span><div class="alert__body"><div class="alert__top"><span class="tag">WBTC</span><span class="tag chain">arbitrum</span><span class="kind">Liquidity drop</span><span class="alert__time">11m ago</span></div><div class="alert__msg">aave-v3 WBTC available liquidity −38% (1h)</div></div></div>
+            <div class="alert warn"><span class="sev"></span><div class="alert__body"><div class="alert__top"><span class="tag">wstETH</span><span class="tag chain">ethereum</span><span class="kind">Oracle changed</span><span class="alert__time">42m ago</span></div><div class="alert__msg">market oracle swap detected — re-verify classification</div></div></div>
+            <div class="alert info"><span class="sev"></span><div class="alert__body"><div class="alert__top"><span class="tag">USDC</span><span class="tag chain">base</span><span class="kind">Chain supply spike</span><span class="alert__time">26m ago</span></div><div class="alert__msg">base totalSupply +$33.4M USDC (robust z=12.4)</div></div></div>
+            <div class="alert info"><span class="sev"></span><div class="alert__body"><div class="alert__top"><span class="tag">cbETH</span><span class="tag chain">base</span><span class="kind">High utilization</span><span class="alert__time">1h ago</span></div><div class="alert__msg">euler cbETH utilization 94% — withdrawal headroom shrinking</div></div></div>
+          </div>
+        </div>
+        <div class="reveal">
+          <span class="eyebrow">What → where</span>
+          <h2 class="h2" style="margin-top:14px">Alerts and the flow map,<br />one continuous path.</h2>
+          <p class="lead" style="margin-top:16px">An alert tells you “what happened”; the flow map shows “where and how”. Click an alert and you deep-link into a flow map filtered to that token and chain — context never lost.</p>
+          <ul class="checks">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Chain & severity filters to cut the noise</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Sorted by event-observation time (no misleading lag)</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> A floating mini alert dock, visible on any screen</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="center" style="max-width:60ch;margin-inline:auto"><span class="eyebrow">Alert types</span><h2 class="h2" style="margin-top:14px">17 anomaly signals,<br />classified by severity</h2></div>
+      <div class="grid grid-3" style="margin-top:44px">
+        <article class="card reveal"><h3 style="font-size:17px;color:var(--danger)">Critical</h3><p>Depeg · bad-debt threshold · reserve frozen · wallet value drop — signals that need an immediate response.</p></article>
+        <article class="card reveal"><h3 style="font-size:17px;color:var(--warning)">Warning</h3><p>Liquidity drop (lending & DEX) · utilization jump · high utilization · high-LLTV market · oracle / IRM change · flow anomaly.</p></article>
+        <article class="card reveal"><h3 style="font-size:17px;color:var(--info)">Info</h3><p>Supply spike · chain supply spike · new collateral adoption · new market · unverified large exposure.</p></article>
+      </div>
+      <div class="chips" style="margin-top:28px;justify-content:center">
+        <span class="chip">Supply spike</span><span class="chip">Liquidity drop</span><span class="chip">Depeg</span><span class="chip">Oracle change</span><span class="chip">IRM change</span><span class="chip">Bad debt</span><span class="chip">Utilization jump</span><span class="chip">High LLTV</span><span class="chip">New market</span><span class="chip">New collateral</span><span class="chip">Flow anomaly</span><span class="chip">Wallet value drop</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="section--tight">
+    <div class="container"><div class="cta-dark reveal"><div class="cta-dark__in"><h2 class="h2" style="color:#fff">Before risk spreads.</h2><p>Only meaningful changes surface — no noise, always with context.</p><div class="hero__actions"><a class="btn btn-accent btn-lg" href="#">Launch app <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a><a class="btn btn-light btn-lg" href="docs.html">See the alert criteria</a></div></div></div></div>
+  </section>
+
+  <footer class="foot">
+    <div class="container">
+      <div class="foot__grid">
+        <div class="foot__brand"><a class="brand" href="index.html"><img class="mark" src="assets/img/logo.svg" alt="" /> ChainSpiral</a><p>Cross-chain DeFi risk monitoring. Money flows and exposure, in real time — without guesswork.</p></div>
+        <div><h4>Product</h4><ul><li><a href="flow-map.html">Flow Map</a></li><li><a href="monitoring.html">Monitoring</a></li><li><a href="relationships.html">Relationships</a></li><li><a href="coverage.html">Coverage</a></li></ul></div>
+        <div><h4>Resources</h4><ul><li><a href="docs.html">Docs</a></li><li><a href="docs.html#data">Data principles</a></li><li><a href="coverage.html">Supported chains</a></li></ul></div>
+        <div><h4>Company</h4><ul><li><a href="#">About</a></li><li><a href="#">Contact</a></li><li><a href="#">Status</a></li></ul></div>
+      </div>
+      <div class="foot__bottom"><span>© <span data-year>2025</span> ChainSpiral. All data is informational, not investment advice.</span><span>Made for on-chain risk teams.</span></div>
+    </div>
+  </footer>
+  <script src="assets/js/main.js?v=6"></script>
+</body>
+</html>

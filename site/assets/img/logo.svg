@@ -1,0 +1,16 @@
+<svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ChainSpiral">
+  <defs>
+    <linearGradient id="cs" x1="3" y1="3" x2="25" y2="25" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4F46E5"/>
+      <stop offset="0.5" stop-color="#2C5FF6"/>
+      <stop offset="1" stop-color="#16B8D6"/>
+    </linearGradient>
+  </defs>
+  <!-- spiral path -->
+  <path d="M14 23.2c-5.1 0-9.2-4.1-9.2-9.2S8.9 4.8 14 4.8c3.9 0 7.1 3.2 7.1 7.1 0 3-2.4 5.4-5.4 5.4-2.3 0-4.1-1.8-4.1-4.1 0-1.7 1.4-3.1 3.1-3.1"
+        stroke="url(#cs)" stroke-width="2.1" stroke-linecap="round" fill="none"/>
+  <!-- flow nodes -->
+  <circle cx="14" cy="4.8" r="2.1" fill="#4F46E5"/>
+  <circle cx="21.1" cy="11.9" r="2" fill="#2C5FF6"/>
+  <circle cx="14.7" cy="10.1" r="1.7" fill="#16B8D6"/>
+</svg>

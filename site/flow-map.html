@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Flow Map — ChainSpiral</title>
+  <meta name="description" content="ChainSpiral's Flow Map visualizes the path of money — token to protocol to market/vault — across chains, in real time." />
+  <link rel="icon" type="image/svg+xml" href="assets/img/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/styles.css?v=6" />
+</head>
+<body>
+  <header class="nav">
+    <div class="container nav__row">
+      <a class="brand" href="index.html"><img class="mark" src="assets/img/logo.svg" alt="" /> ChainSpiral <span class="ver">v0.2</span></a>
+      <nav class="nav__links"><a href="flow-map.html">Flow Map</a><a href="monitoring.html">Monitoring</a><a href="relationships.html">Relationships</a><a href="coverage.html">Coverage</a></nav>
+      <div class="nav__cta"><a class="btn btn-ghost" href="docs.html">Docs</a><a class="btn btn-accent" href="#">Launch app <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a><button class="nav__toggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button></div>
+    </div>
+  </header>
+
+  <section class="phead">
+    <div class="hero__glow"></div>
+    <div class="container hero__inner">
+      <span class="eyebrow">Flow Map</span>
+      <h1 class="h1" style="margin-top:16px;max-width:18ch">Money on the move,<br />as <span class="grad-text">live particles</span>.</h1>
+      <p class="lead">Draws the path of money — token → protocol → market/vault — across chains. Real on-chain transfers ride the edges as particles, so you see exactly which token is being deposited, swapped or withdrawn, where, right now.</p>
+      <div class="hero__actions"><a class="btn btn-accent btn-lg" href="#">Launch flow map <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a><a class="btn btn-ghost btn-lg" href="monitoring.html">See monitoring</a></div>
+    </div>
+  </section>
+
+  <section class="section--tight">
+    <div class="container">
+      <div class="stage__card reveal">
+        <div class="stage__bar"><span class="stage__dots"><i></i><i></i><i></i></span><span class="stage__title">Flow Map · live transactions (last 1,000 · up to 30 min · 1 min delay)</span><span class="stage__pill"><span class="dot"></span> Live · 982</span></div>
+        <svg class="stage__svg" viewBox="0 0 1160 440" xmlns="http://www.w3.org/2000/svg">
+          <g stroke-linecap="round" fill="none" opacity=".55">
+            <path id="f1" d="M580 220 C 420 150 320 140 230 130" stroke="#6366f1" stroke-width="2.4"/>
+            <path id="f2" d="M580 220 C 430 250 350 300 240 330" stroke="#16b8d6" stroke-width="2.4"/>
+            <path id="f3" d="M580 220 C 740 150 840 140 930 120" stroke="#0ea5e9" stroke-width="2.4"/>
+            <path id="f4" d="M580 220 C 740 270 840 310 930 340" stroke="#a855f7" stroke-width="2.4"/>
+            <path id="f5" d="M580 220 C 590 130 600 95 600 60" stroke="#16b8d6" stroke-width="2"/>
+            <path d="M230 130 C 160 140 130 200 130 250" stroke="#cbd5e1" stroke-width="1.5" opacity=".6"/>
+            <path d="M930 340 C 1010 350 1030 280 1020 240" stroke="#cbd5e1" stroke-width="1.5" opacity=".6"/>
+          </g>
+          <!-- particles below nodes → they vanish at the node border (covered by the node), not at the center -->
+          <g>
+            <circle r="5" fill="#6366f1"><animateMotion dur="3s" repeatCount="indefinite"><mpath href="#f1"/></animateMotion></circle>
+            <circle r="6" fill="#6366f1"><animateMotion dur="3s" begin="1.2s" repeatCount="indefinite"><mpath href="#f1"/></animateMotion></circle>
+            <circle r="4" fill="#16b8d6"><animateMotion dur="3.4s" repeatCount="indefinite"><mpath href="#f2"/></animateMotion></circle>
+            <circle r="5" fill="#0ea5e9"><animateMotion dur="2.6s" repeatCount="indefinite" keyPoints="1;0" keyTimes="0;1" calcMode="linear"><mpath href="#f3"/></animateMotion></circle>
+            <circle r="4.5" fill="#a855f7"><animateMotion dur="3.1s" repeatCount="indefinite"><mpath href="#f4"/></animateMotion></circle>
+            <circle r="3.4" fill="#16b8d6"><animateMotion dur="2.3s" repeatCount="indefinite"><mpath href="#f5"/></animateMotion></circle>
+          </g>
+          <g text-anchor="middle" font-family="Inter" font-size="12" font-weight="600" fill="#475569">
+            <circle cx="580" cy="220" r="30" fill="#2c5ff6"/><text x="580" y="224" fill="#fff" font-size="13">stETH</text>
+            <circle cx="230" cy="130" r="20" fill="#0ea5e9"/><text x="230" y="162">aave-v3</text>
+            <circle cx="240" cy="330" r="18" fill="#0ea5e9"/><text x="240" y="360">curve-dex</text>
+            <circle cx="930" cy="120" r="20" fill="#38bdf8"/><text x="930" y="152">uniswap-v4</text>
+            <circle cx="930" cy="340" r="18" fill="#ef4444"/><text x="930" y="372" fill="#b91c1c">morpho ⚠</text>
+            <circle cx="600" cy="60" r="13" fill="#16b8d6"/><text x="600" y="40">wstETH</text>
+            <circle cx="130" cy="250" r="10" fill="#e2e8f0"/><circle cx="1020" cy="240" r="10" fill="#e2e8f0"/>
+          </g>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <section class="section--tight">
+    <div class="container">
+      <div class="grid grid-3">
+        <article class="card reveal"><div class="card__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><h3>Live · 30 min</h3><p>The last 30 minutes (1 min delay) of real transfers flow as particles. Size = USD value (log), color = selected token, lanes = deposit / withdraw.</p></article>
+        <article class="card reveal"><div class="card__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg></div><h3>Baseline · 24h</h3><p>Per-edge inflow/outflow averages over the last 24 hours show what “normal” looks like — so anomalies stand out against it.</p></article>
+        <article class="card reveal"><div class="card__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.2 2.5 17a1.7 1.7 0 0 0 1.5 2.5h16a1.7 1.7 0 0 0 1.5-2.5L13.7 3.2a1.7 1.7 0 0 0-3 0Z"/><path d="M12 9v4M12 17h.01"/></svg></div><h3>Risk highlights</h3><p>Nodes with oracle dependence, self-referential (NAV) pricing or depeg risk stand out by color and pulse. Unmeasurable nodes are marked, not hidden.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section--tight">
+    <div class="container">
+      <div class="split">
+        <div class="reveal">
+          <span class="eyebrow">Honest data</span>
+          <h2 class="h2" style="margin-top:14px">We don't guess.</h2>
+          <p class="lead" style="margin-top:16px">Every particle is a real on-chain transfer, and counterparties are resolved only through verified registries. Transfers that can't be resolved are never faked onto an edge.</p>
+          <ul class="checks">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Uniswap CREATE2 · Curve MetaRegistry · aToken · Comet · Morpho singleton</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Unresolved transfers stay panel-only — never fabricated onto edges</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Drag a node and connected nodes follow on a physics spring</li>
+          </ul>
+        </div>
+        <div class="reveal">
+          <span class="eyebrow">One screen, two views</span>
+          <h2 class="h2" style="margin-top:14px">Flow + alerts.</h2>
+          <p class="lead" style="margin-top:16px">On the main screen the flow map sits next to real-time monitoring alerts. Click an alert and the map jumps to a view filtered to just that token and chain.</p>
+          <ul class="checks">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Collapse the alert panel to expand the map</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> A live-status chip shows feed health at a glance</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Multi-chain selection distinguishes the same token per chain</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section--tight">
+    <div class="container"><div class="cta-dark reveal"><div class="cta-dark__in"><h2 class="h2" style="color:#fff">See the flow yourself.</h2><p>One click from picking a token to watching live particles flow.</p><div class="hero__actions"><a class="btn btn-accent btn-lg" href="#">Launch flow map <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a><a class="btn btn-light btn-lg" href="relationships.html">See relationships</a></div></div></div></div>
+  </section>
+
+  <footer class="foot">
+    <div class="container">
+      <div class="foot__grid">
+        <div class="foot__brand"><a class="brand" href="index.html"><img class="mark" src="assets/img/logo.svg" alt="" /> ChainSpiral</a><p>Cross-chain DeFi risk monitoring. Money flows and exposure, in real time — without guesswork.</p></div>
+        <div><h4>Product</h4><ul><li><a href="flow-map.html">Flow Map</a></li><li><a href="monitoring.html">Monitoring</a></li><li><a href="relationships.html">Relationships</a></li><li><a href="coverage.html">Coverage</a></li></ul></div>
+        <div><h4>Resources</h4><ul><li><a href="docs.html">Docs</a></li><li><a href="docs.html#data">Data principles</a></li><li><a href="coverage.html">Supported chains</a></li></ul></div>
+        <div><h4>Company</h4><ul><li><a href="#">About</a></li><li><a href="#">Contact</a></li><li><a href="#">Status</a></li></ul></div>
+      </div>
+      <div class="foot__bottom"><span>© <span data-year>2025</span> ChainSpiral. All data is informational, not investment advice.</span><span>Made for on-chain risk teams.</span></div>
+    </div>
+  </footer>
+  <script src="assets/js/main.js?v=6"></script>
+</body>
+</html>

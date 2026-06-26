@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Relationships — ChainSpiral</title>
+  <meta name="description" content="Token exposure relationships and money-lego derivative structure (LP, wrappers, receipts, PT/YT) in one graph — ChainSpiral's Relationship Map." />
+  <link rel="icon" type="image/svg+xml" href="assets/img/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/styles.css?v=6" />
+</head>
+<body>
+  <header class="nav">
+    <div class="container nav__row">
+      <a class="brand" href="index.html"><img class="mark" src="assets/img/logo.svg" alt="" /> ChainSpiral <span class="ver">v0.2</span></a>
+      <nav class="nav__links"><a href="flow-map.html">Flow Map</a><a href="monitoring.html">Monitoring</a><a href="relationships.html">Relationships</a><a href="coverage.html">Coverage</a></nav>
+      <div class="nav__cta"><a class="btn btn-ghost" href="docs.html">Docs</a><a class="btn btn-accent" href="#">Launch app <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a><button class="nav__toggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button></div>
+    </div>
+  </header>
+
+  <section class="phead">
+    <div class="hero__glow"></div>
+    <div class="container hero__inner">
+      <span class="eyebrow">Relationships</span>
+      <h1 class="h1" style="margin-top:16px;max-width:18ch">Read <span class="grad-text">where risk spreads</span>.</h1>
+      <p class="lead">See a token's exposure relationships and its money-lego derivative structure in one graph. Follow the chain: how a base asset is re-deposited as derivatives (LP, wrappers, receipts, PT/YT) and which protocols and markets it ends up exposed to.</p>
+      <div class="hero__actions"><a class="btn btn-accent btn-lg" href="#">Launch relationships <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a><a class="btn btn-ghost btn-lg" href="flow-map.html">See the flow map</a></div>
+    </div>
+  </section>
+
+  <section class="section--tight">
+    <div class="container">
+      <div class="stage__card reveal">
+        <div class="stage__bar"><span class="stage__dots"><i></i><i></i><i></i></span><span class="stage__title">Relationship Map · token-centric rings + money-lego overlay</span></div>
+        <svg class="stage__svg" viewBox="0 0 1160 440" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke-width="1.8" opacity=".5" stroke-linecap="round">
+            <circle cx="580" cy="220" r="120" stroke="#e2e8f0"/><circle cx="580" cy="220" r="190" stroke="#eef0f4"/>
+            <path d="M580 220 L 470 150" stroke="#7c3aed"/><path d="M580 220 L 700 150" stroke="#7c3aed"/>
+            <path d="M470 150 L 360 100" stroke="#16a34a"/><path d="M700 150 L 820 110" stroke="#16a34a"/>
+            <path d="M580 220 L 470 300" stroke="#0ea5e9"/><path d="M580 220 L 700 300" stroke="#0ea5e9"/>
+            <path d="M470 300 L 360 350" stroke="#a855f7"/><path d="M700 300 L 820 350" stroke="#a855f7"/>
+          </g>
+          <g text-anchor="middle" font-family="Inter" font-size="11" font-weight="600" fill="#475569">
+            <circle cx="580" cy="220" r="28" fill="#2c5ff6"/><text x="580" y="224" fill="#fff">sUSDe</text>
+            <circle cx="470" cy="150" r="16" fill="#7c3aed"/><text x="470" y="128" fill="#6d28d9">PT-sUSDe</text>
+            <circle cx="700" cy="150" r="16" fill="#7c3aed"/><text x="700" y="128" fill="#6d28d9">LP</text>
+            <circle cx="360" cy="100" r="12" fill="#16a34a"/><text x="360" y="80">pendle</text>
+            <circle cx="820" cy="110" r="12" fill="#16a34a"/><text x="820" y="90">curve</text>
+            <circle cx="470" cy="300" r="15" fill="#0ea5e9"/><text x="470" y="328">morpho</text>
+            <circle cx="700" cy="300" r="15" fill="#0ea5e9"/><text x="700" y="328">aave</text>
+            <circle cx="360" cy="350" r="12" fill="#a855f7"/><text x="360" y="376">vault</text>
+            <circle cx="820" cy="350" r="12" fill="#a855f7"/><text x="820" y="376">vault</text>
+          </g>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <section class="section--tight">
+    <div class="container">
+      <div class="grid grid-3">
+        <article class="card reveal"><div class="card__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div><h3>Money-lego overlay</h3><p>Classifies derivative roles (PT, YT, LP, receipt, wrapper) so the chain — base → pool → derivative → re-deposit — stays unbroken.</p></article>
+        <article class="card reveal"><div class="card__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-6"/></svg></div><h3>Exposure concentration</h3><p>How much of a token sits in which protocol, market or chain — pinpointing where a single point of failure could form.</p></article>
+        <article class="card reveal"><div class="card__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18M3 12h18"/></svg></div><h3>Oracle dependence</h3><p>Shows each market's oracle type (market, exchange-rate, NAV/self-referential). Pricing that can't catch a depeg is flagged in red.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section--tight">
+    <div class="container">
+      <div class="split">
+        <div class="reveal">
+          <span class="eyebrow">Sinks & sources</span>
+          <h2 class="h2" style="margin-top:14px">Where it ends,<br />and where rewards come from.</h2>
+          <p class="lead" style="margin-top:16px">Identifies “designed endpoints” — collateral locked, interest accrued, reward receipts, LP held — and shows, in one line, which yield a curator vault or YT is paid from.</p>
+          <ul class="checks">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Sink kinds: collateral · staking · reward · yield · LP · vault share</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Exposure at the curator level (Morpho · Euler)</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Back-traces upstream backing and underlying chains</li>
+          </ul>
+        </div>
+        <div class="reveal">
+          <span class="eyebrow">Contagion paths</span>
+          <h2 class="h2" style="margin-top:14px">If one shakes,<br />how far does it reach?</h2>
+          <p class="lead" style="margin-top:16px">The relationship map isn't a holdings list — it's a dependency graph. Gauge ahead of time how one token's depeg or liquidation propagates across derivatives, markets and vaults.</p>
+          <ul class="checks">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Identifies self-referential (ouroboros) markets</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Shows cross-chain bridge mechanisms and their verification</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Links to the same token & node as monitoring alerts</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section--tight">
+    <div class="container"><div class="cta-dark reveal"><div class="cta-dark__in"><h2 class="h2" style="color:#fff">Follow the chain.</h2><p>Start from a single token and see how far its risk reaches.</p><div class="hero__actions"><a class="btn btn-accent btn-lg" href="#">Launch app <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a><a class="btn btn-light btn-lg" href="coverage.html">See coverage</a></div></div></div></div>
+  </section>
+
+  <footer class="foot">
+    <div class="container">
+      <div class="foot__grid">
+        <div class="foot__brand"><a class="brand" href="index.html"><img class="mark" src="assets/img/logo.svg" alt="" /> ChainSpiral</a><p>Cross-chain DeFi risk monitoring. Money flows and exposure, in real time — without guesswork.</p></div>
+        <div><h4>Product</h4><ul><li><a href="flow-map.html">Flow Map</a></li><li><a href="monitoring.html">Monitoring</a></li><li><a href="relationships.html">Relationships</a></li><li><a href="coverage.html">Coverage</a></li></ul></div>
+        <div><h4>Resources</h4><ul><li><a href="docs.html">Docs</a></li><li><a href="docs.html#data">Data principles</a></li><li><a href="coverage.html">Supported chains</a></li></ul></div>
+        <div><h4>Company</h4><ul><li><a href="#">About</a></li><li><a href="#">Contact</a></li><li><a href="#">Status</a></li></ul></div>
+      </div>
+      <div class="foot__bottom"><span>© <span data-year>2025</span> ChainSpiral. All data is informational, not investment advice.</span><span>Made for on-chain risk teams.</span></div>
+    </div>
+  </footer>
+  <script src="assets/js/main.js?v=6"></script>
+</body>
+</html>

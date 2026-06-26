@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Coverage — ChainSpiral</title>
+  <meta name="description" content="The chains, protocols and data sources ChainSpiral supports." />
+  <link rel="icon" type="image/svg+xml" href="assets/img/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/styles.css?v=6" />
+</head>
+<body>
+  <header class="nav">
+    <div class="container nav__row">
+      <a class="brand" href="index.html"><img class="mark" src="assets/img/logo.svg" alt="" /> ChainSpiral <span class="ver">v0.2</span></a>
+      <nav class="nav__links"><a href="flow-map.html">Flow Map</a><a href="monitoring.html">Monitoring</a><a href="relationships.html">Relationships</a><a href="coverage.html">Coverage</a></nav>
+      <div class="nav__cta"><a class="btn btn-ghost" href="docs.html">Docs</a><a class="btn btn-accent" href="#">Launch app <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a><button class="nav__toggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button></div>
+    </div>
+  </header>
+
+  <section class="phead">
+    <div class="hero__glow"></div>
+    <div class="container hero__inner">
+      <span class="eyebrow">Coverage</span>
+      <h1 class="h1" style="margin-top:16px;max-width:20ch">What we watch,<br />and <span class="grad-text">what verifies</span> it.</h1>
+      <p class="lead">ChainSpiral tracks the major EVM chains and core DeFi protocols, and is steadily expanding flow coverage to non-EVM chains. Every number comes only from verifiable sources.</p>
+    </div>
+  </section>
+
+  <section class="section--tight">
+    <div class="container">
+      <div class="grid grid-2">
+        <div class="tablewrap reveal">
+          <table class="cov">
+            <thead><tr><th>Chain</th><th>Live flow</th><th>Alerts</th></tr></thead>
+            <tbody>
+              <tr><td>Ethereum</td><td><span class="pill on">Supported</span></td><td><span class="pill on">Supported</span></td></tr>
+              <tr><td>Base</td><td><span class="pill on">Supported</span></td><td><span class="pill on">Supported</span></td></tr>
+              <tr><td>Arbitrum</td><td><span class="pill on">Supported</span></td><td><span class="pill on">Supported</span></td></tr>
+              <tr><td>Optimism · Polygon</td><td><span class="pill soon">Expanding</span></td><td><span class="pill on">Supported</span></td></tr>
+              <tr><td>Solana · Plasma · Tron, etc.</td><td><span class="pill soon">Non-EVM particles</span></td><td><span class="pill on">Supported</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="tablewrap reveal">
+          <table class="cov">
+            <thead><tr><th>Data source</th><th>Role</th></tr></thead>
+            <tbody>
+              <tr><td>DeFiLlama</td><td>TVL · prices · pool/market metadata</td></tr>
+              <tr><td>Alchemy</td><td>Real-time asset transfers (getAssetTransfers)</td></tr>
+              <tr><td>Morpho</td><td>Market, vault and curator detail</td></tr>
+              <tr><td>On-chain RPC</td><td>aToken · Comet · oracle · LP verification</td></tr>
+              <tr><td>Postgres snapshots</td><td>Alert diffs · baseline flow aggregates</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section--tight">
+    <div class="container">
+      <span class="eyebrow">Protocols</span>
+      <h2 class="h3" style="margin-top:12px;margin-bottom:20px">Protocols resolved by 35+ adapters</h2>
+      <div class="chips">
+        <span class="chip">Aave V3</span><span class="chip">Spark</span><span class="chip">Compound V3</span><span class="chip">Morpho Blue</span><span class="chip">Euler</span><span class="chip">Fluid</span><span class="chip">Uniswap V2/V3/V4</span><span class="chip">Curve</span><span class="chip">Convex</span><span class="chip">Balancer</span><span class="chip">Aerodrome</span><span class="chip">Pendle</span><span class="chip">Lido</span><span class="chip">Sky / Maker</span><span class="chip">Maple</span><span class="chip">Centrifuge</span><span class="chip">Veda</span><span class="chip">Puffer</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="section--tight">
+    <div class="container">
+      <div class="grid grid-3">
+        <article class="card reveal"><div class="card__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg></div><h3>Verified counterparties</h3><p>Addresses are resolved only via CREATE2 pools, MetaRegistry, aTokens, Comet and singletons.</p></article>
+        <article class="card reveal"><div class="card__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10M2 17h20M9 21h6"/></svg></div><h3>Bridge verification</h3><p>Confirms bridge mechanisms (lock_mint, burn_mint, xERC20, CCIP, OFT) and mint authority on-chain.</p></article>
+        <article class="card reveal"><div class="card__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg></div><h3>Freshness shown</h3><p>The last-snapshot time is shown in the header — so you can tell at a glance whether data is stale.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section--tight">
+    <div class="container"><div class="cta-dark reveal"><div class="cta-dark__in"><h2 class="h2" style="color:#fff">Need a specific chain?</h2><p>Coverage keeps expanding. Tell us which chains and protocols you want.</p><div class="hero__actions"><a class="btn btn-accent btn-lg" href="#">Launch app <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a><a class="btn btn-light btn-lg" href="#">Request a chain</a></div></div></div></div>
+  </section>
+
+  <footer class="foot">
+    <div class="container">
+      <div class="foot__grid">
+        <div class="foot__brand"><a class="brand" href="index.html"><img class="mark" src="assets/img/logo.svg" alt="" /> ChainSpiral</a><p>Cross-chain DeFi risk monitoring. Money flows and exposure, in real time — without guesswork.</p></div>
+        <div><h4>Product</h4><ul><li><a href="flow-map.html">Flow Map</a></li><li><a href="monitoring.html">Monitoring</a></li><li><a href="relationships.html">Relationships</a></li><li><a href="coverage.html">Coverage</a></li></ul></div>
+        <div><h4>Resources</h4><ul><li><a href="docs.html">Docs</a></li><li><a href="docs.html#data">Data principles</a></li><li><a href="coverage.html">Supported chains</a></li></ul></div>
+        <div><h4>Company</h4><ul><li><a href="#">About</a></li><li><a href="#">Contact</a></li><li><a href="#">Status</a></li></ul></div>
+      </div>
+      <div class="foot__bottom"><span>© <span data-year>2025</span> ChainSpiral. All data is informational, not investment advice.</span><span>Made for on-chain risk teams.</span></div>
+    </div>
+  </footer>
+  <script src="assets/js/main.js?v=6"></script>
+</body>
+</html>

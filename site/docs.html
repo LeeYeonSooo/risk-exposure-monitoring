@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Docs — ChainSpiral</title>
+  <meta name="description" content="ChainSpiral concepts, how to read each view, what each feature provides and when to use it, plus the data-honesty principles." />
+  <link rel="icon" type="image/svg+xml" href="assets/img/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/styles.css?v=6" />
+</head>
+<body>
+  <header class="nav">
+    <div class="container nav__row">
+      <a class="brand" href="index.html"><img class="mark" src="assets/img/logo.svg" alt="" /> ChainSpiral <span class="ver">v0.2</span></a>
+      <nav class="nav__links"><a href="flow-map.html">Flow Map</a><a href="monitoring.html">Monitoring</a><a href="relationships.html">Relationships</a><a href="coverage.html">Coverage</a></nav>
+      <div class="nav__cta"><a class="btn btn-ghost" href="docs.html">Docs</a><a class="btn btn-accent" href="#">Launch app <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a><button class="nav__toggle" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button></div>
+    </div>
+  </header>
+
+  <section class="phead">
+    <div class="hero__glow"></div>
+    <div class="container hero__inner">
+      <span class="eyebrow">Docs</span>
+      <h1 class="h1" style="margin-top:16px;max-width:20ch">How to read it,<br />and <span class="grad-text">when it helps</span>.</h1>
+      <p class="lead">A visual guide to each view — what it shows, what it provides, and the real situations it's built for. Plus how ChainSpiral treats its data.</p>
+    </div>
+  </section>
+
+  <section class="section--tight">
+    <div class="container">
+      <div class="doc">
+        <aside class="doc__nav">
+          <a href="#start">Getting started</a>
+          <a href="#flow">Flow Map</a>
+          <a href="#alerts">Monitoring</a>
+          <a href="#rel">Relationship Map</a>
+          <a href="#data">Data honesty</a>
+          <a href="#faq">FAQ</a>
+        </aside>
+        <div class="doc__body">
+
+          <!-- GETTING STARTED -->
+          <h2 class="h3" id="start">Getting started</h2>
+          <p>ChainSpiral needs no install and no wallet. Open the app, pick the tokens you care about, and you instantly see — across chains, in real time — which protocols, markets and chains their money flows to, and where it's exposed. The main screen pairs a <strong>flow map in the center</strong> with <strong>real-time monitoring alerts on the right</strong>, so "what's happening" and "where" sit side by side.</p>
+          <div class="callout">The whole product is read-only and verification-first: every particle is a real on-chain transfer, and nothing that can't be resolved on-chain is invented. See <a class="btn-link" href="#data">Data honesty</a>.</div>
+
+          <!-- FLOW MAP -->
+          <h3 id="flow">Flow Map — money in motion</h3>
+          <p>The flow map draws the path of money as a graph: <strong>tokens → protocols → markets / vaults</strong>, joined across chains by bridges. Real transfers (Alchemy, last 30 minutes) ride the edges as <strong>particles</strong>, so you literally watch deposits, swaps and withdrawals move.</p>
+
+          <figure class="doc-fig">
+            <div class="doc-fig__media">
+              <svg viewBox="0 0 1000 420" xmlns="http://www.w3.org/2000/svg" style="background:radial-gradient(1px 1px at center,#e7ebf3 1px,transparent 1px) 0 0/22px 22px">
+                <g stroke-linecap="round" fill="none" opacity=".6">
+                  <path id="d1" d="M500 210 C 360 150 280 140 200 130" stroke="#6366f1" stroke-width="2.4"/>
+                  <path id="d2" d="M500 210 C 360 250 290 300 210 320" stroke="#16b8d6" stroke-width="2.4"/>
+                  <path id="d3" d="M500 210 C 640 150 720 140 800 120" stroke="#0ea5e9" stroke-width="2.4"/>
+                  <path id="d4" d="M500 210 C 650 270 730 310 810 330" stroke="#a855f7" stroke-width="2.4"/>
+                  <path d="M800 120 C 880 130 900 180 895 220" stroke="#0ea5e9" stroke-width="2" opacity=".5"/>
+                  <path d="M500 210 C 510 130 515 100 510 70" stroke="#cbd5e1" stroke-width="1.6" stroke-dasharray="5 5"/>
+                </g>
+                <!-- particles render BELOW the nodes → they vanish at the node border (covered by the node), not at the center -->
+                <circle r="5" fill="#6366f1"><animateMotion dur="2.8s" repeatCount="indefinite"><mpath href="#d1"/></animateMotion></circle>
+                <circle r="4" fill="#16b8d6"><animateMotion dur="3.2s" repeatCount="indefinite"><mpath href="#d2"/></animateMotion></circle>
+                <circle r="5" fill="#0ea5e9"><animateMotion dur="2.5s" repeatCount="indefinite" keyPoints="1;0" keyTimes="0;1" calcMode="linear"><mpath href="#d3"/></animateMotion></circle>
+                <circle r="4" fill="#a855f7"><animateMotion dur="3s" repeatCount="indefinite"><mpath href="#d4"/></animateMotion></circle>
+                <!-- risk node warning pulse (radar ring expanding + fading from the morpho node) -->
+                <g fill="none" stroke="#ef4444">
+                  <circle cx="810" cy="330" r="18" stroke-width="2">
+                    <animate attributeName="r" values="18;34" dur="1.8s" repeatCount="indefinite" calcMode="spline" keySplines="0.2 0.6 0.2 1" keyTimes="0;1"/>
+                    <animate attributeName="opacity" values="0.55;0" dur="1.8s" repeatCount="indefinite" keyTimes="0;1"/>
+                    <animate attributeName="stroke-width" values="2;0.5" dur="1.8s" repeatCount="indefinite" keyTimes="0;1"/>
+                  </circle>
+                  <circle cx="810" cy="330" r="18" stroke-width="2">
+                    <animate attributeName="r" values="18;34" dur="1.8s" begin="0.9s" repeatCount="indefinite" calcMode="spline" keySplines="0.2 0.6 0.2 1" keyTimes="0;1"/>
+                    <animate attributeName="opacity" values="0.55;0" dur="1.8s" begin="0.9s" repeatCount="indefinite" keyTimes="0;1"/>
+                    <animate attributeName="stroke-width" values="2;0.5" dur="1.8s" begin="0.9s" repeatCount="indefinite" keyTimes="0;1"/>
+                  </circle>
+                </g>
+                <g text-anchor="middle" font-family="Inter" font-size="12" font-weight="600" fill="#475569">
+                  <circle cx="500" cy="210" r="28" fill="#2c5ff6"/><text x="500" y="214" fill="#fff">stETH</text>
+                  <circle cx="200" cy="130" r="19" fill="#0ea5e9"/><text x="200" y="160">aave-v3</text>
+                  <circle cx="210" cy="320" r="17" fill="#0ea5e9"/><text x="210" y="348">curve</text>
+                  <circle cx="800" cy="120" r="19" fill="#38bdf8"/><text x="800" y="150">uniswap</text>
+                  <circle cx="810" cy="330" r="18" fill="#ef4444"><animate attributeName="fill" values="#ef4444;#dc2626;#ef4444" dur="1.8s" repeatCount="indefinite"/></circle><text x="810" y="360" fill="#b91c1c">morpho ⚠</text>
+                  <circle cx="895" cy="220" r="13" fill="#a855f7"/><text x="895" y="246" font-size="10">vault</text>
+                  <circle cx="510" cy="70" r="12" fill="#e2e8f0"/><text x="510" y="48" font-size="10" fill="#94a3b8">wstETH</text>
+                </g>
+                <!-- annotations -->
+                <g font-family="Inter" font-size="11.5" fill="#0b0d14" font-weight="500">
+                  <text x="500" y="300" text-anchor="middle" fill="#64748b">token (selected, hub)</text>
+                  <text x="120" y="100" fill="#64748b">protocol</text>
+                  <text x="828" y="372" fill="#b91c1c">risk node (NAV oracle)</text>
+                  <text x="40" y="405" fill="#6366f1">● particle = a real transfer</text>
+                </g>
+              </svg>
+            </div>
+            <figcaption>Live flow: stETH deposited into aave / curve, swapped on uniswap, supplied to a flagged morpho market. Particle size = USD value, color = selected token.</figcaption>
+          </figure>
+
+          <div class="doc-legend">
+            <span><i style="background:#6366f1"></i> token</span>
+            <span><i style="background:#0ea5e9"></i> protocol</span>
+            <span><i style="background:#38bdf8"></i> market</span>
+            <span><i style="background:#a855f7"></i> vault</span>
+            <span><i style="background:#ef4444"></i> risk / NAV oracle</span>
+            <span><i style="background:#cbd5e1"></i> relationship (dotted)</span>
+          </div>
+          <p style="font-size:14.5px">Two solid lanes on a flow edge = the two directions of flow (deposit vs. withdraw); a dotted line = a relationship only. Switch between <strong>Live 30 min</strong> (particles) and <strong>Baseline 24h</strong> (the normal per-edge inflow/outflow) to see what's unusual right now. Nodes with no measurement adapter get a dashed outline — "unmeasured", not "quiet".</p>
+
+          <div class="doc-grid">
+            <div class="doc-box">
+              <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/></svg> What it provides</h4>
+              <ul>
+                <li>Token → protocol → market / vault paths across Ethereum, Base, Arbitrum</li>
+                <li>Live particles (last 30 min, 1 min delay) sized by USD, colored by token, split into deposit / withdraw lanes</li>
+                <li>A 24h baseline to compare normal flow against</li>
+                <li>Risk highlights (oracle dependence, self-referential NAV) by color &amp; pulse</li>
+                <li>Drag-to-explore physics layout and a per-node / per-edge detail panel</li>
+              </ul>
+            </div>
+            <div class="doc-box use">
+              <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> When to use it</h4>
+              <ul>
+                <li>Spot a bank-run early — a token draining out of one protocol in real time</li>
+                <li>Track where fresh capital is flowing into a new market or vault</li>
+                <li>Confirm an alert: jump in and see “where &amp; how” the move happened</li>
+                <li>Watch a depeg propagate hop by hop through deposits and swaps</li>
+                <li>Sanity-check that a protocol's reported TVL matches actual transfer activity</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- MONITORING -->
+          <h3 id="alerts">Monitoring — alerts, classified</h3>
+          <p>Alerts are generated only from statistically meaningful changes in snapshot diffs — no raw noise. Each is graded <strong>critical / warning / info</strong>, tagged with token and chain, and clicking one deep-links into a flow map filtered to exactly that token and chain.</p>
+
+          <figure class="doc-fig">
+            <div class="doc-fig__media">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><strong style="font-size:14px">Real-time monitoring alerts</strong>
+                <div class="sevlegend" style="margin-left:auto">
+                  <span class="sevchip"><i style="background:var(--danger)"></i> Critical</span>
+                  <span class="sevchip"><i style="background:var(--warning)"></i> Warning</span>
+                  <span class="sevchip"><i style="background:var(--info)"></i> Info</span>
+                </div>
+              </div>
+              <div class="alerts">
+                <div class="alert crit"><span class="sev"></span><div class="alert__body"><div class="alert__top"><span class="tag">USDe</span><span class="tag chain">ethereum</span><span class="kind">Depeg</span><span class="alert__time">2m ago</span></div><div class="alert__msg">USDe $0.978 — price deviation, NAV-market liquidation-lag risk</div></div></div>
+                <div class="alert warn"><span class="sev"></span><div class="alert__body"><div class="alert__top"><span class="tag">WBTC</span><span class="tag chain">arbitrum</span><span class="kind">Liquidity drop</span><span class="alert__time">11m ago</span></div><div class="alert__msg">aave-v3 WBTC available liquidity −38% (1h)</div></div></div>
+                <div class="alert info"><span class="sev"></span><div class="alert__body"><div class="alert__top"><span class="tag">USDC</span><span class="tag chain">base</span><span class="kind">Chain supply spike</span><span class="alert__time">26m ago</span></div><div class="alert__msg">base totalSupply +$33.4M USDC (robust z=12.4)</div></div></div>
+              </div>
+            </div>
+            <figcaption>The alert panel as it appears beside the flow map. Click any row → a flow map scoped to that token &amp; chain.</figcaption>
+          </figure>
+
+          <div class="doc-grid">
+            <div class="doc-box">
+              <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/></svg> What it provides</h4>
+              <ul>
+                <li>17+ alert types across three severities (critical / warning / info)</li>
+                <li>Chain &amp; severity filters, sorted by event-observation time (no misleading lag)</li>
+                <li>One-click deep-link from every alert into the flow map</li>
+                <li>A floating mini alert dock visible on any screen, with a new-alert indicator</li>
+                <li>~15s polling against the latest snapshots</li>
+              </ul>
+            </div>
+            <div class="doc-box use">
+              <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> When to use it</h4>
+              <ul>
+                <li>Early warning on a stablecoin depeg or a sudden liquidity drop in a market you hold</li>
+                <li>Catch bad-debt thresholds or utilization spikes on lending markets / curator vaults</li>
+                <li>Notice new collateral adoption or large unverified exposure as it appears</li>
+                <li>Hands-off overnight / weekend monitoring of a watchlist</li>
+                <li>Triage fast — severity + chain filters cut to what actually needs a response</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- RELATIONSHIP MAP -->
+          <h3 id="rel">Relationship Map — where risk spreads</h3>
+          <p>The relationship map arranges a token's exposure in concentric rings and overlays its <strong>money-lego</strong> derivative structure. It's not a holdings list — it's a dependency graph, so you can trace how a base asset is re-deposited as derivatives and how far a shock would reach.</p>
+
+          <figure class="doc-fig">
+            <div class="doc-fig__media">
+              <svg viewBox="0 0 1000 420" xmlns="http://www.w3.org/2000/svg" style="background:radial-gradient(1px 1px at center,#eef0f4 1px,transparent 1px) 0 0/22px 22px">
+                <g fill="none" stroke-width="1.6" opacity=".5" stroke-linecap="round">
+                  <circle cx="500" cy="210" r="108" stroke="#e2e8f0"/><circle cx="500" cy="210" r="172" stroke="#eef0f4"/>
+                  <path d="M500 210 L 405 145" stroke="#7c3aed"/><path d="M500 210 L 600 145" stroke="#7c3aed"/>
+                  <path d="M405 145 L 310 100" stroke="#16a34a"/><path d="M600 145 L 700 105" stroke="#16a34a"/>
+                  <path d="M500 210 L 405 285" stroke="#0ea5e9"/><path d="M500 210 L 600 285" stroke="#0ea5e9"/>
+                  <path d="M405 285 L 320 340" stroke="#a855f7"/><path d="M600 285 L 690 340" stroke="#a855f7"/>
+                </g>
+                <g text-anchor="middle" font-family="Inter" font-size="11" font-weight="600" fill="#475569">
+                  <circle cx="500" cy="210" r="26" fill="#2c5ff6"/><text x="500" y="214" fill="#fff">sUSDe</text>
+                  <circle cx="405" cy="145" r="15" fill="#7c3aed"/><text x="405" y="122" fill="#6d28d9">PT-sUSDe</text>
+                  <circle cx="600" cy="145" r="15" fill="#7c3aed"/><text x="600" y="122" fill="#6d28d9">LP</text>
+                  <circle cx="310" cy="100" r="12" fill="#16a34a"/><text x="310" y="80">pendle</text>
+                  <circle cx="700" cy="105" r="12" fill="#16a34a"/><text x="700" y="85">curve</text>
+                  <circle cx="405" cy="285" r="14" fill="#0ea5e9"/><text x="405" y="312">morpho</text>
+                  <circle cx="600" cy="285" r="14" fill="#0ea5e9"/><text x="600" y="312">aave</text>
+                  <circle cx="320" cy="340" r="12" fill="#a855f7"/><text x="320" y="366">vault</text>
+                  <circle cx="690" cy="340" r="12" fill="#a855f7"/><text x="690" y="366">vault</text>
+                </g>
+                <g font-family="Inter" font-size="11" fill="#94a3b8">
+                  <text x="500" y="358" text-anchor="middle">inner ring = base · outer rings = derivatives → re-deposits</text>
+                </g>
+              </svg>
+            </div>
+            <figcaption>sUSDe at the center; its money-lego chain: wrapped into PT / LP, then supplied to pendle, curve, morpho, aave and curator vaults.</figcaption>
+          </figure>
+
+          <div class="doc-grid">
+            <div class="doc-box">
+              <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/></svg> What it provides</h4>
+              <ul>
+                <li>Money-lego overlay — derivative roles (PT, YT, LP, receipt, wrapper) along an unbroken chain</li>
+                <li>Exposure concentration: how much of a token sits in which protocol / market / chain</li>
+                <li>Oracle dependence per market (market, exchange-rate, NAV / self-referential), with NAV flagged red</li>
+                <li>“Designed endpoints” (sinks) and which yield curator vaults / YT are paid from</li>
+                <li>Curator-level exposure (Morpho, Euler), ouroboros detection, bridge mechanism &amp; verification</li>
+              </ul>
+            </div>
+            <div class="doc-box use">
+              <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> When to use it</h4>
+              <ul>
+                <li>Contagion analysis — gauge how far one token's depeg or liquidation reaches</li>
+                <li>Find single points of failure where exposure is over-concentrated</li>
+                <li>Audit a re-deposit chain's depth before sizing a position</li>
+                <li>Assess collateral oracle risk (NAV pricing that can't catch a depeg)</li>
+                <li>Review a curator vault's backing and where its rewards actually originate</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- DATA HONESTY -->
+          <h2 class="h3" id="data" style="margin-top:52px">Data honesty</h2>
+          <p>ChainSpiral's first principle is simple: <strong>we don't guess.</strong></p>
+          <ul>
+            <li>Every particle is a <strong>real on-chain transfer</strong> — nothing is synthesized or fabricated.</li>
+            <li>Counterparties are resolved only via verified registries (CREATE2, MetaRegistry, aToken, Comet, singletons).</li>
+            <li>Transfers that can't be resolved stay panel-only — never placed on an edge.</li>
+            <li>If the feed fails, it's stated explicitly (the live-status chip), not disguised as “no activity”.</li>
+            <li>Nodes without a measurement adapter are shown with a <strong>dashed outline</strong> as “unmeasured”, not greyed out as if quiet.</li>
+          </ul>
+          <div class="callout">All data is informational only and not investment advice. On-chain data may be delayed or reorganized.</div>
+
+          <!-- FAQ -->
+          <h3 id="faq">FAQ</h3>
+          <p><strong>How real-time is it?</strong><br />The transfer feed runs about 1 minute behind, re-querying a 30-minute window every 30 seconds.</p>
+          <p><strong>Which chains are supported?</strong><br />Ethereum, Base and Arbitrum for live flow; other chains via alerts and gradual expansion. <a class="btn-link" href="coverage.html">See coverage →</a></p>
+          <p><strong>Do I need to connect a wallet?</strong><br />No. It's read-only monitoring — no wallet connection or signing required.</p>
+          <p><strong>Where does the data come from?</strong><br />DeFiLlama (TVL, prices), Alchemy (transfers), Morpho, on-chain RPC (oracle / aToken / Comet checks) and Postgres snapshots (alert diffs, baseline aggregates). <a class="btn-link" href="coverage.html">Full list →</a></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <div class="container">
+      <div class="foot__grid">
+        <div class="foot__brand"><a class="brand" href="index.html"><img class="mark" src="assets/img/logo.svg" alt="" /> ChainSpiral</a><p>Cross-chain DeFi risk monitoring. Money flows and exposure, in real time — without guesswork.</p></div>
+        <div><h4>Product</h4><ul><li><a href="flow-map.html">Flow Map</a></li><li><a href="monitoring.html">Monitoring</a></li><li><a href="relationships.html">Relationships</a></li><li><a href="coverage.html">Coverage</a></li></ul></div>
+        <div><h4>Resources</h4><ul><li><a href="docs.html">Docs</a></li><li><a href="docs.html#data">Data principles</a></li><li><a href="coverage.html">Supported chains</a></li></ul></div>
+        <div><h4>Company</h4><ul><li><a href="#">About</a></li><li><a href="#">Contact</a></li><li><a href="#">Status</a></li></ul></div>
+      </div>
+      <div class="foot__bottom"><span>© <span data-year>2025</span> ChainSpiral. All data is informational, not investment advice.</span><span>Made for on-chain risk teams.</span></div>
+    </div>
+  </footer>
+  <script src="assets/js/main.js?v=6"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+# ChainSpiral Site — static site served by nginx.
+# Run from this folder:  docker compose up -d   →  http://localhost:4321
+# Stop:                   docker compose down
+services:
+  web:
+    image: nginx:alpine
+    container_name: chainspiral-site
+    ports:
+      - "4321:80"            # host 4321 → nginx 80
+    volumes:
+      - ./:/usr/share/nginx/html:ro   # serve this folder (index.html, assets/, *.html)
+    restart: unless-stopped
