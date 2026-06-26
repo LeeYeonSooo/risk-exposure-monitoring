@@ -1,112 +1,176 @@
-# Exposure Intelligence
+# ChainSpiral, Token Exposure Map
 
-> **렌딩 큐레이터가 실제로 화이트리스팅한 토큰의 멀티체인 익스포저를 정확히 매핑하고, 그 위에서 ~28종 DeFi 리스크를 결정론적으로 탐지·알림하는 시스템.**
-> 시뮬레이터가 아니라 *정확한 매핑 + 검증된 알림*이 핵심.
+> 토큰 하나가 DeFi 시스템과 얽히는 실제 의존 경로를 추적하고, 그 위에서 리스크 팩터를 빠르게 파악하게 해주는 온체인 리스크 시각화 도구
 
 > [!NOTE]
-> Upside Academy 4기 팀 프로젝트. 학습·연구 목적의 리스크 모니터링 프로토타
+> Upside Academy 4기 팀 프로젝트 ChainSpiral에 팀원으로 참여해 만든 서비스임. 학습, 연구 목적의 리스크 분석 프로토타입이고, 코드 내부 시스템 이름은 Exposure Intelligence임.
 
 ---
 
-## 요약
+## 한눈에
 
-DeFi 렌딩 시장에서 가장 큰 손실은 "어떤 토큰이 어디에 얼마나 깔려 있는지"를 아무도 정확히 모른 채 디페그,무담보 민팅,오라클 동결이 조용히 누적되다 터질 때 발생한다. **Exposure Intelligence**는 이 사각지대를 두 단계로 메운다.
-
-1. **정확한 매핑** — Aave / Compound / Morpho / Spark / Fluid 등 렌딩·CDP 프로토콜이 *실제로* 담보로 채택한 토큰을, 온체인 read(viem + Multicall3)와 Morpho GraphQL · DeFiLlama로 토큰 → 프로토콜 → 마켓/풀 → 큐레이터까지 이분 그래프(bipartite graph)로 매핑한다.
-2. **검증된 알림** — 그 매핑 위에서 디페그·무담보 공급·무한 민팅·가치 유출·하드코딩 오라클 전환 등 ~28종 리스크를 **결정론적 룰 엔진**(LLM 아님)으로 탐지하고, 모든 임계값은 35개 라벨된 과거 실제 사건으로 백테스트해 보정한다.
-
-| 누구를 위한 것인가 | 무엇을 주는가 |
-|---|---|
-| 리스크 분석가 / 큐레이터 | 토큰별 익스포저 그래프 + Tier 0 위험 판결 + bad-debt at-risk 곡선 |
-| 프로토콜 거버넌스 | 담보 채택·오라클 변경·무담보 민팅 실시간 경보 (Discord / Telegram / webhook) |
-| 보안·리서치 | 라벨된 35개 익스플로잇 사건 라이브러리 + 결정론적 회귀 하니스 |
+- 무엇을 하나
+    - 토큰 하나를 넣으면 그 토큰이 어느 체인, 어느 렌딩 프로토콜, 어느 마켓, 어느 큐레이터 볼트에 얼마나 노출돼 있는지를 그래프로 정리해 보여줌
+    - 그 매핑 위에서 디페그, 무담보 민팅, 오라클 동결 같은 리스크 팩터를 잡아 보여주고, 비정상 자금 이동을 모니터링함
+- 무엇인가
+    - 흩어진 온체인 정보를 한곳에 정리해, 토큰이 무엇에 얼마나 노출돼 있고 충격이 어디로, 어디까지 번지는지를 분석하게 해주는 도구임
+    - 이를 통해 사건 또는 사고가 터져도 2차 피해를 최소화시킬 수 있는 분석이 가능함
+- 무엇으로 만들었나
+    - 수집과 탐지는 Node, TypeScript 파이프라인, 저장은 Postgres와 TimescaleDB, 화면은 Next.js와 React Flow임
+    - 현재 Ethereum, Base, Arbitrum 세 체인에서 동작함
 
 ---
 
-## 핵심 기능
+## 어떤 문제를 푸나
 
-- **익스포저 매핑** — 토큰 → 프로토콜 → 마켓/풀 → 큐레이터 순으로 잇는 의존성 그래프. 9개 프로토콜 어댑터(aave-v2 / aave-v3 / aave-v3-family / compound-v3 / spark / fluid / morpho-blue / generic-balance)로 정규화
-- **결정론적 탐지기 및 알림** — 디페그(자산클래스별 band + 부호 인식)·무담보 공급(Detector A)·무담보 민팅(Detector B)·가치 드리프트·하드코딩 오라클 전환·IRM/마켓 변경·의심 담보 채택·bad debt·고래 unwind·유동성 급감·큐레이터 디리스킹 등.
-- **브릿지 mint 권한 토폴로지** — xERC20 · MINTER_ROLE · LayerZero OFT peers · CCIP · Wormhole NTT · Circle CCTP 등 다중 표준을 온체인 순차 프로빙으로 검증하고, **신뢰도를 1급으로 노출**(verified=실선 / estimated=점선 / 추정 mint_event는 "검증"에서 배제).
-- **결정론적 백테스트 하니스** — 라벨된 35개 실제 사건을 production 알림 함수에 그대로 replay해 recall/FP를 측정. 임계값 변경 시 회귀를 자동으로 잡는 안전망(CI 게이트로 사용 가능, exit code 연동).
-- **동심원 리스크 그래프** — React Flow 기반 체인별 동심원 레이아웃 + Tier 0 위험 판결(위험/주의/안전) + 담보 −p% 하락 시 underwater debt를 계산하는 bad-debt at-risk 곡선.
-- **운영/알림** — severity별 쿨다운 dedup(critical 1h / warning 12h / info 24h), Discord·Telegram·webhook 채널(미설정 시 no-op), launchd 상시 구동, cloudflared / Vercel+Neon 배포 경로.
+- 최근 DeFi에서 해킹 사고가 잦은데, 진짜 문제는 사고가 난 토큰 하나만 무너지는 게 아니라 그 토큰에 얽힌 다른 곳까지 피해를 본다는 것임
+- 이 프로젝트는 사고가 나면 위험 알림을 받을 수 있고, 그 위험을 흐름맵과 관계맵을 통해 분석할 수 있음
+
+---
 
 
+## 무엇을 보여주나
+
+- Exposure를 한 토큰이 얼마나 위험에 노출돼 있는지로 정의하고, 먼저 그 토큰의 분포 구조를 그래프로 그림
+    - 엣지는 렌딩, dex, yield, cdp 같은 프로토콜 성격을 고려해 다섯 종류로 통일함
+    - 노드는 선택한 토큰을 시작으로 프로토콜, 마켓과 풀, 파생 자산, 큐레이터로 정의함
+- 이 그래프를 토큰 하나 기준으로 이어, 어느 한 곳이 무너졌을 때 충격이 어떤 엣지를 타고 퍼지는지를 구조로 보게 함
+
+### 관계맵
+
+- 구조상 가능한 연결을 정적으로 그린 지도임
+- 프로토콜 내부 데이터를 보여주는 API는 보통 프로토콜 하나만 깊게 파서, 그 사이를 어댑터로 잇고 각 프로토콜이 쓰는 오라클 데이터도 함께 붙임
+- 이 과정에서 기존엔 안 보이던 숨은 익스포저 두 가지를 잡아냄
+    - 큐레이터나 볼트로 격리된 줄 알았던 마켓이 사실은 서로 연결된 경우. Morpho 볼트는 큐레이터가 최적 마켓을 골라 예치금을 정해진 비율로 나눠 담는 구조라, 격리된 줄 알았던 마켓들이 서로 영향을 주고받는 익스포저로 묶임
+    - 이자를 만드는 yield bearing 토큰을 포함한 파생 자산을 담보로 받아주는 프로토콜이 있는 경우. 그 파생 자산과 엣지로 이어진 노드 하나가 무너지면 위험이 그 엣지를 타고 전파됨. aToken, Pendle PT, LP, 볼트 share가 다시 다른 마켓의 담보로 들어가는 사슬을 끝까지 따라감
+- 관계맵은 이렇게 위험 전파가 가능한 경우의 수를 정적 엣지로 모두 펼쳐 보여줌
+
+### 브릿지맵
+
+- 관계맵 안에 별도 탭으로 둠
+- 별도로 둔 이유
+    - 브릿지 리스크는 토큰이 어디로 흐르는가가 아니라, 같은 토큰이 여러 체인에 어떤 상태로 존재하는가를 봐야 드러남
+    - 관계맵이나 흐름맵은 토큰이 브릿지를 지나며 형태가 바뀌는 순간을 못 잡아 흐름이 끊기는데, 브릿지맵은 그 끊긴 구간을 형태가 바뀌는 모습 그대로 이어줌
+- 두 축으로 봄
+    - 브릿지 메커니즘, 번앤민트, 락앤민트, 유동성형이 각각 어떤 형태 변형과 정합성 리스크를 만드는지
+    - 검증과 보관 주체, 중앙 수탁인지 검증자 기반인지, 검증자가 누구이고 몇 명의 합의가 필요한지
+- 토큰 컨트랙트에 직접 물어 민팅 권한을 역추적함. xERC20, MINTER_ROLE, LayerZero OFT, Chainlink CCIP, Wormhole NTT, Circle CCTP 같은 표준을 순서대로 프로빙함
+- 신뢰도를 정직하게 구분함. 표준으로 검증한 권한은 실선, 민팅 이벤트로 추정한 권한은 점선으로 표시하고, 출발 체인을 증명 못 하는 입자는 엣지에 태우지 않음
+- Kelp DAO를 무너뜨린 최소 합의 브릿지 위험이 바로 이 검증 주체 축에서 드러나도록 설계함
+
+### 흐름맵
+
+- 관계맵이 토큰 분포를 그리는 정적 그래프라면, 흐름맵은 실제 토큰 이동이 있는 연결과 그 위의 트랜잭션 흐름을 보여주는 동적 그래프임
+- 만든 이유는 비정상 자금 이동을 모니터링하기 위해서임
+    - 실시간 모드, 최근 30분 흐름을 보여줌
+    - 평소 모드, 전날 24시간 평균 흐름을 보여줌
+    - 두 모드를 견줘 보면 평소와 다른 큰 자금 이탈이 눈에 띔. 큰 입자가 대출 풀에서 빠져나가는 식임
+- 다만 자금 흐름이 활발하다고 다 위험한 건 아님
+    - 입금액, 출금액, 디페그 정도를 수치화해, 궁금한 노드를 클릭하면 패널로 정보를 보여줌
+    - 지금 흐름이 공포지수가 올라 활발해진 건지 판단하게 함
+- 여러 토큰 간 익스포저도 볼 수 있지만, 토큰 수십 개와 체인 셋을 같이 보면 경우의 수가 많아져서 모니터링 알림을 부가로 둠
+
+### 모니터링 알림
+
+- 감시할 신호를 임의로 정하지 않았음
+    - 과거에 일어난 해킹과 디페그 사건을 분석해 신호를 정함
+    - 신호는 디페깅, 민팅과 공급, 컨트랙트, 유동성 네 갈래로 묶음
+- 맵 위에서 28개 리스크 팩터 정보를 제공하고, 이 팩터로 등급을 매겨 위험 토큰을 선별함
+    - 메인에서 토큰 하나를 고르고 흐름맵 이동을 누르면 관련 토큰이 선택된 흐름맵으로 바로 넘어가게 이음
+    - 실제로 선별한 토큰 가운데 msY, apxUSD는 사고로 이어졌고, msY는 관계맵에서 전략대로 분산되지 않고 Morpho에 집중 분포된 것이 확인됨
+- 알림은 결정론적 규칙 엔진임. AI 추론이 아니라 임계값을 넘으면 심각도와 함께 발화하는 구조라 결과가 항상 같고 검증 가능함
+
+---
+
+## 어떻게 만들었나
+
+- 세 층으로 나눔. 화면은 DB만 읽어서 RPC 비용이 들지 않고, 온체인 호출은 수집 파이프라인에서만, 그것도 켰을 때만 일어남
+
+### 수집과 탐지 (automation)
+
+- Node 22, TypeScript, tsx 기반의 얇은 스크립트 파이프라인임. 별도 빌드 스텝 없음
+- 온체인 read는 viem과 Multicall3로 배칭해 토큰당 호출 수를 줄임
+- 오프체인 소스로 Morpho GraphQL, DeFiLlama, Pendle, Curve MetaRegistry, Fluid 리졸버, Etherscan 컨트랙트 조회를 씀
+- 9개 프로토콜 어댑터로 정규화함. aave-v2, aave-v3, aave-v3-family, compound-v3, spark, fluid, morpho-blue, 그리고 나머지를 흡수하는 generic-balance
+- cron 루프가 체인을 20분마다 번갈아 스냅샷하고, 큐레이터 볼트, 브릿지 권한, 무담보 공급, 민팅과 번 정합성, 가치 드리프트를 주기별로 점검함
+
+### 저장 (Postgres, TimescaleDB)
+
+- 토큰과 프로토콜을 노드로, 둘 사이 노출을 시계열 엣지로 저장하는 이분 그래프 모델임
+- 시계열은 TimescaleDB 하이퍼테이블로 빠르게 구간 조회함
+- Docker로 띄우고 포트는 5433임
+
+### 화면 (Next.js, React Flow)
+
+- Next.js 15 App Router와 React 19로 만든 UI임
+- API 라우트가 Postgres를 직접 읽음. 별도 백엔드 서버가 없어서 화면은 이미 계산된 스냅샷만 소비함
+- 그래프는 React Flow로 그리고, 동심원 레이아웃과 d3-force 물리는 직접 구현함
+- 화면 상단에 데이터 신선도를 표시해 마지막 스냅샷 시각을 보여줌
+
+---
+
+## 탐지기, 무엇을 잡나
+
+- 28개 리스크 팩터를 12개 탐지기 묶음으로 정의했고, 모든 임계값은 한 설정 파일에 외부화함. 자산 클래스를 메이저, 스테이블, 소프트 스테이블, Pendle PT, LST, RWA, 알트코인 일곱으로 나눠 임계값만 분기하고 탐지 코드는 그대로 둠
+- 대표 탐지기
+    - 디페그, 자산 클래스별 허용 밴드와 부호 인식. 페그 위 프리미엄은 경고 상한, 아래로 깊게 빠지면 심각으로 승격
+    - 무담보 공급, 크로스체인 공급 합이 백킹을 넘지 않는다는 불변식을 검사해 무담보 방향만 알림
+    - 무담보 민팅, 체인 간 민팅과 번을 30분 창으로 매칭해 짝이 안 맞는 민팅을 의심으로 잡음. Kelp rsETH가 바로 이 신호임
+    - 가치 드리프트, 가격 곱하기 공급으로 잰 총가치가 24시간 고점 대비 급락하면 자금 이탈로 봄
+    - 하드코딩 오라클 전환, 라이브 피드가 고정 가격으로 바뀌면 청산이 안 걸려 부실채권이 쌓이므로 심각으로 잡음
+    - 그 외 오라클 변경과 정지, 공급 스파이크와 단일 민트, 담보 채택과 신규 마켓, 부실채권, 가동률 급등과 유동성 급감, 고래 이탈, 큐레이터 디리스킹
+- 백테스트 하니스
+    - 라벨링한 과거 실제 사건 약 35건을 production 알림 함수에 그대로 재생해 recall과 오탐을 측정함. 현재 백테스트 대상 신호에서 recall 100퍼센트, 오탐 0퍼센트를 유지함
+    - 임계값을 바꾸면 회귀를 자동으로 잡는 안전망으로 쓰고, exit code로 CI 게이트에 연동 가능함
 
 ---
 
 ## 기술 스택
 
-| 레이어 | 기술 | 비고 |
-|---|---|---|
-| **수집·탐지 (Tier 1)** | Node 22 · TypeScript 5.7 · tsx 4.19 (ESM, 빌드 스텝 없음) | 의존성이 얇은 스크립트 파이프라인 |
-| 온체인 read | viem 2.21 · **Multicall3** (`0xcA11…CA11`) | 토큰당 1콜 배칭, `allowFailure`로 per-call 실패 흡수 |
-| 오프체인 소스 | Morpho GraphQL · DeFiLlama · (선택) DeBank | breadth/TVL·큐레이터 커버리지 |
-| 자동화 | Playwright 1.60 · dotenv · pg 8.13 | 스크레이프·DB 적재 |
-| **저장소** | Postgres 16 + **TimescaleDB** (`timescale/timescaledb:latest-pg16`) | Docker, 포트 5433, hypertable 4개 |
-| **프론트 ** | Next.js 15.1 App Router · React 19 | API 라우트가 pg 직독 |
-| 시각화 | **@xyflow/react 12.4 (React Flow)** · d3-force · framer-motion | 동심원/트리/de-overlap 레이아웃 자체 구현 |
-| 스타일·테스트 | Tailwind v4 · **Vitest 4.1** | 중심성(PageRank) 등 단위 테스트 |
-| 부수 모듈 | bridge-detect (Python, 비-EVM 8체인) | 팀원 분리 모듈 |
+- 수집과 탐지, Node 22, TypeScript 5.7, tsx, viem 2.21, Multicall3, pg, Playwright
+- 저장, Postgres 16, TimescaleDB, Docker
+- 화면, Next.js 15.1, React 19, React Flow 12.4, d3-force, Tailwind v4
+- 테스트, Vitest, 백테스트 하니스
+- 알림, Discord, Telegram, 웹훅. 심각도별 쿨다운으로 중복 억제, 미설정 시 동작 안 함
+- 부수, bridge-detect는 비EVM 체인까지 보는 Python 모듈로 분리
 
 ---
 
-## 탐지 능력 / 커버리지
+## 직접 돌려보기
 
-모든 임계값은 단일 파일 `automation/src/config/alert-thresholds.ts`에 외부화되어 있고, `classifyAsset(symbol)`이 자산 클래스(major / stable / stable_soft / pendle_pt / lst / rwa / altcoin)로 분기한다 — detector 코드는 불변, config만 튜닝.
-
-| 탐지기 | kind (대표) | 심각도 | 핵심 근거 / 로직 |
-|---|---|---|---|
-| **디페그** | `depeg` | info → critical | 자산클래스별 band(stable 0.5% · stable_soft 5% · pendle_pt 8% · lst/rwa 2%) + **부호 인식**(peg 위=프리미엄은 WARN 상한, 아래만 catastrophic) |
-| **무담보 공급** (Detector A) | `unbacked_supply` | high → critical | 크로스체인 불변식 `Σremote ≤ backing + slack`. 무담보 방향만 알림 → 정상 인플라이트는 FP 0 |
-| **무담보 민팅** (Detector B) | `unmatched_mint` | high | 크로스체인 mint↔burn 금액 + 30분 창 매칭, 미정합 mint = 의심. 검증된 bridge_authorities를 allowlist 동적 시드로 재사용 |
-| **가치 드리프트** | `value_drift` | info → critical | NAV×supply 총가치 24h peak 대비 낙폭(10/25/40%) + **$10M 절대 게이트**. 순수함수(백테스트 가능) |
-| **하드코딩 오라클 전환** | `oracle_hardcoded_switch` | critical | 라이브 피드 → ORACLE_FREE 전환 = 가격 동결 → 청산 미발화 → bad debt. 단 **RWA는 정상 설계라 warning 다운그레이드** |
-| 오라클 변경/정지/staleness | `oracle_changed` · `oracle_paused_suspect` · `oracle_stale` | warning → critical | 온체인 introspect + heartbeat 측정 기반 재보정 |
-| 공급 스파이크 / 단일 민트 | `supply_spike` · `supply_single_mint` | flag → critical | provenance 우선, 리베이스(|Δ|≤50%) 억제 |
-| 담보 채택 / 신규 마켓 | `collateral_adoption` · `new_market` | minor → critical | 저신뢰 + long-tail 담보는 critical 승격 |
-| bad debt | `bad_debt_threshold` | actionable($1M) → high($50M) | underwater debt 누적 |
-| IRM / 유동성 / 고래 | `irm_changed` · `liquidity_drop_*` · `whale_unwind` · `curator_derisk` · `utilization_jump` | 각 임계 | 컨트랙트·유동성 변화 |
-
-> **신뢰도 정직성** — 추정(estimated)은 검증(verified)과 명시적으로 구분하고, 출발 체인을 증명하지 못하는 입자는 엣지에 태우지 않는다(출처 날조 방지). 약한 추정 휴리스틱(예: 재담보 루프 ouroboros)은 검증 후 정직하게 제거됐다.
-
-
----
-
-## 빠른 실행
-
-> 상세 실행/운영 가이드는 [RUN.md](RUN.md), 전체 설계·데이터 모델·결정 로그는 [MANUAL.md](MANUAL.md) 참조.
-
-**데모만 (RPC 0, 가장 흔함)** — DB + 프론트만 띄우면 마지막 스냅샷으로 완전 동작:
+- 데모만 보기, RPC 없이 마지막 스냅샷으로 완전 동작함
 
 ```bash
-# ① DB (TimescaleDB)
-cd automation && docker compose up -d            # wbtc-db, :5433
-
-# ② 프론트엔드
+cd automation && docker compose up -d        # DB, 포트 5433
 cd ../frontend && npm install
-npm run build && PORT=3000 npm run start          # → http://localhost:3000
+npm run build && PORT=3000 npm run start      # http://localhost:3000
 ```
 
-**DB가 비어 있을 때 (최초 1회 데이터 적재 + 검증)**:
+- DB가 비어 있을 때, 최초 한 번 데이터 적재와 검증
 
 ```bash
 cd automation && npm install
-npm run init-db          # 마이그레이션 (테이블 생성)
-npm run snapshot:all     # 첫 스냅샷 (RPC 1회 → DB 적재)
-npm run backtest         # 탐지기 회귀 검증 → 🟢 GREEN
+npm run init-db        # 테이블 생성
+npm run snapshot:all   # 첫 스냅샷
+npm run backtest       # 탐지기 회귀 검증
 ```
 
-**라이브 모니터링 (선택, 데이터 계속 갱신 = RPC 쏘는 유일한 곳)**:
+- 라이브 모니터링, 데이터 계속 갱신. RPC를 쏘는 유일한 곳이고 기본은 꺼짐
 
 ```bash
-cd automation && npm run cron    # 스냅샷 루프 주기 실행 (기본 OFF)
+cd automation && npm run cron
 ```
 
-| 프로세스 | 명령 | 포트 | 필수 ENV |
-|---|---|---|---|
-| DB | `docker compose up -d` (automation/) | 5433 | (compose 내장) |
-| 프론트 | `PORT=3000 npm run start` (frontend/) | 3000 | `DATABASE_URL` |
-| cron | `npm run cron` (automation/) | — | `DATABASE_URL` · `ALCHEMY_API_KEY`(권장) |
+- 상세 실행과 운영은 [RUN.md](RUN.md), 전체 설계와 데이터 모델은 [MANUAL.md](MANUAL.md), 서비스 소개 문서는 [site](site) 참조
 
+---
+
+## 기대효과와 발전 방향
+
+- 지금
+    - 관계맵으로 우리가 발견한 숨은 익스포저가 위험하다고 보면 그래프에서 그 구조를 확인할 수 있음
+    - 라이브 cron은 Ethereum, Base, Arbitrum 세 체인 범위임
+- 남은 과제
+    - 위험한 구조를 바로 보려면 지갑 단위 EOA 분석이 필요한데 지금 구현 중임. 다만 노드가 많이 나와 위험한 구조를 선별해 한눈에 파악하기가 어려움
+    - 그래서 준비한 데이터를 정제하는 중이고, 잘 정제한 뒤 라벨링을 이어가면 완성된 exposure 그래프를 만들 수 있음
+    - 그래프가 커질수록 정확도와 정보량은 늘지만, 어디까지 보여줄지의 가독성이 계속 풀어야 할 숙제임
